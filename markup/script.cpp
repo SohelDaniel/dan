@@ -248,6 +248,8 @@ static bool parseLine(const std::string &rawIn, int lineNo, Line &ln, std::strin
   if (!err.empty()) return false;
   if (toks.empty()) { err = "empty line"; return false; }
   std::string verb = lower(toks[0]);
+  // "mark w arrow a -> b ..." means a link (a relation between two things): read it as one
+  if (verb == "mark" && std::any_of(toks.begin() + 1, toks.end(), [](const std::string &t) { return isArrowTok(t); })) verb = "link";
   if (verb == "re-mark" || verb == "remark") verb = "mark"; // a re-mark is just a mark of an existing id
   auto kvRest = [&](size_t from, Props &props) -> bool {
     for (size_t i = from; i < toks.size(); i++) {

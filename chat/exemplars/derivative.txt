@@ -1,3 +1,4 @@
+# ask: why · new
 # The derivative as what a secant becomes: slide Q into P and watch the slope settle.
 title "The derivative: slope at a point"
 schema axes x=[0,6] y=[0,9]
@@ -19,4 +20,4 @@ Say: "Back |out|out."
 @out camera reset
 Say: "That limit is the derivative: the slope of the curve |right|right at P."
 @right morph slope.tex -> "f'(2) = \lim_{h\to 0}\frac{f(2+h)-f(2)}{h} = 1" 1.2s
-Say: "Your turn: at x equals four, is the curve steeper or flatter than at two?"
+Say: "So the derivative is just this: the slope you see when you zoom in until the curve is straight."

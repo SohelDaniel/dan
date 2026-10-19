@@ -84,6 +84,20 @@ A bare `|go|` fires where it sits in the sentence. A marker attached to a word, 
 
 Re-marking an existing id updates it in place, with numbers easing to their new values. It never errors. There is no delete verb (axiom 1).
 
+### Links carry names and values
+
+A link is a thing too: give it a name, a value, a colour, and point at it like any mark.
+
+```
+link w11 arrow x1 -> h1 label="w₁₁"                 # a name on the arrow
+link w11 arrow x1 -> h1 label="w₁₁" w=0.5           # name and live value: reads "w₁₁ = 0.5"
+@learn morph w11.w -> 0.8 1s                         # the number on the arrow changes as it learns
+link c1 arrow x1 -> y1 color=yellow                  # same colour = the same thing (a shared weight)
+mark f tex tex="y = \textcolor{w11}{w_{11}}\,x_1"     # a symbol coloured like its link
+```
+
+Colours by name: blue, orange, green, red, yellow, purple, teal, pink, brown, lime, white, grey. `\textcolor{yellow}{…}` works in formulas too.
+
 ### Mark kinds
 
 - Data: `dot` `bar` `box` `label`.

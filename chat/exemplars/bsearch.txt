@@ -1,3 +1,4 @@
+# ask: how · new
 # Binary search: pointers on a real array; every look throws half away.
 title "Binary search"
 mark a array items=[2,5,8,12,16,23,38,56,72] label="sorted, looking for 23"
@@ -19,4 +20,4 @@ with focus a[5]
 Say: "Each look halves what's |left|left."
 @left mark rule card text="n items take about log₂ n looks" label="Key idea"
 with focus none
-Say: "Your turn: roughly how many looks would a list of a thousand need?"
+Say: "That halving is the whole trick: a thousand items take only about ten looks."

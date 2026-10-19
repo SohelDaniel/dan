@@ -133,7 +133,7 @@ void Engine::analyze(bool fresh) {
         if (p.key == "x" || p.key == "x1" || p.key == "fn" || p.key == "xt") hasAxes = true;
         if (p.key == "fn" || p.key == "xt") hasFn = true;
         if ((p.key == "t" || p.key == "at" || p.key == "year") && p.val.isNumeric()) hasT = true;
-        if (!kPositional.count(p.key) && p.val.isNumeric() && ln.kind != "label" && ln.kind != "param") hasMag = true;
+        if ((!kPositional.count(p.key) || (p.key == "m" && ln.kind != "grid")) && p.val.isNumeric() && ln.kind != "label" && ln.kind != "param") hasMag = true;
       }
       if (ln.kind == "path" || ln.kind == "region") hasAxes = hasFn = true;
       if (isWorldKind(ln.kind)) hasWorld = true;
@@ -355,8 +355,10 @@ double Engine::num(const Obj &o, const std::string &key, bool *ok, int depth) {
 
 std::string Engine::magProp(const Mark &m) const {
   if (m.kind == "path" || m.kind == "region" || isFieldKind(m.kind) || m.kind == "solution") return "";
-  for (auto &p : m.props)
-    if (p.val.isNumeric() && !kPositional.count(p.key) && !kTextKeys.count(p.key)) return p.key;
+  for (auto &p : m.props) {
+    bool positional = kPositional.count(p.key) && !(p.key == "m" && m.kind != "grid"); // m= is a matrix only on a grid
+    if (p.val.isNumeric() && !positional && !kTextKeys.count(p.key)) return p.key;
+  }
   return "";
 }
 std::string Engine::catProp(const Mark &m) const {
@@ -661,6 +663,11 @@ void Engine::execLine(const Line &ln) {
 }
 
 void Engine::doMark(const Line &ln) {
+  if (auto lk = links_.find(ln.id); lk != links_.end()) { // "mark w11 color=yellow" on a link: update it in place
+    for (auto &p : ln.props) setProp(lk->second.props, p.key, p.val);
+    caption("re-mark " + ln.id + " -> the link updates in place (identity)");
+    return;
+  }
   if (links_.count(ln.id) || groups_.count(ln.id)) {
     warn("identity: '" + ln.id + "' is already a link/group; ids must be unique");
     return;
@@ -852,6 +859,7 @@ void Engine::doMorph(const Line &ln) {
 }
 
 void Engine::startSay(const Line &ln) {
+  if (opt_.instant) sayFacts_ = stageFacts(); // for the binding check at the end of the sentence
   say_ = SayRun{};
   say_.active = true;
   say_.uid = ln.uid;
@@ -933,6 +941,7 @@ void Engine::closeSentence() {
                                      script_.steps[i].hook.c_str());
       execStep(i);
     }
+  if (opt_.instant && sayStep_ < script_.steps.size() && script_.steps[sayStep_].main.verb == Verb::SAY) checkBinding(sayStep_, next);
 }
 
 void Engine::tickSay(float dt) {
@@ -1302,7 +1311,8 @@ std::string Engine::readback(bool comments) {
     for (size_t i = 0; i < since_.size(); i++) o << (i ? ";" : "") << " " << since_[i];
     o << "\n";
   }
-  for (auto &l : lint_) o << "# lint: " << l << "\n";
+  for (auto &l : lint_) // binding is judged per sentence against the whole script (--check), not mid-stream
+    if (l.rfind("binding:", 0) != 0) o << "# lint: " << l << "\n";
   return o.str();
 }
 

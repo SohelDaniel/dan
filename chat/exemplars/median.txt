@@ -1,0 +1,7 @@
+# ask: fact · new — answer first, one picture, done.
+title "Median"
+mark a array items=[3,9,4,1,7] label="five values"
+Say: "The median is the |mid|middle value once they're sorted."
+@mid mark a items=[1,3,4,7,9] label="sorted"
+with mark m label text="median" at=a[2]
+Say: "Here that's four: half the values are below it, half above."

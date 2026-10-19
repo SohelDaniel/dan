@@ -86,6 +86,9 @@ void Engine::drawTex(const Mark &m) {
       if (Mark *ref = mark(g.color)) {
         c = colorOf(*ref);
         if (!focus_.empty() && focus_ == g.color) lit = 1;
+      } else if (auto lk = links_.find(g.color); lk != links_.end()) { // a link: its color=, or the link ink
+        c = col::fg;
+        if (auto cv = findProp(lk->second.props, "color"); cv && cv->type == Value::STR) colorByName(cv->str, c);
       } else {
         colorByName(g.color, c);
       }

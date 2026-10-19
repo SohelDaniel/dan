@@ -115,6 +115,7 @@ for (const v of variants) {
     layout_geom: geoms.length ? (geoms.reduce((a, b) => a + b, 0) / geoms.length).toFixed(1) : '-',
     pos: `${metas.filter((m) => m.usesPos).length}/${metas.length}`,
     yourTurn: `${metas.filter((m) => m.yourTurn).length}/${metas.length}`,
+    bindingLints: metas.reduce((a, m) => a + (m.binding || 0), 0),
     says: (metas.reduce((a, m) => a + m.says, 0) / Math.max(1, metas.length)).toFixed(1),
     checkOk: `${metas.filter((m) => m.ok).length}/${metas.length}`,
     secs: (metas.reduce((a, m) => a + m.secs, 0) / Math.max(1, metas.length)).toFixed(1) });

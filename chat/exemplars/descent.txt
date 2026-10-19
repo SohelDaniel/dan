@@ -1,3 +1,4 @@
+# ask: why · some
 # Gradient descent: a landscape (heat + contours of one function), a walker whose trail keeps every step.
 title "Gradient descent"
 schema plane x=[-3,3] y=[-2,2]
@@ -17,4 +18,4 @@ Say: "The valley is steep across and |flat|flat along, so the steps zig-zag."
 with mark rule tex tex="\textcolor{p}{\theta} \leftarrow \textcolor{p}{\theta} - \eta\,\nabla \textcolor{L}{L}" region=top
 Say: "Each step: move against the |grad|gradient, scaled by a step size eta."
 @grad indicate rule
-Say: "Your turn: if eta were twice as big, would the zig-zag shrink or grow?"
+Say: "Want to see what momentum does to that zig-zag?"

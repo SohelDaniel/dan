@@ -85,7 +85,7 @@ function generate(p) {
       const meta = { id: p.id, subject: p.subject, type: p.type, q: p.q, prior: p.prior, variant, model, secs, ok: chk.status === 0,
         says: says.length, lastSay: says.at(-1) || '', lines: scene.split('\n').filter((l) => l.trim()).length,
         layoutGeom: layout ? layout.mean : null, layoutWorst: layout ? layout.worst : null,
-        usesPos: /\bpos=/.test(scene), usesNew: (scene.match(/\b(camera|trail=|field|slope|solution|heat|contour)\b/g) || []).filter((v, i, a) => a.indexOf(v) === i), yourTurn: /your turn/i.test(scene), usesWords: /\b(region|below|above|left-of|right-of|near|align|on|in|over)=/.test(scene) };
+        usesPos: /\bpos=/.test(scene), usesNew: (scene.match(/\b(camera|trail=|field|slope|solution|heat|contour)\b/g) || []).filter((v, i, a) => a.indexOf(v) === i), yourTurn: /your turn/i.test(scene), binding: ((chk.stdout || '').match(/^  binding:/gm) || []).length, usesWords: /\b(region|below|above|left-of|right-of|near|align|on|in|over)=/.test(scene) };
       fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(meta, null, 1));
       console.log(`${variant}/${p.id}: ${secs.toFixed(1)}s, check ${meta.ok ? 'ok' : 'FAIL'}, ${meta.says} Say`);
       resolve(meta);

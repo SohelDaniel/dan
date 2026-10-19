@@ -1,3 +1,4 @@
+# ask: why · new
 # Photosynthesis as a process: inputs flow into the chloroplast, outputs flow out; the equation sums it up.
 title "Photosynthesis"
 mark light box input label="sunlight"
@@ -18,4 +19,4 @@ Say: "Out come glucose, the plant's food, and |oxygen|oxygen, which we breathe."
 with link o1 arrow leaf -> o2
 Say: "All of it in one |line|line."
 @line mark eq tex tex="\ce{6CO2 + 6H2O ->[\text{light}] C6H12O6 + 6O2}"
-Say: "Your turn: where does the mass of a tree mostly come from, the soil or the air?"
+Say: "Most people guess the soil. So where does the mass of a tree really come from?"

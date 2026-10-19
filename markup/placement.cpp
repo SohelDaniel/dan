@@ -548,10 +548,14 @@ LinkGeom Engine::linkGeometryAt(const Link &l) {
   if (!boundsOf(l.a, ma, ra) || !boundsOf(l.b, mb, rb)) return g;
   g.ok = true;
   // label text: label=…, else the properties
-  if (auto v = findProp(l.props, "label"); v && v->type == Value::STR) g.label = v->str;
-  else
+  if (auto v = findProp(l.props, "label"); v && v->type == Value::STR) {
+    g.label = v->str;
+    // a named value: label="w₁₁" w=0.5 reads "w₁₁ = 0.5", and the number follows a morph
+    for (auto &p : l.props)
+      if (p.key != "label" && p.key != "color" && p.key != "bend" && p.key != "opacity" && p.val.isNumeric()) { g.label += " = " + fmtNum(num(p.val)); break; }
+  } else
     for (auto &p : l.props) {
-      if (p.key == "color") continue;
+      if (p.key == "color" || p.key == "opacity" || p.key == "bend") continue; // style, not content
       if (!g.label.empty()) g.label += "  ";
       if (p.val.type == Value::STR) g.label += p.val.str;
       else g.label += p.key + " " + (p.val.isNumeric() ? fmtNum(num(p.val)) : p.val.markup());

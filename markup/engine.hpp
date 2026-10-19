@@ -246,7 +246,16 @@ private:
   void settleActive(const std::string &id, const std::string &prop);
   void startSay(const Line &ln);
   void fireHook(const std::string &name);
-  void closeSentence();                    // run this sentence's cued lines that never got their cue
+  void closeSentence();
+  void checkBinding(size_t sayIdx, size_t nextIdx); // binding.cpp: words vs picture, per sentence (--check)
+  struct StageFacts {
+    std::string text;                       // all readable text on stage
+    std::map<std::string, int> kindCount;   // visible marks per kind and per category
+    int links = 0, labelledLinks = 0;
+    std::map<std::string, int> linkColors;
+  };
+  StageFacts stageFacts();
+  StageFacts sayFacts_;                     // at the start of the current sentence                    // run this sentence's cued lines that never got their cue
   bool blocking() const;
   void tickActives(float dt);
   void tickSay(float dt);

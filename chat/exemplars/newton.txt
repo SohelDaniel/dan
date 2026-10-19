@@ -1,3 +1,4 @@
+# ask: why · new
 # Newton's second law, shown as the thing itself: two carts, the same push, different mass.
 # A hidden clock drives their positions (x = x0 + ½·(F/m)·t²), so the motion is the physics.
 title "Newton's second law"
@@ -19,4 +20,4 @@ Say: "So the push speeds things |up|up, and the mass holds them |back|back."
 @back morph eq.tex -> "a = \frac{\textcolor{fl}{F}}{\textcolor{light}{m}}" 1.2s
 Say: "Multiply both sides by the mass, and that's Newton's second |law|law."
 @law morph eq.tex -> "\textcolor{fl}{F} = \textcolor{light}{m}\,a" 1.2s
-Say: "Your turn: if we doubled the push on the heavy cart, would it catch up?"
+Say: "If we doubled the push on the heavy cart, would it catch up?"
