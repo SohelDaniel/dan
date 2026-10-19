@@ -423,6 +423,42 @@ static bool parseLine(const std::string &rawIn, int lineNo, Line &ln, std::strin
     return kvRest(2, ln.props);
   }
 
+  // the camera (axes and plane): say what to look at, never where on screen
+  //   camera zoom=8 on=p | camera on=f x=1 zoom=20 | camera fit=a,b | camera follow=p | camera reset
+  if (verb == "camera") {
+    ln.verb = Verb::CAMERA;
+    ln.dur = -1; // automatic: from the length of the move
+    for (size_t i = 1; i < toks.size(); i++) {
+      std::string k, v;
+      float d;
+      if (isDuration(toks[i], d)) { ln.dur = d; continue; }
+      if (splitKV(toks[i], k, v)) {
+        if (k == "ease") { ln.ease = v; continue; }
+        if (k == "dur" || k == "duration") { double x; if (parseNumber(v, x)) ln.dur = (float)x; continue; }
+        static const char *keys[] = {"zoom", "on", "x", "y", "fit", "follow"};
+        if (std::none_of(std::begin(keys), std::end(keys), [&](const char *s) { return k == s; })) {
+          err = "unknown camera option '" + k + "' (zoom= on= x= y= fit= follow=, or camera fit / camera reset)";
+          return false;
+        }
+        Value val = Value::parse(v);
+        if (k == "fit" && val.type != Value::LIST) { // fit=a,b
+          val = Value{};
+          val.type = Value::LIST;
+          std::stringstream ss(v);
+          for (std::string id; std::getline(ss, id, ',');) if (!trim(id).empty()) val.list.push_back(trim(id));
+        }
+        setProp(ln.props, k, val);
+        continue;
+      }
+      std::string w = lower(toks[i]);
+      if (w == "fit" || w == "reset" || w == "home") { ln.kind = w == "home" ? "reset" : w; continue; }
+      err = "camera: unexpected '" + toks[i] + "'";
+      return false;
+    }
+    if (ln.kind.empty() && ln.props.empty()) ln.kind = "reset";
+    return true;
+  }
+
   if (verb == "scene" || verb == "title") {
     ln.verb = verb == "scene" ? Verb::SCENE : Verb::TITLE;
     // the quoted text if quoted (so a trailing # comment is dropped), else the rest of the line

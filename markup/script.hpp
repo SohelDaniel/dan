@@ -43,7 +43,7 @@ const Value *findProp(const Props &p, const std::string &k);
 Value *findProp(Props &p, const std::string &k);
 void setProp(Props &p, const std::string &k, const Value &v);
 
-enum class Verb { MARK, LINK, GROUP, MORPH, FOCUS, SAY, WAIT, PAUSE, SCHEMA, TITLE, SCENE, INDICATE };
+enum class Verb { MARK, LINK, GROUP, MORPH, FOCUS, SAY, WAIT, PAUSE, SCHEMA, TITLE, SCENE, INDICATE, CAMERA };
 
 struct SayWord {
   std::string text;             // as displayed

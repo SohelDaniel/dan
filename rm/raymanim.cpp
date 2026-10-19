@@ -1,5 +1,6 @@
 #include "raymanim.hpp"
 #include "rlgl.h"
+#include "../markup/viz/viz.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -533,22 +534,49 @@ Vector2 Axes::toWorld(Vector2 p) const {
   return {xmin + (p.x - area.x) / area.width * (xmax - xmin),
           ymin + (area.y + area.height - p.y) / area.height * (ymax - ymin)};
 }
+// a tick number with as many decimals as its step needs (zoomed in: 1.002, 1.004 ...)
+static std::string tickText(double v, double step) {
+  if (std::fabs(v) < step * 1e-6) return "0";
+  int dec = std::max(0, (int)std::ceil(-std::log10(step) - 1e-9));
+  char buf[64];
+  std::snprintf(buf, sizeof buf, "%.*f", dec, v);
+  return buf;
+}
+
+// Ticks and grid from the visible range: a major step with room for its numbers, and the next finer
+// step fading in as the view zooms (steps divide each other, so nothing ever jumps; see viz::tickLevels).
 void Axes::draw(Color c, float alpha, bool labels, bool grid) const {
-  Color cc = fade(c, alpha), gc = fade(col::grid, alpha), lc = fade(col::muted, alpha);
-  float sx = niceStep(xmax - xmin, 10), sy = niceStep(ymax - ymin, 7);
+  Color cc = fade(c, alpha);
+  viz::TickLevel MX, mX, MY, mY;
+  viz::tickLevels(xmax - xmin, area.width, 80, MX, mX);
+  viz::tickLevels(ymax - ymin, area.height, 60, MY, mY);
   float x0 = std::clamp(0.f, xmin, xmax), y0 = std::clamp(0.f, ymin, ymax);
-  for (float x = std::ceil(xmin / sx - 1e-4f) * sx; x <= xmax + 1e-4f; x += sx) {
-    Vector2 p = toScreen(x, y0);
-    if (grid) DrawLineEx(toScreen(x, ymin), toScreen(x, ymax), 1, gc);
-    DrawLineEx(p - Vector2{0, 5}, p + Vector2{0, 5}, 2, cc);
-    if (labels && std::fabs(x) > 1e-6f) text(fmtNum(x), p + Vector2{0, 10}, 16, lc, 0.5f, 0);
-  }
-  for (float y = std::ceil(ymin / sy - 1e-4f) * sy; y <= ymax + 1e-4f; y += sy) {
-    Vector2 p = toScreen(x0, y);
-    if (grid) DrawLineEx(toScreen(xmin, y), toScreen(xmax, y), 1, gc);
-    DrawLineEx(p - Vector2{5, 0}, p + Vector2{5, 0}, 2, cc);
-    if (labels && std::fabs(y) > 1e-6f) text(fmtNum(y), p - Vector2{10, 0}, 16, lc, 1, 0.5f);
-  }
+  auto level = [&](const viz::TickLevel &L, const viz::TickLevel *major, bool xAxis) {
+    if (L.alpha <= 0.01f) return;
+    double lo = xAxis ? xmin : ymin, hi = xAxis ? xmax : ymax;
+    long k0 = (long)std::ceil(lo / L.step - 1e-6), k1 = (long)std::floor(hi / L.step + 1e-6);
+    if (k1 - k0 > 400) return;
+    Color gc = fade(col::grid, alpha * L.alpha), tc = fade(c, alpha * L.alpha), lc = fade(col::muted, alpha * L.labelAlpha);
+    for (long k = k0; k <= k1; k++) {
+      double v = k * L.step;
+      if (major && std::fabs(std::remainder(v, major->step)) < major->step * 1e-6) continue; // drawn by the major level
+      if (xAxis) {
+        Vector2 p = toScreen((float)v, y0);
+        if (grid) DrawLineEx(toScreen((float)v, ymin), toScreen((float)v, ymax), 1, gc);
+        DrawLineEx(p - Vector2{0, 5}, p + Vector2{0, 5}, 2, tc);
+        if (labels && std::fabs(v) > L.step * 1e-6 && L.labelAlpha > 0.01f) text(tickText(v, L.step), p + Vector2{0, 10}, 16, lc, 0.5f, 0);
+      } else {
+        Vector2 p = toScreen(x0, (float)v);
+        if (grid) DrawLineEx(toScreen(xmin, (float)v), toScreen(xmax, (float)v), 1, gc);
+        DrawLineEx(p - Vector2{5, 0}, p + Vector2{5, 0}, 2, tc);
+        if (labels && std::fabs(v) > L.step * 1e-6 && L.labelAlpha > 0.01f) text(tickText(v, L.step), p - Vector2{10, 0}, 16, lc, 1, 0.5f);
+      }
+    }
+  };
+  level(mX, &MX, true);
+  level(MX, nullptr, true);
+  level(mY, &MY, false);
+  level(MY, nullptr, false);
   arrow(toScreen(xmin, y0), toScreen(xmax, y0) + Vector2{14, 0}, 2.5f, cc, 12);
   arrow(toScreen(x0, ymin), toScreen(x0, ymax) - Vector2{0, 14}, 2.5f, cc, 12);
 }

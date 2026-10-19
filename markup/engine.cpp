@@ -234,6 +234,7 @@ void Engine::reset() {
   barScale_.clear();
   graphSig_.clear();
   graphPos_.clear();
+  cam_ = Camera{};
   clock_ = 0;
   lastTex_.clear();
   labelSlots_.clear();
@@ -515,6 +516,7 @@ void Engine::clearStage() {
   graphPos_.clear();
   rangeSig_.clear();
   rangesInit_ = false;
+  cam_ = Camera{};
   schema_ = "auto";
   schemaProps_.clear();
   if (sceneIdx_ + 1 < autoSchemas_.size()) autoSchema_ = autoSchemas_[++sceneIdx_];
@@ -626,6 +628,7 @@ void Engine::execLine(const Line &ln) {
     caption("schema " + ln.kind + " -> its own layout rules decide position");
     break;
   case Verb::TITLE: title_ = ln.id; break;
+  case Verb::CAMERA: doCamera(ln); break;
   case Verb::SCENE: {
     Active a;
     a.kind = Active::CLEAR;
@@ -999,6 +1002,8 @@ void Engine::tickActives(float dt) {
     } else if (a.kind == Active::STR && o) {
       auto it = o->strBlend.find(a.prop);
       if (it != o->strBlend.end()) it->second.second = e;
+    } else if (a.kind == Active::CAM) {
+      cam_.k = e;
     } else if (a.kind == Active::CLEAR) {
       stageFade_ = 1 - e;
       if (k >= 1) {
@@ -1203,6 +1208,7 @@ std::string Engine::readback(bool comments) {
     }
   }
   if (!focus_.empty()) o << "focus " << focus_ << "\n";
+  if (cam_.on && !cam_.spec.empty()) o << cam_.spec << "\n";
   if (!comments) return o.str();
 
   for (auto &e : evals) o << "# value: " << e << "\n";

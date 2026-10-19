@@ -403,7 +403,13 @@ void Engine::drawMark(const Mark &mc) {
   if (!m.positioned && effectiveKind(m) != "label") return;
   std::string k = effectiveKind(m), s = schemaNow();
   if (k == "tex") { drawTex(m); return; }
-  if (isWorldKind(k)) { drawWorld(m); return; }
+  if (isWorldKind(k)) {
+    // under a camera, shapes are clipped to the axes like curves are
+    if (cam_.on) BeginScissorMode((int)axes_.area.x - 4, (int)axes_.area.y - 4, (int)axes_.area.width + 8, (int)axes_.area.height + 8);
+    drawWorld(m);
+    if (cam_.on) EndScissorMode();
+    return;
+  }
   if (isBlockKind(k)) { drawBlock(m); return; }
   float a = alphaOf(m);
   if (a <= 0.003f) return;
@@ -517,6 +523,7 @@ void Engine::drawMark(const Mark &mc) {
     if (!std::isfinite(t)) t = axes_.xmax;
     bool hn;
     double nn = num(m, "n", &hn);
+    if (cam_.on) BeginScissorMode((int)axes_.area.x, (int)axes_.area.y, (int)axes_.area.width, (int)axes_.area.height);
     if (hn && nn >= 1) { // n slices: the Riemann picture of an integral (midpoint heights)
       int n = std::min(400, (int)std::round(nn));
       double w = (t - f) / n;
@@ -531,8 +538,10 @@ void Engine::drawMark(const Mark &mc) {
         DrawRectangleLinesEx(rr, 1.5f, fade(c, a * 0.9f));
       }
     } else {
-      axes_.fillUnder([&](double x) { return pathAt(*p, x); }, (float)f, (float)t, fade(c, a * 0.32f), 160);
+      axes_.fillUnder([&](double x) { return pathAt(*p, x); }, (float)std::max(f, (double)axes_.xmin),
+                      (float)std::min(t, (double)axes_.xmax), fade(c, a * 0.32f), 160);
     }
+    if (cam_.on) EndScissorMode();
     drawLabels(m);
     return;
   }

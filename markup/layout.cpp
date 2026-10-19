@@ -452,7 +452,8 @@ void Engine::computeRanges(float dt) {
 
 // ================================================================ main layout
 void Engine::layout(float dt) {
-  for (auto &[id, m] : marks_) { m.positioned = false; m.anchorBottom = false; m.direct = false; }
+  lastDt_ = dt;
+  for (auto &[id, m] : marks_) { m.positioned = false; m.anchorBottom = false; m.direct = false; m.culled = false; }
   computeRanges(dt);
   std::string s = schemaNow();
 
@@ -545,6 +546,7 @@ void Engine::layout(float dt) {
     if (!m.placed || m.direct) { m.pos = m.tpos; m.placed = true; }
     else m.pos = smoothApproach(m.pos, m.tpos, dt, 9);
   }
+  for (auto &[id, m] : marks_) if (m.culled) m.positioned = false; // out of the camera's view: not drawn, no labels
   if (opt_.newPlacer) placeAllLabels(opt_.instant ? 1.f : dt);
 }
 
@@ -967,6 +969,12 @@ void Engine::layoutAxes(Rectangle area) {
     float hw = axes_.area.width / ppu / 2, hh = axes_.area.height / ppu / 2;
     axes_.xmin = cx - hw; axes_.xmax = cx + hw; axes_.ymin = cy - hh; axes_.ymax = cy + hh;
   }
+  camApply(axes_.area); // the camera's view, if one is in force
+  // under a camera, points outside the view are not drawn (curves and shapes are clipped to the axes)
+  auto outside = [&](Vector2 p) {
+    const Rectangle &r = axes_.area;
+    return cam_.on && (p.x < r.x - 2 || p.x > r.x + r.width + 2 || p.y < r.y - 2 || p.y > r.y + r.height + 2);
+  };
   std::vector<std::string> rest;
   for (auto &id : order_) {
     Mark *m = mark(id);
@@ -987,6 +995,7 @@ void Engine::layoutAxes(Rectangle area) {
     if (hx && hy) {
       m->tpos = axes_.toScreen((float)x, (float)y);
       m->positioned = m->direct = true;
+      m->culled = outside(m->tpos);
     } else if (k != "label" && k != "param" && !isBlockKind(k) && !findProp(m->props, "at")) {
       rest.push_back(id);
     }

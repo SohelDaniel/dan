@@ -1,0 +1,15 @@
+# The camera: zoom in on a curve until it looks straight (the idea behind the derivative).
+title "Zoom in until it's straight"
+schema axes x=[-1,4] y=[-1,9] xlabel="x" ylabel="y"
+mark f path fn={x^2} label="y = x²"
+mark p dot x=1 y=1 label="(1, 1)"
+Say: "Here is a curve, and one |pt|point on it."
+@pt indicate p
+Say: "Let's zoom |in|in, closer and closer."
+@in camera zoom=6 on=f x=1
+Say: "Closer |more|still."
+@more camera zoom=60 on=f x=1
+Say: "Up close, the curve is a straight line with |slope|slope two."
+@slope mark t line x1=0.95 y1=0.9 x2=1.05 y2=1.1 label="slope 2"
+Say: "Now step |back|back."
+@back camera reset

@@ -8,12 +8,16 @@ namespace viz {
 // ================================================================ camera
 static const double kRho = 1.4142135623730951, kRho2 = 2, kRho4 = 4;
 
-void ZoomPath::set(V2 from, double wFrom, V2 to, double wTo) {
+void ZoomPath::set(V2 from, double wFrom, V2 to, double wTo, double aspect) {
   c0 = from; c1 = to; w0 = wFrom; w1 = wTo;
   V2 dv = c1 - c0;
   d = norm(dv);
   double ratio = std::max(w0, w1) / std::max(1e-12, std::min(w0, w1));
   linear = ratio < 1.5 && d < 0.3 * std::max(w0, w1);
+  auto inView = [&](V2 p, V2 c, double w) { return std::fabs(p.x - c.x) <= w / 2 && std::fabs(p.y - c.y) <= w * aspect / 2; };
+  anchored = false;
+  if (!linear && w1 < w0 && inView(c1, c0, w0)) { anchored = true; anchor = c1; }      // zoom in on what we see
+  else if (!linear && w1 > w0 && inView(c0, c1, w1)) { anchored = true; anchor = c0; } // step back from here
   if (d < 1e-9 * std::max(w0, w1)) {
     d = 0;
     S = std::log(w1 / w0) / kRho;
@@ -29,6 +33,15 @@ void ZoomPath::set(V2 from, double wFrom, V2 to, double wTo) {
 
 void ZoomPath::at(double t, V2 &c, double &w) const {
   t = std::clamp(t, 0.0, 1.0);
+  if (anchored) {
+    // the anchor's place on screen, as a fraction of the view width, moves in a straight line
+    w = w0 * std::exp(std::log(w1 / w0) * t);
+    V2 s0 = (anchor - c0) * (1 / w0), s1 = (anchor - c1) * (1 / w1);
+    V2 s = s0 + (s1 - s0) * t;
+    c = anchor - s * w;
+    if (t >= 1) { c = c1; w = w1; }
+    return;
+  }
   if (linear || d == 0) {
     c = c0 + (c1 - c0) * t;
     w = w0 * std::exp(std::log(w1 / w0) * t);

@@ -68,6 +68,7 @@ struct Mark : Obj {
   bool direct = false;       // position is data (axes, number line): no layout easing
   float labelLift = 0;       // raises a name label that would collide with a neighbour's
   int labelQuad = 0;         // axes: which corner of its dot the name sits at (0 NE, 1 NW, 2 SE, 3 SW)
+  bool culled = false;       // outside the camera's view this frame: not drawn, no labels
 };
 
 // a piece of text placed outside (or beside) the thing it belongs to: a name, a value, a category.
@@ -103,7 +104,7 @@ struct Group : Obj {
 };
 
 struct Active {
-  enum Kind { NUM, STR, WAIT, PAUSE, CLEAR, PULSE } kind = NUM;
+  enum Kind { NUM, STR, WAIT, PAUSE, CLEAR, PULSE, CAM } kind = NUM;
   std::string id, prop;
   double from = 0, to = 0;
   Value finalVal;           // what the prop becomes when done (keeps expressions)
@@ -235,6 +236,7 @@ private:
   void doLink(const Line &ln);
   void doGroup(const Line &ln);
   void doMorph(const Line &ln);
+  void doCamera(const Line &ln);
   void startSay(const Line &ln);
   void fireHook(const std::string &name);
   void closeSentence();                    // run this sentence's cued lines that never got their cue
@@ -367,6 +369,27 @@ private:
   std::vector<std::pair<float, UttPtr>> audioLog_;
   void alignWords();
   std::string rangeSig_;
+
+  // ---- camera (axes and plane): a view override on the schema's ranges, so everything that maps
+  // data to pixels (marks, labels, the placer, the checker) sees the same view. Text and strokes stay
+  // screen-size; curves are re-sampled for the visible range.
+  struct CamView { double cx = 0, cy = 0, z = 1; }; // data centre, zoom relative to the schema's view
+  struct Camera {
+    bool on = false;          // a view override is in force
+    CamView now, from, to;
+    bool moving = false;      // a move is under way (or waiting to be resolved against the layout)
+    bool resolved = false;    // 'to' has been worked out from the request
+    float k = 1;              // eased progress of the move, 0..1
+    bool release = false;     // the move goes back to the schema's view, then the override ends
+    Line req;                 // the camera line being carried out
+    std::string follow;       // keep this thing in view
+    float vx = 0, vy = 0;     // follow spring velocities
+    std::string spec;         // the camera line as written back by readback
+  } cam_;
+  float lastDt_ = 0;
+  bool camPoint(const std::string &id, const Props &req, double &x, double &y);
+  bool camBox(const std::vector<std::string> &ids, double &x0, double &x1, double &y0, double &y1);
+  void camApply(Rectangle area);  // called by layoutAxes once the schema's view is known
 };
 
 } // namespace mk

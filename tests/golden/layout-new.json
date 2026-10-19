@@ -100,5 +100,11 @@
   "worst": 72.2,
   "final": 100,
   "maxOverlaps": 1
+ },
+ "scripts/zoom.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
  }
 }

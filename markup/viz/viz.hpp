@@ -29,12 +29,19 @@ inline double smoothstep(double a, double b, double x) {
 
 // ---------------------------------------------------------------- camera
 // A view is a centre and a width (both in a space where x and y have the same unit).
+// Three kinds of move:
+//   anchored  zooming in on something already in view (or out from where we are): that point glides
+//             to its new place on screen while the zoom is log-linear, so it never leaves the view
+//   linear    a short move: ease centre and log(width)
+//   van Wijk  anything else (long pans): zoom out, travel, zoom in
 struct ZoomPath {
   V2 c0, c1;
   double w0 = 1, w1 = 1;
   double S = 0;          // path length in the paper's units (|S| / 0.9 is the preferred duration)
-  bool linear = false;   // short move: ease centre and log(width) directly
-  void set(V2 from, double wFrom, V2 to, double wTo);
+  bool linear = false;
+  bool anchored = false;
+  V2 anchor;             // the point that stays in view
+  void set(V2 from, double wFrom, V2 to, double wTo, double aspect = 0.5625); // aspect = height / width
   void at(double t, V2 &c, double &w) const; // t in 0..1 (already eased by the caller)
   double seconds() const;                     // clamp(|S| / 0.9, 0.6, 2.0)
 private:

@@ -34,6 +34,14 @@ TEST_CASE("zoom path: ends exact, width monotone for a pure zoom, zooms out mid-
   z.at(0, c, w);
   CHECK(c.x == doctest::Approx(0));
 
+  // zooming in on a point in view: it stays in view the whole way
+  z.set({0, 0}, 10, {3, 1}, 0.1);
+  CHECK(z.anchored);
+  for (int i = 0; i <= 40; i++) {
+    z.at(i / 40.0, c, w);
+    CHECK(std::fabs(3 - c.x) <= w / 2 + 1e-9);
+    CHECK(std::fabs(1 - c.y) <= w * 0.5625 / 2 + 1e-9);
+  }
   z.set({0, 0}, 1, {0.1, 0}, 1.2); // small move: plain easing
   CHECK(z.linear);
   z.at(0.5, c, w);
