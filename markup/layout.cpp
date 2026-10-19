@@ -463,6 +463,7 @@ void Engine::layout(float dt) {
     if (!m) continue;
     std::string k = effectiveKind(*m);
     if (k == "label" || k == "path" || k == "region" || k == "line" || k == "arrow" || k == "param") continue;
+    if (isFieldKind(k) || k == "solution") continue;
     if (isBlockKind(k) || isWorldKind(k)) continue;
     if (findProp(m->props, "pos") || hasPlacement(*m)) continue; // placed by hand / by relations
     if (auto at = findProp(m->props, "at"); at && at->type == Value::STR) continue; // placed at another thing
@@ -982,7 +983,7 @@ void Engine::layoutAxes(Rectangle area) {
     std::string k = effectiveKind(*m);
     bool hx, hy;
     double x = num(*m, "x", &hx), y = num(*m, "y", &hy);
-    if (k == "path" || k == "region" || k == "line" || k == "arrow" || isWorldKind(k)) {
+    if (k == "path" || k == "region" || k == "line" || k == "arrow" || isWorldKind(k) || isFieldKind(k) || k == "solution") {
       m->positioned = m->direct = true;
       if (hx && hy) m->tpos = axes_.toScreen((float)x, (float)y);
       continue;

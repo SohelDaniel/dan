@@ -34,6 +34,7 @@ place::Picture Engine::picture() {
       if (!m || !m->positioned) continue;
       std::string k = effectiveKind(*m);
       if (k == "param" || k == "grid" || k == "path" || k == "region" || k == "line" || k == "arrow" || k == "vector") continue;
+      if (isFieldKind(k) || k == "solution") continue;
       if (k == "polygon" || k == "angle" || k == "circle") continue; // outlines, added below
       if (alphaOf(*m) < 0.05f && m->appear >= 1) continue; // hidden: a ghost doesn't take space
       std::string target = pointerTarget(*m);
@@ -68,7 +69,7 @@ place::Picture Engine::picture() {
     Mark *m = mark(id);
     if (!m || !m->positioned || alphaOf(*m) < 0.05f || !isAxes(schemaNow())) continue;
     std::string k = effectiveKind(*m);
-    if (k == "path") {
+    if (isCurveKind(k)) {
       auto pts = curvePoints(*m);
       std::vector<Vector2> thin; // every 8th point is plenty for checking
       for (size_t i = 0; i < pts.size(); i += 8) thin.push_back(pts[i]);
@@ -243,6 +244,7 @@ std::vector<Rectangle> Engine::furniture() {
 
 // ---------------------------------------------------------------- curve / line geometry
 std::vector<Vector2> Engine::curvePoints(const Mark &m) {
+  if (effectiveKind(m) == "solution") return solutionPoints(m);
   std::vector<Vector2> pts;
   if (isParametric(m)) {
     float t0 = 0, t1 = 6.2831853f;
@@ -429,10 +431,19 @@ std::vector<TextLabel> Engine::markLabelsAt(const Mark &m) {
     }
     return out;
   }
-  if (k == "path" && m.appear > 0.95f) {
+  if (isFieldKind(k)) { // a field's name: a legend in the top-left corner of the axes, one line per field
+    int idx = 0;
+    for (auto &id : order_) {
+      if (id == m.id) break;
+      if (Mark *o = mark(id); o && isFieldKind(effectiveKind(*o)) && !displayName(*o).empty() && findProp(o->props, "label")) idx++;
+    }
+    if (findProp(m.props, "label")) add(name, {axes_.area.x + 16, axes_.area.y + 34 + idx * 26.f}, 19, 0, 0, TextLabel::Mark, "name");
+    return out;
+  }
+  if (isCurveKind(k) && m.appear > 0.95f) {
     auto pts = curvePoints(m);
     if (pts.empty()) return out;
-    if (isParametric(m)) {
+    if (isParametric(m) || k == "solution") {
       add(name, pts.back() + Vector2{8, -8}, 19, 0, 1, TextLabel::Mark, "name");
     } else {
       Vector2 e = pts.back();
@@ -585,7 +596,7 @@ bool Engine::movableLabel(const Mark &m, const TextLabel &l) {
   std::string k = effectiveKind(m), s = schemaNow();
   if (l.role == "inside") return false;
   if (k == "dot") return !m.anchorBottom && (isAxes(s) || s == "graph");
-  if (k == "path" || k == "line" || k == "arrow") return true;
+  if (isCurveKind(k) || k == "line" || k == "arrow") return true;
   if (k == "vector" || k == "circle" || k == "rect") return true;
   return false;
 }
@@ -601,6 +612,7 @@ void Engine::placeAllLabels(float dt) {
     if (!m || !m->positioned || alphaOf(*m) < 0.05f) continue;
     std::string k = effectiveKind(*m);
     if (k == "path" || k == "region" || k == "line" || k == "arrow" || k == "param" || k == "grid" || k == "vector") continue;
+    if (isFieldKind(k) || k == "solution") continue;
     Rectangle b = bodyBounds(*m);
     if (b.width <= 0 || b.height <= 0) continue;
     obstacle[id] = (int)world.obstacles.size();
@@ -622,7 +634,7 @@ void Engine::placeAllLabels(float dt) {
     std::string k = effectiveKind(*m);
     std::vector<Vector2> stroke;
     if (isAxes(schemaNow())) {
-      if (k == "path") stroke = curvePoints(*m);
+      if (isCurveKind(k)) stroke = curvePoints(*m);
       else if (k == "line" || k == "arrow") { Vector2 A, B; bool hs; if (lineEnds(*m, A, B, hs)) stroke = {A, B}; }
       else if (k == "vector") { Vector2 a, b; if (vectorEnds(*m, a, b)) stroke = {a, b}; }
     }
@@ -638,7 +650,7 @@ void Engine::placeAllLabels(float dt) {
         p.anchor = bodyBounds(*m);
         p.sides = isAxes(schemaNow()) ? std::vector<S>{S::NE, S::NW, S::SE, S::SW, S::E, S::W, S::N, S::S}
                                       : std::vector<S>{S::S, S::N, S::E, S::W, S::SE, S::SW, S::NE, S::NW};
-      } else if (k == "path" && !stroke.empty()) { // near the end of the curve (inside the axes), above or below it
+      } else if (isCurveKind(k) && !stroke.empty()) { // near the end of the curve (inside the axes), above or below it
         Vector2 e = stroke.back();
         e.x = std::clamp(e.x, axes_.area.x, axes_.area.x + axes_.area.width);
         e.y = std::clamp(e.y, axes_.area.y + 10, axes_.area.y + axes_.area.height - 10);
@@ -806,6 +818,7 @@ void Engine::placeRelated() {
     if (!m || !m->positioned || hasPlacement(*m) || alphaOf(*m) < 0.05f) continue;
     std::string k = effectiveKind(*m);
     if (k == "path" || k == "region" || k == "line" || k == "arrow" || k == "param" || k == "grid" || k == "vector") continue;
+    if (isFieldKind(k) || k == "solution") continue;
     Rectangle b = boxOf(*m);
     place::Item it;
     it.id = id;

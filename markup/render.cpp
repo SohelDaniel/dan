@@ -505,7 +505,8 @@ void Engine::drawMark(const Mark &mc) {
 
   if (!isAxes(s)) return; // the remaining kinds live on axes / plane
 
-  if (k == "path") {
+  if (isFieldKind(k)) { drawFieldMark(m); return; }
+  if (isCurveKind(k)) {
     auto pts = curvePoints(m);
     BeginScissorMode((int)axes_.area.x - 4, (int)axes_.area.y - 4, (int)axes_.area.width + 8, (int)axes_.area.height + 8);
     strokePartial(pts, easeOut(m.appear), 3.5f, fade(c, m.lit * stageFade_ * opacityOf(m)), false);
@@ -680,6 +681,9 @@ void Engine::draw() {
       text(fmtNum(t), p + Vector2{0, 10}, 15, fade(col::muted, 0.8f * F), 0.5f, 0);
     }
   }
+  if (isAxes(s)) // heat maps lie under the axes and grid
+    for (auto &id : order_)
+      if (Mark *m = mark(id); m && m->positioned && effectiveKind(*m) == "heat") drawMark(*m);
   if (s == "axes") axes_.draw(col::muted, F, true, true);
   if (isAxes(s)) { // axis titles: xlabel= ylabel= on the schema
     auto xl = findProp(schemaProps_, "xlabel"), yl = findProp(schemaProps_, "ylabel");
@@ -724,12 +728,14 @@ void Engine::draw() {
   }
 
   for (auto &id : order_) if (auto g = groups_.find(id); g != groups_.end()) drawGroup(g->second);
+  for (auto &id : order_) // contours, slope and vector fields: over the grid, under everything else
+    if (Mark *m = mark(id); m && isFieldKind(effectiveKind(*m)) && effectiveKind(*m) != "heat") drawMark(*m);
   for (int pass = 0; pass < 2; pass++) // regions under curves
     for (auto &id : order_)
       if (Mark *m = mark(id)) {
         std::string k = effectiveKind(*m);
         bool under = k == "region";
-        bool curve = k == "path" || k == "line" || k == "arrow";
+        bool curve = isCurveKind(k) || k == "line" || k == "arrow";
         if ((pass == 0 && under) || (pass == 1 && curve)) drawMark(*m);
       }
   for (auto &id : order_) // grids, then world shapes, then the vectors drawn over them

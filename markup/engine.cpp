@@ -16,10 +16,11 @@ static const std::set<std::string> kPositional = {"x",  "y",     "t",     "at", 
                                                   "r",  "radius", "min",  "max",    "step", "domain", "year",
                                                   "xt", "yt",     "bend", "pos",    "range", "size",
                                                   "opacity", "dx", "dy", "h", "height", "pts", "cols", "line",
-                                                  "grid", "axes", "equal", "index", "cells", "items", "n", "m", "xlabel", "ylabel"};
+                                                  "grid", "axes", "equal", "index", "cells", "items", "n", "m", "xlabel", "ylabel",
+                                                  "vx", "vy", "levels", "labels"};
 static const std::set<std::string> kTextKeys = {"label", "name", "text", "fn",   "of",   "color",
                                                 "shape", "ease", "unit", "note", "title", "tex",
-                                                "at", "to", "side"};
+                                                "at", "to", "side", "style", "cmap", "levels"};
 
 Engine::Engine(EngineOptions opt) : opt_(std::move(opt)) {}
 Engine::~Engine() {
@@ -136,6 +137,8 @@ void Engine::analyze(bool fresh) {
       }
       if (ln.kind == "path" || ln.kind == "region") hasAxes = hasFn = true;
       if (isWorldKind(ln.kind)) hasWorld = true;
+      if (ln.kind == "slope") hasAxes = hasFn = true;                                   // y against x
+      else if (isFieldKind(ln.kind) || ln.kind == "solution") { hasWorld = true; hasFn = false; } // the plane
       break;
     case Verb::LINK: defined.insert(ln.id); hasLinks = true; break;
     case Verb::GROUP: defined.insert(ln.id); break;
@@ -338,7 +341,7 @@ double Engine::num(const Obj &o, const std::string &key, bool *ok, int depth) {
 }
 
 std::string Engine::magProp(const Mark &m) const {
-  if (m.kind == "path" || m.kind == "region") return "";
+  if (m.kind == "path" || m.kind == "region" || isFieldKind(m.kind) || m.kind == "solution") return "";
   for (auto &p : m.props)
     if (p.val.isNumeric() && !kPositional.count(p.key) && !kTextKeys.count(p.key)) return p.key;
   return "";
@@ -517,6 +520,7 @@ void Engine::clearStage() {
   rangeSig_.clear();
   rangesInit_ = false;
   cam_ = Camera{};
+  clearFieldCaches();
   schema_ = "auto";
   schemaProps_.clear();
   if (sceneIdx_ + 1 < autoSchemas_.size()) autoSchema_ = autoSchemas_[++sceneIdx_];
@@ -1185,7 +1189,7 @@ std::string Engine::readback(bool comments) {
       if (!m.category.empty()) o << " " << Value::string(m.category).markup();
       for (auto &p : m.props) {
         o << " " << p.key << "=" << p.val.markup();
-        if (p.val.type == Value::EXPR && p.key != "fn" && p.key != "xt" && p.key != "yt") {
+        if (p.val.type == Value::EXPR && p.key != "fn" && p.key != "xt" && p.key != "yt" && p.key != "vx" && p.key != "vy") {
           double v = num(p.val);
           evals.push_back(m.id + "." + p.key + " = " + fmtNum(v));
           if (!std::isfinite(v))
@@ -1242,6 +1246,7 @@ std::string Engine::readback(bool comments) {
       Mark &a = marks_[ids[i]], &b = marks_[ids[j]];
       std::string ka = effectiveKind(a), kb = effectiveKind(b);
       if (ka == "path" || kb == "path" || ka == "region" || kb == "region" || ka == "label" || kb == "label") continue;
+      if (isFieldKind(ka) || isFieldKind(kb) || ka == "solution" || kb == "solution") continue;
       if (CheckCollisionRecs(bodyBounds(a), bodyBounds(b))) o << "# overlapping: " << a.id << " " << b.id << "\n";
     }
   if (!since_.empty()) {

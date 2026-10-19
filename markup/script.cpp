@@ -37,7 +37,8 @@ static bool parseNumber(const std::string &s, double &out) {
 
 bool isMarkKind(const std::string &k) {
   static const char *kinds[] = {"dot",   "bar",  "box",  "line",    "arrow", "label", "path",  "region", "tex",
-                                "circle", "rect", "polygon", "angle", "vector", "card", "code", "array", "table", "param", "grid"};
+                                "circle", "rect", "polygon", "angle", "vector", "card", "code", "array", "table", "param", "grid",
+                                "field", "slope", "heat", "contour", "solution"};
   for (auto c : kinds) if (k == c) return true;
   return false;
 }

@@ -206,8 +206,11 @@ std::vector<double> logLevels(double lo, double hi, int n) {
   std::vector<double> out;
   if (!(hi > lo) || n < 1) return out;
   double base = std::max(lo, 0.0), span = hi - base;
-  double first = span / std::pow(2.0, n); // doubling: 1, 2, 4, 8 ... of the smallest
-  for (int k = 0; k < n; k++) out.push_back(base + first * std::pow(2.0, k));
+  double first = niceStepFloor(span / std::pow(2.0, n - 1)); // doubling from a round number: 0.1, 0.2, 0.4 ...
+  for (int k = 0; k < n; k++) {
+    double v = base + first * std::pow(2.0, k);
+    if (v < hi) out.push_back(v);
+  }
   return out;
 }
 

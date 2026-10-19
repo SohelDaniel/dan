@@ -16,6 +16,8 @@
 #include "tex.hpp"
 #include "place/check.hpp"
 #include "place/spring.hpp"
+#include "viz/viz.hpp"
+#include <functional>
 #include "tts.hpp"
 #include <memory>
 #include <map>
@@ -36,6 +38,10 @@ inline bool isPlacementKey(const std::string &k) {
 inline bool isWorldKind(const std::string &k) {
   return k == "circle" || k == "rect" || k == "polygon" || k == "angle" || k == "vector" || k == "grid";
 }
+// fields over the plane: drawn under everything else on axes/plane, no body, no place to find
+inline bool isFieldKind(const std::string &k) { return k == "field" || k == "slope" || k == "heat" || k == "contour"; }
+// curves: strokes across the axes (a function's graph, or an ODE solution through a point)
+inline bool isCurveKind(const std::string &k) { return k == "path" || k == "solution"; }
 // text-like blocks that stack in the top band unless placed
 inline bool isBlockKind(const std::string &k) {
   return k == "tex" || k == "card" || k == "code" || k == "array" || k == "table";
@@ -390,6 +396,23 @@ private:
   bool camPoint(const std::string &id, const Props &req, double &x, double &y);
   bool camBox(const std::vector<std::string> &ids, double &x0, double &x1, double &y0, double &y1);
   void camApply(Rectangle area);  // called by layoutAxes once the schema's view is known
+
+  // ---- fields (fields.cpp)
+  std::function<double(double, double)> fn2(const Mark &m, const char *key);
+  std::function<viz::V2(viz::V2)> vecField(const Mark &m);
+  void drawFieldMark(Mark &m);
+  void drawVecField(Mark &m, float a, Color c);
+  void drawSlope(Mark &m, float a, Color c);
+  void drawHeat(Mark &m, float a);
+  void drawContour(Mark &m, float a, Color c);
+  bool sampleGrid(const Mark &m, int step, std::vector<float> &vals, int &nx, int &ny);
+  std::vector<Vector2> solutionPoints(const Mark &m);
+  void clearFieldCaches();
+  std::map<std::string, double> fieldScale_;                 // magnitude scale, locked per mark + source
+  std::map<std::string, std::vector<double>> fieldLevels_;   // heat range / contour levels, locked likewise
+  struct StreamCache { std::string sig; std::vector<std::vector<viz::V2>> lines; std::vector<std::vector<float>> mags; };
+  std::map<std::string, StreamCache> streamCache_;
+  std::map<std::string, Texture2D> heatTex_;
 };
 
 } // namespace mk
