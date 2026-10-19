@@ -186,6 +186,19 @@ static void parseSay(const std::string &body, Line &ln) {
     std::vector<std::string> hooks;
     size_t i = 0;
     while (i < w.size()) {
+      if (w[i] == '[') { // [id] or [a[3]]: point at that thing on this word
+        size_t j = i + 1;
+        while (j < w.size() && (std::isalnum((unsigned char)w[j]) || w[j] == '_')) j++;
+        if (j < w.size() && w[j] == '[') { // a cell: a[3]
+          size_t k = w.find(']', j);
+          if (k != std::string::npos) j = k + 1;
+        }
+        if (j > i + 1 && j < w.size() && w[j] == ']' && std::isalpha((unsigned char)w[i + 1])) {
+          hooks.push_back("@pt:" + w.substr(i + 1, j - i - 1));
+          i = j + 1;
+          continue;
+        }
+      }
       if (w[i] == '|') {
         size_t j = w.find('|', i + 1);
         if (j == std::string::npos) { clean += w.substr(i); break; }

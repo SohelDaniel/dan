@@ -122,6 +122,8 @@ void Engine::checkBinding(size_t sayIdx, size_t nextIdx) {
   // what this sentence touched: its own lines, its cued lines, what it points at
   std::set<std::string> touched;
   auto touch = [&](const Line &ln) { if (!ln.id.empty()) touched.insert(baseId(ln.id)); };
+  for (auto &w : say.words) // [id] pointers in the sentence
+    for (auto &h : w.hooks) if (h.rfind("@pt:", 0) == 0) touched.insert(baseId(h.substr(4)));
   for (size_t i = sayIdx; i < nextIdx && i < script_.steps.size(); i++) {
     if (i > sayIdx && script_.steps[i].hook.empty()) break; // set-up lines for the next sentence
     if (i > sayIdx) touch(script_.steps[i].main);

@@ -123,6 +123,7 @@ void Engine::analyze(bool fresh) {
     cur = Prescan{};
   };
   std::set<std::string> defined, sayHooks, deferredHooks;
+  std::vector<std::pair<int, std::string>> pointed; // [id] in Say lines
   eachLine(script_, [&](const Line &ln) {
     if (!ln.deferred.empty()) deferredHooks.insert(ln.deferred);
     switch (ln.verb) {
@@ -147,7 +148,10 @@ void Engine::analyze(bool fresh) {
       see(ln.prop, ln.to);
       break;
     case Verb::SAY:
-      for (auto &w : ln.words) for (auto &h : w.hooks) sayHooks.insert(h);
+      for (auto &w : ln.words) for (auto &h : w.hooks) if (h.rfind("@pt:", 0) != 0) sayHooks.insert(h);
+      for (auto &w : ln.words)
+        for (auto &h : w.hooks)
+          if (h.rfind("@pt:", 0) == 0) pointed.push_back({ln.lineNo, h.substr(4)});
       for (auto &h : ln.trailingHooks) sayHooks.insert(h);
       break;
     case Verb::SCENE: closeScene(); break;
@@ -168,6 +172,8 @@ void Engine::analyze(bool fresh) {
     if (!sayHooks.count(h)) warn("hook: lines tagged @" + h + " have no |" + h + "| spoken, so they only run when their sentence ends");
   for (auto &h : sayHooks)
     if (!deferredHooks.count(h)) warn("hook: |" + h + "| is spoken but no line is tagged @" + h);
+  for (auto &[line, id] : pointed)
+    if (!defined.count(baseId(id))) warn("say: line " + std::to_string(line) + " points at [" + id + "], which is never marked");
   eachLine(script_, [&](const Line &ln) {
     auto need = [&](const std::string &id, const char *what) {
       if (!id.empty() && id != "none" && !defined.count(baseId(id)))
@@ -908,6 +914,13 @@ void Engine::fireHook(const std::string &name) {
   if (opt_.verbose)
     std::fprintf(stderr, "[%6.2fs] hook |%s| at %.2fs into the line%s\n", clock_, name.c_str(), say_.t,
                  say_.utt ? " (inworld timestamps)" : "");
+  if (name.rfind("@pt:", 0) == 0) { // [id] in the sentence: point at it on this word
+    Line ln;
+    ln.verb = Verb::INDICATE;
+    ln.id = name.substr(4);
+    execLine(ln);
+    return;
+  }
   firedBySay_[sayStep_].insert(name);
   // A hook belongs to its sentence: fire the @name lines between this Say and the next one,
   // so the same marker name can be reused sentence after sentence. Lines placed elsewhere

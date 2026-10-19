@@ -60,6 +60,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 | a rate, a slope | a tangent or an arrow, not just words |
 | two views of one thing (arrows ↔ a matrix) | both, tied by colour, and only if the second view adds something |
 
+- Point while you talk: `[id]` glued to a word pulses that thing as it is said (`the [w11]weight from x₁`).
 - Use the fewest dimensions that hold every variable of the claim: a 1D curve for step size and overshoot; a 2D contour map for direction, "perpendicular to the contours", zig-zags.
 - Metaphors and asides stay words. Don't draw everything; draw what the claim needs (a few labels plus "…" beat fifteen numbers).
 
@@ -69,7 +70,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 - One idea per sentence. Short, plain, spoken language.
 
 **Mayer's principles**
-- Signal: cue the change on the exact word (`|go|`), and `indicate` / `focus` what you are talking about.
+- Signal: cue the change on the exact word (`|go|`), and point at what you are talking about (`[id]word`, `focus`).
 - Keep words and pictures together: a visual appears as it is spoken.
 - No redundant text: never put your sentences on stage. Labels, numbers, formulas, short key-term cards only.
 - No decoration: every mark earns its place.

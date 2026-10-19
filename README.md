@@ -79,6 +79,7 @@ show <id> [0.6s]               bring it back (opacity=1)
 Modifiers:
 - `with <line>` runs alongside the previous line.
 - `@hook <line>` waits until the voice reaches `|hook|`.
+- `[id]` glued to a word points at that thing as the word is spoken: `Say: "each [w11]weight is learned"` pulses `w11` on "weight". It is the cheapest way to point; use it whenever a sentence names something on stage.
 
 A bare `|go|` fires where it sits in the sentence. A marker attached to a word, like `thirty|go|`, fires when that word is spoken. A marker belongs to its sentence: it fires the `@go` lines between that `Say` and the next one, so the same name can be reused sentence after sentence. Names are one word and match regardless of case.
 
