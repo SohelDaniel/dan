@@ -440,9 +440,9 @@ std::vector<TextLabel> Engine::markLabelsAt(const Mark &m) {
     int idx = 0;
     for (auto &id : order_) {
       if (id == m.id) break;
-      if (Mark *o = mark(id); o && isFieldKind(effectiveKind(*o)) && !displayName(*o).empty() && findProp(o->props, "label")) idx++;
+      if (Mark *o = mark(id); o && isFieldKind(effectiveKind(*o)) && findProp(o->props, "label") && opacityOf(*o) > 0.3f) idx++;
     }
-    if (findProp(m.props, "label")) add(name, {axes_.area.x + 16, axes_.area.y + 34 + idx * 26.f}, 19, 0, 0, TextLabel::Mark, "name");
+    if (findProp(m.props, "label") && opacityOf(m) > 0.3f) add(name, {axes_.area.x + 16, axes_.area.y + 34 + idx * 26.f}, 19, 0, 0, TextLabel::Mark, "name");
     return out;
   }
   if (isCurveKind(k) && m.appear > 0.95f) {

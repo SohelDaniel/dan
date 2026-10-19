@@ -67,3 +67,16 @@ matplotlib `contour.py`; Crameri et al., *The misuse of colour in science commun
 *Why momentum really works*; Li et al., *Visualizing the loss landscape* (2018); manim `TracedPath`/`TracingTail`;
 Unity TrailRenderer; Godot Line2D; raylib `rshapes.c`; DesLauriers, *Drawing lines is hard*;
 Yuksel et al. (centripetal Catmull-Rom); Cutting, *Representing motion in a static image* (2002).
+
+## Status (2026-10-19)
+
+All four milestones done. Tests: `make test` (placement + viz/expr unit tests), `make check`, `make golden`
+(99.9 new placer), `make append` (63/63). Eval on six prompts that call for the new tools (tools/eval/prompts-2d.json):
+6/6 decodable, 0 axiom warnings, geometric layout 98.6–100, and Claude chose the intended tool each time
+(slope+solution for cooling, camera for the derivative, heat+contour+trail for descent, field for charges,
+trails for orbit and projectile). Fixes found by testing: anchored zoom (the target stays in view), a dividing tick
+chain (no popping), fixed items never separated (axis bands crossing at a centred origin), overlapping re-marks of
+one value in instant mode, plates under formulas and legends over fields.
+
+Not done: the vision judge on these frames; contour labels and field legends are not yet in the layout checker;
+camera on free/graph/timeline schemas (pan along long arrays) — only axes and plane.

@@ -1,0 +1,8 @@
+[
+  {"id": "derivative", "subject": "calculus", "q": "What does the derivative actually mean?"},
+  {"id": "cooling", "subject": "differential equations", "q": "How do I solve dy/dt = -0.5(y - 20), like coffee cooling?"},
+  {"id": "descent", "subject": "machine learning", "q": "How does gradient descent find the minimum of a loss?"},
+  {"id": "orbit", "subject": "physics", "q": "Why does the moon keep orbiting instead of falling into the earth?"},
+  {"id": "efield", "subject": "physics", "q": "What does the electric field around a positive and a negative charge look like?"},
+  {"id": "projectile", "subject": "physics", "q": "Why is a thrown ball's path a parabola?"}
+]

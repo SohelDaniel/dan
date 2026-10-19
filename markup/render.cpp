@@ -67,6 +67,14 @@ void Engine::drawTex(const Mark &m) {
   TexPtr now = texNow(m);
   if (!now) { text("…", m.pos, 22, fade(col::muted, a0), 0.5f, 0.5f); return; }
   if (!now->ok) { textBg("TeX: " + now->error, m.pos, 16, fade(col::red, a0), fade(col::bg, 0.9f)); return; }
+  // over a field or heat map, a formula gets a plate (the field covers the whole plane: there is no free spot)
+  if (isAxes(schemaNow()))
+    for (auto &id : order_)
+      if (Mark *f = mark(id); f && isFieldKind(effectiveKind(*f)) && alphaOf(*f) > 0.2f) {
+        Rectangle b = bodyBounds(m);
+        DrawRectangleRounded({b.x - 10, b.y - 6, b.width + 20, b.height + 12}, 0.2f, 8, fade(col::bg, 0.88f * a0));
+        break;
+      }
   const float px = texSize(m) / 1000.f;
   bool inked = catValue(m).empty() && !findProp(m.props, "color") && !findProp(m.props, "of");
   Color base = inked ? col::fg : colorOf(m);

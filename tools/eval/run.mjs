@@ -1,6 +1,6 @@
 // Generate one first-turn scene per prompt with a given prompt variant, then check and render it.
 //
-//   node tools/eval/run.mjs --variant full|method|base --out DIR [--only a,b] [--model sonnet] [--jobs 4]
+//   node tools/eval/run.mjs --variant full|method|base --out DIR [--only a,b] [--model sonnet] [--jobs 4] [--prompts prompts-2d.json]
 //
 // Variants: base   = format + scene rules only (no plan, no teaching method, no examples)
 //           method = chat/prompt.md without the worked examples
@@ -21,7 +21,7 @@ const model = flag('--model', 'sonnet');
 const OUT = path.resolve(flag('--out', path.join(HERE, 'out')), variant + (model === 'sonnet' ? '' : '-' + model));
 const jobs = Number(flag('--jobs', 4));
 const only = flag('--only', '');
-let prompts = JSON.parse(fs.readFileSync(path.join(HERE, 'prompts.json'), 'utf8'));
+let prompts = JSON.parse(fs.readFileSync(path.resolve(HERE, flag('--prompts', 'prompts.json')), 'utf8'));
 if (only) prompts = prompts.filter((p) => only.split(',').includes(p.id));
 
 function system() {
@@ -79,7 +79,7 @@ function generate(p) {
       const meta = { id: p.id, subject: p.subject, q: p.q, variant, model, secs, ok: chk.status === 0,
         says: says.length, lastSay: says.at(-1) || '', lines: scene.split('\n').filter((l) => l.trim()).length,
         layoutGeom: layout ? layout.mean : null, layoutWorst: layout ? layout.worst : null,
-        usesPos: /\bpos=/.test(scene), usesWords: /\b(region|below|above|left-of|right-of|near|align|on|in|over)=/.test(scene) };
+        usesPos: /\bpos=/.test(scene), usesNew: (scene.match(/\b(camera|trail=|field|slope|solution|heat|contour)\b/g) || []).filter((v, i, a) => a.indexOf(v) === i), usesWords: /\b(region|below|above|left-of|right-of|near|align|on|in|over)=/.test(scene) };
       fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(meta, null, 1));
       console.log(`${variant}/${p.id}: ${secs.toFixed(1)}s, check ${meta.ok ? 'ok' : 'FAIL'}, ${meta.says} Say`);
       resolve(meta);
