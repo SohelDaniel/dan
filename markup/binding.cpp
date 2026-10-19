@@ -147,6 +147,11 @@ void Engine::checkBinding(size_t sayIdx, size_t nextIdx) {
     };
     for (size_t i = 0; i < words.size(); i++) {
       double v;
+      if (words[i] == "point" && i + 1 < words.size() && wordVal(words[i + 1], v) && v < 10) { // "point six"
+        if (i == 0 || !numberWords().count(words[i - 1])) said.push_back({"point " + words[i + 1], v / 10});
+        i++;
+        continue;
+      }
       if (!wordVal(words[i], v)) continue;
       std::string spoken = words[i];
       // compound numbers: "fifty nine", "two hundred", "seven and a half"
@@ -156,6 +161,10 @@ void Engine::checkBinding(size_t sayIdx, size_t nextIdx) {
       }
       if (i + 1 < words.size() && (words[i + 1] == "hundred" || words[i + 1] == "thousand")) {
         v *= words[i + 1] == "hundred" ? 100 : 1000; spoken += " " + words[++i];
+      }
+      // decimals: "one point six" -> 1.6
+      if (i + 2 < words.size() && words[i + 1] == "point" && wordVal(words[i + 2], u) && u < 10) {
+        v += u / 10; spoken += " point " + words[i + 2]; i += 2;
       }
       if (i + 3 < words.size() && words[i + 1] == "and" && words[i + 2] == "a" && words[i + 3] == "half") {
         v += 0.5; spoken += " and a half"; i += 3;
@@ -180,8 +189,13 @@ void Engine::checkBinding(size_t sayIdx, size_t nextIdx) {
 
   // 2. sameness: something this sentence touches should share a colour
   // "share", or "the same <n> <things>" (plural): "the same rule" is not a claim about things on stage
-  static const std::regex same(R"(\b(share|shares|shared)\b|\b(same|identical)\s+(\w+\s+)?\w+s\b)");
-  if (!question && std::regex_search(low, same)) {
+  // the verb "share" (not "a share of"), "shared", or "the same <n> <things>" (plural, and things, not steps)
+  static const std::regex same(R"(\b(share|shares)\s+(the|a|one|its|their|this|these|those|same|every)\b|\bshared\b|\b(same|identical)\s+(\w+\s+)?(\w+s)\b)");
+  static const std::set<std::string> abstract = {"steps", "rules", "ideas", "ways", "reasons", "times", "results", "patterns",
+                                                 "words", "questions", "answers", "kinds", "moves", "tricks", "things"};
+  std::smatch sm;
+  bool sameClaim = std::regex_search(low, sm, same) && !(sm[5].matched && abstract.count(sm[5].str()));
+  if (!question && sameClaim) {
     bool group = false;
     std::map<std::string, int> cats, cols;
     for (auto &id : touched) {
