@@ -188,6 +188,8 @@ mark key card text="Each look halves what's left" label="Key idea"       # wrapp
 mark src code text="lo = 0\nhi = n - 1\nwhile lo <= hi:" line=1 label="search.py"
 mark a   array items=[2,5,8,12,16] label="sorted"                        # cells a[0] … a[4]
 mark lo  label text="lo" at=a[0]                                         # a pointer under a cell; re-mark at= to move it
+mark win label text="window" at=a[1:3]                                   # a bracket under cells 1 to 3 (a span)
+mark a   array items=[1,2,3,4] colors=[teal,-,teal,-]                     # cells that belong together share a colour
 mark t   table cols=3 cells=[step,lo,hi, 1,0,4]                          # first row is the header
 ```
 

@@ -340,8 +340,12 @@ void Engine::drawBlock(const Mark &m) {
       Rectangle cell = cellRect(m, (int)i);
       cell.y += (1 - e) * 10;
       float ca = a * (focusCell < 0 || focusCell == (int)i ? 1.f : 0.3f);
-      DrawRectangleRec(cell, fade(c, ca * 0.16f));
-      DrawRectangleLinesEx(cell, 2, fade(c, ca));
+      Color cc = c; // colors=[teal,-,teal,…]: cells that belong together share a colour
+      bool tinted = false;
+      if (const Value *cl = findProp(m.props, "colors"); cl && cl->type == Value::LIST && i < cl->list.size())
+        tinted = colorByName(cl->list[i], cc);
+      DrawRectangleRec(cell, fade(cc, ca * (tinted ? 0.38f : 0.16f)));
+      DrawRectangleLinesEx(cell, 2, fade(cc, ca));
       if (showIndex) text(std::to_string(i), {cell.x + cell.width / 2, cell.y + cell.height + 4}, 14, fade(col::muted, ca * 0.8f), 0.5f, 0);
     }
     for (size_t j = 0; j < iv->list.size(); j++) {
@@ -508,6 +512,13 @@ void Engine::drawMark(const Mark &mc) {
     if (auto at = findProp(m.props, "at"); at && at->type == Value::STR && anchorBox(at->str, box)) {
       // up to the target, clear of the index row; glides with the label, stays within the target
       Vector2 tip{std::clamp(m.pos.x, box.x + 8, box.x + box.width - 8), box.y + box.height + 22};
+      if (at->str.find(':') != std::string::npos) { // a span: a bracket under the cells it covers
+        float y = box.y + box.height + 26;
+        DrawLineEx({box.x + 4, y}, {box.x + box.width - 4, y}, 2.5f, fade(c, a));
+        DrawLineEx({box.x + 4, y - 8}, {box.x + 4, y}, 2.5f, fade(c, a));
+        DrawLineEx({box.x + box.width - 4, y - 8}, {box.x + box.width - 4, y}, 2.5f, fade(c, a));
+        tip = {box.x + box.width / 2, y + 4};
+      }
       if (m.pos.y - 12 > tip.y + 6) arrow({m.pos.x, m.pos.y - 12}, tip, 2.5f, fade(c, a), 10);
     }
     text(t, m.pos, 19, fade(c, a), 0.5f, 0.5f);

@@ -305,8 +305,18 @@ bool Engine::anchorBox(const std::string &ref, Rectangle &out) {
   int cell;
   Mark *t = mark(baseId(ref, &cell));
   if (!t || !t->positioned) return false;
-  if (cell >= 0 && effectiveKind(*t) == "array") out = cellRect(*t, cell);
-  else out = bodyBounds(*t);
+  if (cell >= 0 && effectiveKind(*t) == "array") {
+    out = cellRect(*t, cell);
+    if (size_t c = ref.find(':'); c != std::string::npos) { // a span: a[1:3] covers cells 1 to 3
+      int last = std::atoi(ref.c_str() + c + 1);
+      for (int k = cell + 1; k <= last && k < cell + 64; k++) {
+        Rectangle r = cellRect(*t, k);
+        out.width = r.x + r.width - out.x;
+      }
+    }
+  } else {
+    out = bodyBounds(*t);
+  }
   return true;
 }
 

@@ -73,7 +73,8 @@ Words and picture tell one story. When a sentence makes one of these claims, the
   @add mark s label="Σ = 1 − 3 = −2"
   ```
 - *Shared parameter* (one value used in many places): every use gets the same colour, and the symbol in the formula has that colour: `link a1 arrow x1 -> y1 color=yellow label="a"` … `\textcolor{yellow}{a}`.
-- *Sliding window / repeated operation*: the same operation applied position by position; move the pointer (`mark win at=a[1]`), fill the output cell by cell, pulse the cells it covers.
+- *Sliding window / repeated operation*: the same operation applied position by position; a span pointer over the cells it covers (`mark win label text="window" at=a[0:2]`, re-mark `at=a[1:3]` to slide), fill the output cell by cell.
+- *Grouping / classes* (evens and odds, pairs, which cells a filter touched): colour the members of each group alike (`colors=[teal,-,teal,-]` on an array; a shared category on marks; `color=` on links).
 - *Normalise / share of a whole*: show the total, then re-mark each part divided by it; the parts now add to one.
 - *Rate / sensitivity*: nudge the input (morph a small `param`) and show the change in the output and their ratio (`\val{}` in a formula).
 - *Iterate to convergence*: re-mark the state step by step with `trail=all`; each step its own beat.
