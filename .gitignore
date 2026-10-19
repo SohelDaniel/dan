@@ -19,3 +19,4 @@ chat/memory/
 # generated eval runs
 tools/eval/out*/
 .DS_Store
+tests/test_viz

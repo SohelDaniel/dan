@@ -8,8 +8,9 @@ find_package(raylib REQUIRED)
 find_package(CURL REQUIRED)
 
 file(GLOB PLACE_SRC markup/place/*.cpp)        # the placement module (pure C++, no raylib)
+file(GLOB VIZ_SRC markup/viz/*.cpp)            # camera / field / trail maths (pure C++)
 set(RM_SRC rm/raymanim.cpp)
-set(MK_SRC ${PLACE_SRC} markup/placement.cpp markup/expr.cpp markup/script.cpp markup/engine.cpp
+set(MK_SRC ${PLACE_SRC} ${VIZ_SRC} markup/placement.cpp markup/expr.cpp markup/script.cpp markup/engine.cpp
            markup/layout.cpp markup/render.cpp markup/tts.cpp markup/tex.cpp)
 
 add_executable(tutor main.cpp ${RM_SRC} ${MK_SRC})
@@ -26,3 +27,6 @@ add_executable(test_place tests/test_place.cpp ${PLACE_SRC})
 target_include_directories(test_place PRIVATE third_party)
 enable_testing()
 add_test(NAME place COMMAND test_place)
+add_executable(test_viz tests/test_viz.cpp ${VIZ_SRC} markup/expr.cpp)
+target_include_directories(test_viz PRIVATE third_party)
+add_test(NAME viz COMMAND test_viz)

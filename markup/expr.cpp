@@ -178,6 +178,7 @@ double eval(const Expr &e, EvalCtx &ctx, int depth) {
   }
   case Expr::VAR: {
     if (ctx.hasX && e.name == ctx.xName) return ctx.x;
+    if (ctx.hasY && e.name == "y") return ctx.y;
     if (e.name == "pi") return M_PI;
     if (e.name == "tau") return 2 * M_PI;
     if (e.name == "e") return M_E;
@@ -205,6 +206,137 @@ double eval(const Expr &e, EvalCtx &ctx, int depth) {
 void exprNames(const Expr &e, std::vector<std::string> &out) {
   if (e.kind == Expr::VAR || e.kind == Expr::MEMBER || e.kind == Expr::CALL) out.push_back(e.name);
   for (auto &a : e.args) exprNames(*a, out);
+}
+
+bool exprUses(const Expr &e, const std::string &name) {
+  if (e.kind == Expr::VAR && e.name == name) return true;
+  for (auto &a : e.args) if (exprUses(*a, name)) return true;
+  return false;
+}
+
+// ---------------------------------------------------------------- compiled programs
+namespace {
+enum Fn1 : unsigned char { SIN, COS, TAN, ASIN, ACOS, ATAN, EXP, LOG, LOG10, SQRT, ABS, FLOOR, CEIL, ROUND, SIGN };
+enum Fn2 : unsigned char { POW2, ATAN2 };
+int fn1Of(const std::string &n) {
+  static const char *names[] = {"sin", "cos", "tan", "asin", "acos", "atan", "exp", "log", "log10", "sqrt", "abs", "floor", "ceil", "round", "sign"};
+  for (int i = 0; i < 15; i++) if (n == names[i]) return i;
+  if (n == "ln") return LOG;
+  return -1;
+}
+
+struct Compiler {
+  EvalCtx &ctx;
+  Program &p;
+  bool fail = false;
+  bool free(const Expr &e) { return exprUses(e, "x") || exprUses(e, "y"); }
+  void emit(const Expr &e) {
+    if (!free(e)) { // fold: evaluate once with x and y hidden
+      bool hx = ctx.hasX, hy = ctx.hasY;
+      ctx.hasX = ctx.hasY = false;
+      p.ops.push_back({Program::K, 0, 0, eval(e, ctx)});
+      ctx.hasX = hx; ctx.hasY = hy;
+      return;
+    }
+    switch (e.kind) {
+    case Expr::NUM: p.ops.push_back({Program::K, 0, 0, e.num}); return;
+    case Expr::VAR:
+      if (e.name == "x") { p.ops.push_back({Program::X}); p.usesX = true; }
+      else { p.ops.push_back({Program::Y}); p.usesY = true; }
+      return;
+    case Expr::NEG: emit(*e.args[0]); p.ops.push_back({Program::NEG}); return;
+    case Expr::BIN: {
+      emit(*e.args[0]);
+      emit(*e.args[1]);
+      Program::Code c = e.op == '+' ? Program::ADD : e.op == '-' ? Program::SUB : e.op == '*' ? Program::MUL
+                       : e.op == '/' ? Program::DIV : Program::POW;
+      p.ops.push_back({c});
+      return;
+    }
+    case Expr::CALL: {
+      int f = fn1Of(e.name);
+      size_t n = e.args.size();
+      if (f >= 0 && n == 1) { emit(*e.args[0]); p.ops.push_back({Program::FN1, (unsigned char)f}); return; }
+      if ((e.name == "pow" || e.name == "atan2") && n == 2) {
+        emit(*e.args[0]); emit(*e.args[1]);
+        p.ops.push_back({Program::FN2, (unsigned char)(e.name == "pow" ? POW2 : ATAN2)});
+        return;
+      }
+      if ((e.name == "min" || e.name == "max") && n >= 1 && n < 255) {
+        for (auto &a : e.args) emit(*a);
+        p.ops.push_back({e.name == "min" ? Program::FNN_MIN : Program::FNN_MAX, 0, (unsigned char)n});
+        return;
+      }
+      if (e.name == "clamp" && n == 3) {
+        for (auto &a : e.args) emit(*a);
+        p.ops.push_back({Program::CLAMP});
+        return;
+      }
+      fail = true; // an engine function of x or y (a path call, deriv ...)
+      return;
+    }
+    default: fail = true; return; // a member can't depend on x or y
+    }
+  }
+};
+} // namespace
+
+Program compile(const Expr &e, EvalCtx &ctx) {
+  Program p;
+  Compiler c{ctx, p};
+  c.emit(e);
+  p.ok = !c.fail;
+  return p;
+}
+
+double Program::run(double x, double y) const {
+  double st[64];
+  int sp = 0;
+  for (const Op &o : ops) {
+    switch (o.code) {
+    case K: st[sp++] = o.k; break;
+    case X: st[sp++] = x; break;
+    case Y: st[sp++] = y; break;
+    case ADD: sp--; st[sp - 1] += st[sp]; break;
+    case SUB: sp--; st[sp - 1] -= st[sp]; break;
+    case MUL: sp--; st[sp - 1] *= st[sp]; break;
+    case DIV: sp--; st[sp - 1] /= st[sp]; break;
+    case POW: sp--; st[sp - 1] = std::pow(st[sp - 1], st[sp]); break;
+    case NEG: st[sp - 1] = -st[sp - 1]; break;
+    case FN1: {
+      double &a = st[sp - 1];
+      switch (o.fn) {
+      case SIN: a = std::sin(a); break;
+      case COS: a = std::cos(a); break;
+      case TAN: a = std::tan(a); break;
+      case ASIN: a = std::asin(a); break;
+      case ACOS: a = std::acos(a); break;
+      case ATAN: a = std::atan(a); break;
+      case EXP: a = std::exp(a); break;
+      case LOG: a = std::log(a); break;
+      case LOG10: a = std::log10(a); break;
+      case SQRT: a = std::sqrt(a); break;
+      case ABS: a = std::fabs(a); break;
+      case FLOOR: a = std::floor(a); break;
+      case CEIL: a = std::ceil(a); break;
+      case ROUND: a = std::round(a); break;
+      default: a = (a > 0) - (a < 0); break;
+      }
+      break;
+    }
+    case FN2: sp--; st[sp - 1] = o.fn == POW2 ? std::pow(st[sp - 1], st[sp]) : std::atan2(st[sp - 1], st[sp]); break;
+    case FNN_MIN: case FNN_MAX: {
+      double r = st[sp - o.n];
+      for (int i = sp - o.n + 1; i < sp; i++) r = o.code == FNN_MIN ? std::fmin(r, st[i]) : std::fmax(r, st[i]);
+      sp -= o.n;
+      st[sp++] = r;
+      break;
+    }
+    case CLAMP: sp -= 2; st[sp - 1] = std::fmin(std::fmax(st[sp - 1], st[sp]), st[sp + 1]); break;
+    }
+    if (sp >= 62) return NaN; // too deep for the fixed stack: the caller can fall back to eval
+  }
+  return sp == 1 ? st[0] : NaN;
 }
 
 } // namespace mk

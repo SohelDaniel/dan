@@ -328,6 +328,56 @@ void strokePartial(const std::vector<Vector2> &pts, float frac, float thick, Col
   stroke(out, thick, c, false);
 }
 
+void strip(const std::vector<StripPt> &in) {
+  std::vector<StripPt> pts;
+  pts.reserve(in.size());
+  for (auto &q : in) // drop repeated points (their direction is undefined)
+    if (pts.empty() || len(q.p - pts.back().p) > 0.05f) pts.push_back(q);
+    else pts.back() = q;
+  size_t n = pts.size();
+  if (n < 2) return;
+  // per-vertex unit normal, mitred: the average of the two segment normals scaled by 1/cos(half angle)
+  std::vector<Vector2> nrm(n);
+  auto segN = [&](size_t i) { // normal of segment i -> i+1
+    Vector2 d = pts[i + 1].p - pts[i].p;
+    float l = len(d);
+    return l > 0 ? Vector2{-d.y / l, d.x / l} : Vector2{0, 0};
+  };
+  for (size_t i = 0; i < n; i++) {
+    Vector2 a = i > 0 ? segN(i - 1) : segN(0), b = i + 1 < n ? segN(i) : segN(n - 2);
+    Vector2 m = a + b;
+    float l = len(m);
+    if (l < 1e-4f) { nrm[i] = a; continue; } // a full reversal: square it off
+    m = m * (1 / l);
+    float c = m.x * a.x + m.y * a.y; // cos of half the turn
+    nrm[i] = m * (1 / std::max(c, 0.5f)); // miter limit 2
+  }
+  auto vtx = [](Vector2 p, Color c) { rlColor4ub(c.r, c.g, c.b, c.a); rlVertex2f(p.x, p.y); };
+  auto quad = [&](Vector2 a0, Vector2 a1, Color ca0, Color ca1, Vector2 b0, Vector2 b1, Color cb0, Color cb1) {
+    // a0-a1 at vertex i, b0-b1 at vertex i+1
+    vtx(a0, ca0); vtx(a1, ca1); vtx(b1, cb1);
+    vtx(a0, ca0); vtx(b1, cb1); vtx(b0, cb0);
+  };
+  for (size_t i = 0; i + 1 < n; i++) {
+    rlCheckRenderBatchLimit(18); // long trails: flush the batch between segments, never inside one
+    rlBegin(RL_TRIANGLES);
+    const StripPt &A = pts[i], &B = pts[i + 1];
+    float ha = std::max(A.width * 0.5f - 0.5f, 0.f), hb = std::max(B.width * 0.5f - 0.5f, 0.f);
+    Color ca = A.c, cb = B.c, ca0 = ca, cb0 = cb;
+    ca0.a = 0; cb0.a = 0;
+    // thinner than a pixel: keep 1 px and fade instead (Shapes' rule), so it never breaks up
+    if (A.width < 1) ca.a = (unsigned char)(ca.a * std::max(A.width, 0.f));
+    if (B.width < 1) cb.a = (unsigned char)(cb.a * std::max(B.width, 0.f));
+    Vector2 na = nrm[i], nb = nrm[i + 1];
+    Vector2 ai = A.p + na * ha, ao = A.p + na * (ha + 1), bi = B.p + nb * hb, bo = B.p + nb * (hb + 1);
+    Vector2 aj = A.p - na * ha, aq = A.p - na * (ha + 1), bj = B.p - nb * hb, bq = B.p - nb * (hb + 1);
+    quad(aj, ai, ca, ca, bj, bi, cb, cb);     // core
+    quad(ai, ao, ca, ca0, bi, bo, cb, cb0);   // feather, one side
+    quad(aq, aj, ca0, ca, bq, bj, cb0, cb);   // and the other
+    rlEnd();
+  }
+}
+
 static float signedArea(const std::vector<Vector2> &p) {
   float a = 0;
   for (size_t i = 0, j = p.size() - 1; i < p.size(); j = i++) a += (p[j].x * p[i].y - p[i].x * p[j].y);

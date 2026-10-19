@@ -80,6 +80,15 @@ void textMono(const std::string &s, Vector2 pos, float size, Color c);     // to
 void initGraphics();                     // call after InitWindow (disables backface culling)
 void stroke(const std::vector<Vector2> &pts, float thick, Color c, bool closed = false);
 void strokePartial(const std::vector<Vector2> &pts, float frac, float thick, Color c, bool closed = false);
+// A polyline whose width and colour (alpha) vary per point: trails that taper and fade, streamlines.
+// Mitred joins (limited to 2x, as Godot's sharp_limit), and a 1 px feather on both edges so it is
+// smooth without MSAA (snapshots have none). Repeated points are skipped.
+struct StripPt {
+  Vector2 p;
+  float width;
+  Color c;
+};
+void strip(const std::vector<StripPt> &pts);
 void fillPolygon(const std::vector<Vector2> &pts, Color c); // concave ok (ear clipping)
 void tri(Vector2 a, Vector2 b, Vector2 c, Color col);
 void arrow(Vector2 a, Vector2 b, float thick, Color c, float head = 14);
