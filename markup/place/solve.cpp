@@ -107,6 +107,11 @@ Placement solveBodies(const Scene &sc) {
     sep.size.push_back(sc.items[i].size);
     sep.weight.push_back(sc.items[i].mode == Item::Fixed ? 1e6 : 1.0);
   }
+  // two fixed things that overlap (the x and y axis-number bands crossing at a centred origin) are facts,
+  // not ours to separate: only free things move
+  for (size_t i = 0; i < n; i++)
+    for (size_t j = i + 1; j < n; j++)
+      if (sc.items[i].mode == Item::Fixed && sc.items[j].mode == Item::Fixed) allowed.insert({(int)i, (int)j});
   sep.allowed.assign(allowed.begin(), allowed.end());
   for (const Relation &r : sc.rels) { // the ordering relations survive overlap removal
     if (r.a < 0 || r.b < 0 || r.a >= (int)n || r.b >= (int)n || r.a == r.b) continue;
@@ -121,6 +126,8 @@ Placement solveBodies(const Scene &sc) {
   sep.bounds = sc.stage;
   int left = 0;
   out.pos = separate(sep, &left);
+  for (size_t i = 0; i < n; i++) // and they stay exactly where they are
+    if (sc.items[i].mode == Item::Fixed) out.pos[i] = sc.items[i].target;
   if (left) out.notes.push_back({Code::Crowded, -1, -1});
   // report every relation the final layout doesn't keep (conflicting strong relations are traded off
   // by the solver, not thrown, so this is where the author learns about them)

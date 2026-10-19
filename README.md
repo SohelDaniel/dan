@@ -123,6 +123,47 @@ mark k rect cart x={1 + 0.5*3*clock^2} y=1 w=1.4 h=0.9 shape=cart     # x = x0 +
 @go morph clock.value 0 -> 2 2.5s ease=linear
 ```
 
+### Trails: where something has been
+
+Add `trail=` to anything that moves on `axes` or `plane`: `trail=1.5s` leaves a fading tail (a faster thing leaves a longer one, so speed shows); `trail=all` keeps its whole path. Orbits, projectiles, pendulums, the steps of gradient descent.
+
+```
+mark p dot x={2*cos(clock)} y={2*sin(clock)} trail=1.5s label="planet"
+mark gd dot x=-2.6 y=1.4 trail=all label="you"                       # re-mark x= y= step by step: a zig-zag with exact corners
+```
+
+### Fields: a function of x and y, everywhere at once (schema `plane`, or `axes`)
+
+Write fields in terms of `x` and `y` (and any `param`, so they morph). Use `*` between letters: `x*y`, not `xy`.
+
+```
+mark E field vx={-y} vy={x} label="flow"                 # arrows: the vector at each point (zero vectors vanish)
+mark E field vx={-y} vy={x} style=lines                  # streamlines: the paths things follow (best for reading a flow)
+mark E field vx={-y} vy={x} style=flow                   # streamlines with motion along them
+mark G field fn={x^2 + 4*y^2} style=lines                # fn= instead of vx/vy: the gradient of a function
+mark S slope fn={x - y}                                  # a slope field for dy/dx = f(x, y) (schema axes, x across)
+mark s1 solution of=S from=[0,1]                         # the solution curve through a point (also of=<field>: a particle's path)
+mark L heat fn={x^2 + 4*y^2}                             # colour for value: dark low, bright high (blue/red if it changes sign)
+mark C contour fn={x^2 + 4*y^2}                          # level curves, labelled; levels=log for valleys, levels=[1,2,4]
+```
+
+Heat and contour together make a landscape (a loss, a potential, a height map). A dot with `trail=all` walking downhill on it is gradient descent. `solution from=` morphs (`morph s1.from -> [0,2]`), so you can drag the starting point and watch the curve follow.
+
+### The camera (axes and plane)
+
+Say what to look at; the engine picks the path and the timing. Text and lines stay the same size on screen, and curves are redrawn for the view, so zooming into a curve really shows it becoming straight.
+
+```
+camera zoom=8 on=p                    # eight times closer, centred on p
+camera zoom=50 on=f x=1               # on the curve f at x = 1 (the derivative, seen)
+camera on=q                           # pan to q, same zoom
+camera fit=a,b                        # frame these things
+camera follow=p                       # keep p in view as it moves (camera follow=none to stop)
+camera reset                          # back to the whole scene
+```
+
+One camera move per sentence, cued on the word (`@in camera zoom=8 on=p`), then let it rest. Zoom in to show a detail, then `camera reset` to give the context back.
+
 ### Blocks: text, code, data
 
 Blocks stack in a band at the top, under formulas, unless placed in words (see Placement). With nothing else on a free stage, they are centred. On-stage text should be key terms and short statements, never the narration itself.

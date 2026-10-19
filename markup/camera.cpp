@@ -185,8 +185,8 @@ void Engine::camApply(Rectangle area) {
   } else if (!cam_.follow.empty()) {
     double x, y;
     if (camPoint(cam_.follow, {}, x, y)) {
-      // dead zone: the central 60% of the view; outside it, the camera eases the thing back in
-      double hw = bw / (2 * v.z), hh = bh / (2 * v.z), lim = 0.6;
+      // dead zone: the central 45% of the view; outside it, the camera eases the thing back in
+      double hw = bw / (2 * v.z), hh = bh / (2 * v.z), lim = 0.45;
       double gx = v.cx, gy = v.cy;
       if (x > v.cx + lim * hw) gx = x - lim * hw;
       if (x < v.cx - lim * hw) gx = x + lim * hw;
@@ -195,8 +195,8 @@ void Engine::camApply(Rectangle area) {
       if (opt_.instant) { v.cx = gx; v.cy = gy; }
       else {
         place::Spring spx{(float)v.cx, cam_.vx}, spy{(float)v.cy, cam_.vy};
-        spx.step((float)gx, 0.25f, lastDt_);
-        spy.step((float)gy, 0.25f, lastDt_);
+        spx.step((float)gx, 0.18f, lastDt_);
+        spy.step((float)gy, 0.18f, lastDt_);
         v.cx = spx.x; v.cy = spy.x; cam_.vx = spx.v; cam_.vy = spy.v;
       }
     }

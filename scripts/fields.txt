@@ -1,0 +1,11 @@
+# Fields: a slope field and the solutions that follow it; then a flow.
+title "Following the slopes"
+schema axes x=[0,6] y=[-1,4] xlabel="t" ylabel="y"
+mark S slope fn={1 - y} label="dy/dt = 1 − y"
+Say: "Each little |seg|line is the slope the solution must have at that point."
+@seg indicate S
+Say: "Start a solution at |zero|zero and follow the slopes."
+@zero mark s1 solution of=S from=[0,0]
+Say: "Start it |high|higher instead, and it still settles at one."
+@high morph s1.from -> [0,3] 2s
+Say: "Where would a solution starting at minus one end up?"

@@ -1,0 +1,20 @@
+# Gradient descent: a landscape (heat + contours of one function), a walker whose trail keeps every step.
+title "Gradient descent"
+schema plane x=[-3,3] y=[-2,2]
+mark L heat fn={x^2 + 6*y^2}
+mark C contour fn={x^2 + 6*y^2} levels=log
+mark p dot x=-2.6 y=1.4 trail=all label="you"
+Say: "Here is a loss as a |land|landscape: dark valleys are low, bright hills are high."
+@land indicate C
+Say: "You stand here and can only feel the slope under your |feet|feet."
+@feet indicate p
+Say: "So you step straight |down|downhill, across the contour lines."
+@down mark p x=-1.924 y=-0.784
+Say: "And |again|again."
+@again mark p x=-1.424 y=0.439
+Say: "The valley is steep across and |flat|flat along, so the steps zig-zag."
+@flat mark p x=-1.054 y=-0.246
+with mark rule tex tex="\textcolor{p}{\theta} \leftarrow \textcolor{p}{\theta} - \eta\,\nabla \textcolor{L}{L}" region=top
+Say: "Each step: move against the |grad|gradient, scaled by a step size eta."
+@grad indicate rule
+Say: "Your turn: if eta were twice as big, would the zig-zag shrink or grow?"

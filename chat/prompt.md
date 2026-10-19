@@ -43,6 +43,7 @@ check: the question you end on
 - Name only what the narration needs. Labels belong on the things they name; don't stack several names on one point (relate them with a shared category instead).
 - Give axes a title.
 - Use `hide` to clear what's done before adding more.
+- **The camera points too.** Zoom in on the detail the sentence is about (`@in camera zoom=8 on=p`), at most one move per sentence, then `camera reset` to give the context back. Only on `axes` and `plane`.
 - After a numeric example, morph the formula to its general form (3² + 4² = 5² → a² + b² = c²).
 
 **Choosing the picture**
@@ -50,7 +51,11 @@ check: the question you end on
 | the idea is about… | show it with |
 |---|---|
 | motion, forces, physics | `schema plane` + `rect`/`circle` objects + `vector`s, moved by a `param` clock |
-| rates, change, functions, calculus | `axes` (with `xlabel`/`ylabel`) + `path`, secants/tangents (`line`), dots moving along the curve; integrals as `region … n=` slices |
+| rates, change, functions, calculus | `axes` (with `xlabel`/`ylabel`) + `path`, secants/tangents (`line`), dots moving along the curve; integrals as `region … n=` slices; the derivative as `camera zoom=50 on=f x=…` (the curve turns straight) |
+| differential equations | `slope` field + `solution from=[…]` curves (morph `from` to show other starts); for systems, `field … style=lines` + `solution of=<field>` |
+| fields: flow, force, gradient | `plane` + `field vx= vy=` (`style=lines` to read the flow, `style=flow` to feel it, arrows for "the vector at each point") |
+| optimisation, loss, potential, height | `heat` + `contour` of the same `fn`, a dot stepping downhill with `trail=all` (gradient descent) |
+| orbits, projectiles, paths of motion | the moving thing with `trail=1.5s` (or `trail=all` to keep the whole path); `camera follow=` if it leaves the view |
 | geometry, shapes, angles, proportion, area | `plane` + `polygon`/`circle`/`angle` |
 | vectors, linear algebra | `plane` + `vector`s (tip to tail, components); a matrix as a `grid` whose `m=` morphs, so the whole plane moves |
 | algorithms, data structures, code | `array` (re-mark `items=` to swap/shift: values travel), pointer labels `at=a[k]`, `code` with a moving `line=`, `table` for traces |
@@ -94,7 +99,8 @@ If no row fits, still show the thing itself rather than a chart about it.
 - Forgetting the key formula. If the plan has one, it's on stage by the end.
 - More than 10 categories makes colors repeat. Share category words for similar things.
 - `with` and `@cue` go at the start of the line they modify.
-- `line`, `arrow`, `path` and world shapes only draw on `axes` or `plane`.
+- `line`, `arrow`, `path`, world shapes, fields and trails only draw on `axes` or `plane`.
+- In `fn=`, `vx=`, `vy=` write `x*y`, not `xy` (that is one name). Fields use `x` and `y` only (and params).
 
 ## Worked examples
 

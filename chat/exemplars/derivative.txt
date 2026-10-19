@@ -13,6 +13,10 @@ Say: "Now slide Q |slide|toward P, and keep an eye on the slope."
 @slide morph h.value 2 -> 0.02 3s
 Say: "It settles on a single number: |one|one."
 @one indicate slope
+Say: "Zoom |in|in on P: up close, the curve itself is that straight line."
+@in camera zoom=12 on=p
+Say: "Back |out|out."
+@out camera reset
 Say: "That limit is the derivative: the slope of the curve |right|right at P."
 @right morph slope.tex -> "f'(2) = \lim_{h\to 0}\frac{f(2+h)-f(2)}{h} = 1" 1.2s
 Say: "Your turn: at x equals four, is the curve steeper or flatter than at two?"

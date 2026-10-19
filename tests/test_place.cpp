@@ -415,3 +415,20 @@ TEST_CASE("solve: a formula below a card in a region never lands on a fixed box 
     for (size_t j = i + 1; j < p.pos.size(); j++)
       CHECK_FALSE(overlaps(Rect::around(p.pos[i], sc.items[i].size), Rect::around(p.pos[j], sc.items[j].size)));
 }
+
+TEST_CASE("solve: fixed things that cross (axis bands at a centred origin) don't make the stage 'crowded'") {
+  Scene sc;
+  sc.stage = {40, 66, 1200, 494};
+  Item xb; xb.mode = Item::Fixed; xb.size = {1156, 22}; xb.target = {648, 328};
+  Item yb; yb.mode = Item::Fixed; yb.size = {42, 494}; yb.target = {615, 309};
+  Item dot; dot.id = "p"; dot.mode = Item::Fixed; dot.size = {14, 14}; dot.target = {514, 338};
+  Item card; card.id = "rule"; card.mode = Item::Preferred; card.size = {152, 49}; card.target = {640, 313};
+  card.region = Rect{40, 66, 1200, 165};
+  sc.items = {xb, yb, dot, card};
+  Placement p = solveBodies(sc);
+  for (auto &n : p.notes) CHECK(n.code != Code::Crowded);
+  for (int i = 0; i < 3; i++) { CHECK(p.pos[i].x == doctest::Approx(sc.items[i].target.x)); CHECK(p.pos[i].y == doctest::Approx(sc.items[i].target.y)); }
+  Rect c = Rect::around(p.pos[3], card.size);
+  CHECK_FALSE(overlaps(c, Rect::around(p.pos[0], xb.size)));
+  CHECK_FALSE(overlaps(c, Rect::around(p.pos[1], yb.size)));
+}

@@ -100,6 +100,10 @@ void Engine::drawFieldMark(Mark &m) {
   else if (k == "slope") drawSlope(m, a, c);
   else if (k == "field") drawVecField(m, a, c);
   EndScissorMode();
+  for (const TextLabel &l : markLabels(m)) { // a plate under the legend, so the field doesn't run through it
+    Rectangle b = labelBox(l);
+    DrawRectangleRounded({b.x - 6, b.y - 3, b.width + 12, b.height + 6}, 0.3f, 6, fade(col::bg, 0.85f * a));
+  }
   drawLabels(m);
 }
 
@@ -391,9 +395,9 @@ std::vector<Vector2> Engine::solutionPoints(const Mark &m) {
   const Value *of = findProp(m.props, "of");
   Mark *src = of && of->type == Value::STR ? mark(of->str) : nullptr;
   double x0 = NAN, y0 = NAN;
-  if (const Value *f = findProp(m.props, "from"); f && f->type == Value::LIST && f->list.size() >= 2) {
-    x0 = std::atof(f->list[0].c_str());
-    y0 = std::atof(f->list[1].c_str());
+  if (auto f = listNums(m, "from"); f.size() >= 2) { // eased while it morphs: the curve follows its start
+    x0 = f[0];
+    y0 = f[1];
   } else {
     bool hx, hy;
     x0 = num(m, "x", &hx);

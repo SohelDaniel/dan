@@ -11,6 +11,12 @@
   "final": 100,
   "maxOverlaps": 0
  },
+ "chat/exemplars/descent.txt": {
+  "mean": 99.7,
+  "worst": 79.4,
+  "final": 100,
+  "maxOverlaps": 1
+ },
  "chat/exemplars/newton.txt": {
   "mean": 100,
   "worst": 100,
@@ -60,6 +66,12 @@
   "maxOverlaps": 1
  },
  "scripts/energy.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/fields.txt": {
   "mean": 100,
   "worst": 100,
   "final": 100,
