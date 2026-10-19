@@ -551,6 +551,8 @@ LinkGeom Engine::linkGeometryAt(const Link &l) {
   if (auto v = findProp(l.props, "label"); v && v->type == Value::STR) {
     g.label = v->str;
     // a named value: label="w₁₁" w=0.5 reads "w₁₁ = 0.5", and the number follows a morph
+    // (a label that already says "= …" is complete)
+    if (g.label.find('=') == std::string::npos)
     for (auto &p : l.props)
       if (p.key != "label" && p.key != "color" && p.key != "bend" && p.key != "opacity" && p.val.isNumeric()) { g.label += " = " + fmtNum(num(p.val)); break; }
   } else
