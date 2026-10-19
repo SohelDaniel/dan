@@ -490,10 +490,39 @@ void Engine::layout(float dt) {
       Mark *m = mark(id);
       if (!m || !isBlockKind(effectiveKind(*m)) || findProp(m->props, "pos") || hasPlacement(*m)) continue;
       if (isAxes(s) && findProp(m->props, "x") && findProp(m->props, "y")) continue;
+      if (opacityOf(*m) < 0.3f && m->placed) continue; // hidden: a ghost keeps its spot but takes no room
       blocks.push_back(m);
       total += bodyBounds(*m).height + 14;
     }
     bool alone = body.empty() && (s == "free" || s == "graph");
+    int declared = sceneIdx_ < sceneBlocks_.size() ? sceneBlocks_[sceneIdx_] : 0;
+    if (blocks.size() > 1 && ((!alone && total > kStage.height * 0.4f) || (alone && total > kStage.height - 8))) blockRows_ = true;
+    if (declared >= 4) blockRows_ = true; // many blocks coming: rows from the start
+    if (blockRows_ && blocks.size() > 1) {
+      // a tall stack would leave the picture no room: flow the blocks in rows, side by side
+      float x = 0, rowH = 0, y = kStage.y + 4;
+      std::vector<std::pair<Mark *, Vector2>> row;
+      auto flush = [&] {
+        float w = x - 24, x0 = kStage.x + (kStage.width - w) / 2;
+        for (auto &[bm, sz] : row) { bm->tpos = {x0 + sz.x / 2, y + rowH / 2}; bm->positioned = true; x0 += sz.x + 24; }
+        y += rowH + 14;
+        row.clear(); x = 0; rowH = 0;
+      };
+      for (Mark *m : blocks) {
+        Rectangle b = bodyBounds(*m);
+        if (!row.empty() && x + b.width > kStage.width) flush();
+        row.push_back({m, {b.width, b.height}});
+        x += b.width + 24;
+        rowH = std::max(rowH, b.height);
+      }
+      if (!row.empty()) flush();
+      total = y - kStage.y - 4;
+      if (alone) { // centre the rows vertically, as the column would be
+        float off = std::max(0.f, (kStage.height - total) / 2 - 4);
+        for (auto &id : order_) if (Mark *bm = mark(id); bm && std::find(blocks.begin(), blocks.end(), bm) != blocks.end()) bm->tpos.y += off;
+      }
+      blocks.clear(); // placed
+    }
     float y = alone ? kStage.y + std::max(4.f, (kStage.height - total) / 2) : kStage.y + 4;
     for (Mark *m : blocks) {
       float h = bodyBounds(*m).height;
@@ -501,7 +530,7 @@ void Engine::layout(float dt) {
       m->positioned = true;
       y += h + 14;
     }
-    if (!blocks.empty() && !alone) { stage.y += total + 6; stage.height -= total + 6; }
+    if (total > 0 && !alone) { stage.y += total + 6; stage.height -= total + 6; }
     // blocks placed in an edge region get that edge kept free, so the schema's picture doesn't fill it
     // (a card asked for region=bottom otherwise lands on whatever the graph or plot put there)
     float top = 0, bottom = 0, left = 0, right = 0;
@@ -546,26 +575,79 @@ void Engine::layout(float dt) {
     }
   }
 
-  // at=<thing> or at=a[3]: a pointer label sits under what it points at (and glides when re-aimed);
-  // several on one target stand side by side
+  // at=<thing> or at=a[3]: a pointer label names what it points at. Under an array cell it sits below the
+  // cell (the convention for indices); anything else gets the first free side of the target (below, right,
+  // above, left): in a column of boxes "below" is the next box. The side is kept while it stays free.
   std::map<std::string, int> total, placedAt;
   for (auto &[id, m] : marks_)
     if (auto at = findProp(m.props, "at"); at && at->type == Value::STR && !isWorldKind(effectiveKind(m))) total[at->str]++;
+  auto bodyAt = [&](const Mark &o) { // where a thing is going this frame
+    Rectangle b = bodyBounds(o);
+    b.x += o.tpos.x - o.pos.x; b.y += o.tpos.y - o.pos.y;
+    return b;
+  };
+  std::vector<Rectangle> takenPointers;
   for (auto &id : order_) {
     Mark *m = mark(id);
     if (!m || findProp(m->props, "pos") || hasPlacement(*m) || isWorldKind(effectiveKind(*m))) continue;
     const Value *at = findProp(m->props, "at");
     Rectangle box;
     if (!at || at->type != Value::STR || !anchorBox(at->str, box)) continue;
+    int cell;
+    Mark *target = mark(baseId(at->str, &cell));
+    bool arrayCell = target && effectiveKind(*target) == "array";
+    if (target && target->positioned && !arrayCell) { box.x += target->tpos.x - target->pos.x; box.y += target->tpos.y - target->pos.y; }
     int n = placedAt[at->str]++, cnt = total[at->str];
     float w = 0;
     for (auto &[oid, om] : marks_)
       if (auto oat = findProp(om.props, "at"); oat && oat->type == Value::STR && oat->str == at->str)
         w = std::max(w, measure(labelText(om), 19).x + 14);
-    m->tpos = {box.x + box.width / 2 + (n - (cnt - 1) / 2.f) * w, box.y + box.height + 52};
+    float spread = (n - (cnt - 1) / 2.f);
+    Vector2 below{box.x + box.width / 2 + spread * w, box.y + box.height + 52};
     m->anchorBottom = false;
     m->positioned = true;
     m->direct = false;
+    if (arrayCell) { m->tpos = below; continue; }
+    Vector2 sz = measure(labelText(*m), 19) + Vector2{14, 10};
+    float lh = sz.y + 4;
+    Vector2 cand[4] = {below,
+                       {box.x + box.width + 34 + sz.x / 2, box.y + box.height / 2 + spread * lh},
+                       {box.x + box.width / 2 + spread * w, box.y - 48},
+                       {box.x - 34 - sz.x / 2, box.y + box.height / 2 + spread * lh}};
+    auto rectAt = [&](Vector2 c) { return Rectangle{c.x - sz.x / 2, c.y - sz.y / 2, sz.x, sz.y}; };
+    auto clash = [&](Vector2 c) {
+      Rectangle r = rectAt(c);
+      float bad = 0;
+      if (r.x < kStage.x || r.y < kStage.y - 20 || r.x + r.width > kStage.x + kStage.width || r.y + r.height > 586) bad += 1000;
+      for (auto &oid : order_) {
+        Mark *o = mark(oid);
+        if (!o || o == m || !o->positioned || alphaOf(*o) < 0.2f) continue;
+        std::string ok = effectiveKind(*o);
+        if (ok == "param" || isFieldKind(ok) || isCurveKind(ok)) continue;
+        if (findProp(o->props, "at")) continue; // other pointers: counted below, where they really are
+        if (CheckCollisionRecs(r, bodyAt(*o))) bad += 500;
+      }
+      for (auto &t : takenPointers) if (CheckCollisionRecs(r, t)) bad += 400;
+      for (auto &[lid, l] : links_) {
+        if (alphaOf(l) < 0.2f) continue;
+        LinkGeom g = linkGeometry(l);
+        Vector2 hit; // raylib writes the crossing point unconditionally
+        for (size_t i = 1; i < g.line.size(); i++)
+          if (CheckCollisionLines(g.line[i - 1], g.line[i], {r.x, r.y}, {r.x + r.width, r.y + r.height}, &hit) ||
+              CheckCollisionLines(g.line[i - 1], g.line[i], {r.x + r.width, r.y}, {r.x, r.y + r.height}, &hit)) { bad += 60; break; }
+      }
+      return bad;
+    };
+    int side = 0;
+    auto prev = pointerSide_.find(id);
+    if (prev != pointerSide_.end() && clash(cand[prev->second]) < 60) side = prev->second; // still free: stay
+    else {
+      float best = 1e9f;
+      for (int k = 0; k < 4; k++) { float c = clash(cand[k]) + k * 5; if (c < best) { best = c; side = k; } }
+    }
+    pointerSide_[id] = side;
+    m->tpos = cand[side];
+    takenPointers.push_back(rectAt(cand[side]));
   }
 
   placeRelated(); // marks placed by words (region=, below=, …): solved against everything else on stage

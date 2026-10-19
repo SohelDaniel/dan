@@ -479,7 +479,9 @@ std::vector<TextLabel> Engine::markLabelsAt(const Mark &m) {
     L.x = std::clamp(L.x, axes_.area.x + 40, axes_.area.x + axes_.area.width - 10);
     L.y = std::clamp(L.y, axes_.area.y + 20, axes_.area.y + axes_.area.height - 10);
     std::string label = name;
-    if (hs) label += "  slope " + valueText(m, "slope");
+    // the slope, unless the name already gives it ("slope -2", "tangent: 1.5")
+    bool says = name.find("slope") != std::string::npos || std::any_of(name.begin(), name.end(), [](char c) { return std::isdigit((unsigned char)c); });
+    if (hs && !says) label += "  slope " + valueText(m, "slope");
     add(label, L + Vector2{-8, -8}, 17, 1, 1, TextLabel::Mark, "name");
   }
   return out;
@@ -599,6 +601,12 @@ LinkGeom Engine::linkGeometryAt(const Link &l) {
 } // namespace mk
 
 namespace mk {
+
+// A label being crossed by a line for more than a moment stops being sticky: it was a passing line only if it passed.
+float Engine::stickyFor(const std::string &key) {
+  auto it = crossedSince_.find(key);
+  return it == crossedSince_.end() || clock_ - it->second < 0.6f ? 130.f : 0.f;
+}
 
 // Which labels the placer may move. Names beside dots on axes and graphs, curve and line names,
 // vector names and the outside names of shapes: the ones fixed offsets put on top of each other.
@@ -772,7 +780,8 @@ void Engine::placeAllLabels(float dt) {
     r.along = p.along;
     if (auto it = obstacle.find(p.id); it != obstacle.end()) r.owner = it->second;
     if (auto s = labelSlots_.find(p.id); s != labelSlots_.end() && p.index < s->second.size()) r.prevSide = s->second[p.index].side;
-    r.sticky = 130; // a moving line crossing a label costs 120: the label rides it out instead of jumping
+    // a line sweeping past costs 120: the label rides it out instead of jumping, but only for a moment
+    r.sticky = stickyFor(p.id + "#" + std::to_string(p.index));
     reqs.push_back(r);
   }
   for (auto &pl : plinks) {
@@ -784,10 +793,22 @@ void Engine::placeAllLabels(float dt) {
     r.sides = {place::Side::C, place::Side::N, place::Side::S, place::Side::E, place::Side::W};
     r.along = pl.along;
     if (auto s = linkSlots_.find(pl.id); s != linkSlots_.end()) r.prevSide = s->second.side;
-    r.sticky = 130;
+    r.sticky = stickyFor("link:" + pl.id);
     reqs.push_back(r);
   }
   auto out = place::placeLabels(reqs, world);
+  { // which labels a line crosses now, and since when (stickiness only bridges a passing line)
+    std::vector<place::Seg> segs;
+    for (auto &st : world.strokes) for (size_t k = 1; k < st.size(); k++) segs.push_back({st[k - 1], st[k]});
+    for (size_t i = 0; i < out.size(); i++) {
+      std::string key = i < pending.size() ? pending[i].id + "#" + std::to_string(pending[i].index) : "link:" + plinks[i - pending.size()].id;
+      bool crossed = false;
+      if (out[i].shown)
+        for (auto &sg : segs) if (place::hits(sg, place::inflate(out[i].box, -2))) { crossed = true; break; }
+      if (!crossed) crossedSince_.erase(key);
+      else if (!crossedSince_.count(key)) crossedSince_[key] = clock_;
+    }
+  }
   // glide to the new spots (critically damped springs: a side change is a short move, not a jump)
   bool snap = opt_.instant || dt <= 0 || dt >= 0.5f;
   auto settle = [&](LabelSlot &s, const LabelSlot *prev) {

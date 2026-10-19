@@ -155,6 +155,11 @@ void Engine::checkBinding(size_t sayIdx, size_t nextIdx) {
     };
     for (size_t i = 0; i < words.size(); i++) {
       double v;
+      if (words[i] == "one" && i + 2 < words.size() && words[i + 1] == "point" && wordVal(words[i + 2], v) && v < 10) {
+        said.push_back({"one point " + words[i + 2], 1 + v / 10}); // "one point seven"
+        i += 2;
+        continue;
+      }
       if (words[i] == "point" && i + 1 < words.size() && wordVal(words[i + 1], v) && v < 10) { // "point six"
         if (i == 0 || !numberWords().count(words[i - 1])) said.push_back({"point " + words[i + 1], v / 10});
         i++;
@@ -180,14 +185,18 @@ void Engine::checkBinding(size_t sayIdx, size_t nextIdx) {
       // "four times, because…" is a ratio, not a value to show ("two times three" is a product: keep it)
       double nx;
       if (i + 1 < words.size() && words[i + 1] == "times" && !(i + 2 < words.size() && wordVal(words[i + 2], nx))) continue;
+      if (i + 1 < words.size() && words[i + 1] == "percent") { spoken += " percent"; v = -v; } // checked as v/100 too
       said.push_back({spoken, v});
     }
-    for (auto &[word, v] : said) {
+    for (auto &[word, vs] : said) {
+      bool percent = vs < 0;
+      double v = std::fabs(vs);
       bool shown = false;
       // as text on stage: a number token equal to it (signs and trailing zeros aside)
       static const std::regex num(R"(-?\d+(\.\d+)?)");
       for (std::sregex_iterator r(allText.begin(), allText.end(), num), e; r != e && !shown; ++r)
-        if (std::fabs(std::fabs(std::stod(r->str())) - v) < 1e-9) shown = true;
+        if (std::fabs(std::fabs(std::stod(r->str())) - v) < 1e-9 || (percent && std::fabs(std::fabs(std::stod(r->str())) - v / 100) < 1e-9))
+          shown = true;
       // or as a count of what is visible
       if (counted((int)v)) shown = true;
       if (!shown) issue("says \"" + word + "\", but no " + fmtNum(v) + " is on stage and nothing visible counts " +

@@ -1,0 +1,25 @@
+# Pointers that name things in a column of boxes (each takes a free side), a crowded band of blocks that flows in
+# rows, a short link with a long label, and the array conventions (a pointer under a cell, a span bracket).
+title "Pointers and crowded stages"
+schema graph
+mark it box input label="it"
+mark cat box word label="cat"
+mark was box word label="was"
+mark tired box word label="tired"
+link a1 arrow it -> cat label="score" w=0.73 color=orange
+link a2 arrow it -> was w=0.04
+link a3 arrow it -> tired w=0.2
+Say: "Each word |key|offers a key, and the asking word carries a query."
+@key mark k1 label text="key" at=cat
+with mark k2 label text="key" at=was
+with mark k3 label text="key" at=tired
+with mark q label text="query" at=it
+Say: "The scores |go|go into a formula, a small table and some code."
+@go mark eq tex tex="\text{new}_{it} = \sum_j \textcolor{orange}{\alpha_j}\, v_j"
+with mark t table cols=3 cells=[word,score,share, cat,3,0.73, tired,1.7,0.2]
+with mark src code text="float s = dot(q, k);\nfloat a = softmax(s);" line=1 label="attend.cpp"
+Say: "And in an |arr|array, pointers sit under their cells."
+@arr mark a array items=[2,5,8,12] label="positions"
+with mark lo label text="lo" at=a[0]
+with mark win label text="window" at=a[1:3]
+Say: "That is all."

@@ -112,7 +112,13 @@ void Engine::analyze(bool fresh) {
   };
   bool hasAxes = false, hasT = false, hasLinks = false, hasMag = false, hasWorld = false, hasFn = false;
   autoSchemas_.clear();
+  int blockLines = 0; // blocks this scene will hold (to choose the band's arrangement before they arrive)
+  std::set<std::string> sceneBlockIds;
+  sceneBlocks_.clear();
   auto closeScene = [&] {
+    sceneBlocks_.push_back(blockLines);
+    blockLines = 0;
+    sceneBlockIds.clear();
     autoSchemas_.push_back(hasWorld && !hasFn ? "plane"
                            : hasAxes          ? "axes"
                            : hasT             ? "timeline"
@@ -138,6 +144,7 @@ void Engine::analyze(bool fresh) {
       }
       if (ln.kind == "path" || ln.kind == "region") hasAxes = hasFn = true;
       if (isWorldKind(ln.kind)) hasWorld = true;
+      if (isBlockKind(ln.kind) && sceneBlockIds.insert(ln.id).second) blockLines++;
       if (ln.kind == "slope") hasAxes = hasFn = true;                                   // y against x
       else if (isFieldKind(ln.kind) || ln.kind == "solution") { hasWorld = true; hasFn = false; } // the plane
       break;
@@ -541,6 +548,9 @@ void Engine::clearStage() {
   rangeSig_.clear();
   rangesInit_ = false;
   cam_ = Camera{};
+  blockRows_ = false;
+  pointerSide_.clear();
+  crossedSince_.clear();
   clearFieldCaches();
   hist_.clear();
   bornAt_.clear();

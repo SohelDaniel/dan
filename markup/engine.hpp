@@ -404,6 +404,11 @@ private:
     std::string spec;         // the camera line as written back by readback
   } cam_;
   float lastDt_ = 0;
+  std::map<std::string, int> pointerSide_;
+  std::vector<int> sceneBlocks_;   // per scene: how many blocks its script declares
+  bool blockRows_ = false;         // this scene's blocks flow in rows (once chosen, kept: no mid-scene reshuffle)
+  std::map<std::string, float> crossedSince_; // label key -> when a line started crossing it
+  float stickyFor(const std::string &key); // pointer label id -> side it took (0 below, 1 right, 2 above, 3 left)
   bool camPoint(const std::string &id, const Props &req, double &x, double &y);
   bool camBox(const std::vector<std::string> &ids, double &x0, double &x1, double &y0, double &y1);
   void camApply(Rectangle area);  // called by layoutAxes once the schema's view is known

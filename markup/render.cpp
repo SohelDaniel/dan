@@ -62,7 +62,7 @@ std::string Engine::labelText(const Mark &m) {
 // \textcolor{id}{…} takes that thing's color and stays lit while the voice is about it;
 // when the formula changes, glyphs the two formulas share glide to their new places.
 void Engine::drawTex(const Mark &m) {
-  float a0 = easeOut(std::clamp(m.appear, 0.f, 1.f)) * stageFade_;
+  float a0 = easeOut(std::clamp(m.appear, 0.f, 1.f)) * stageFade_ * opacityOf(m); // hide fades a formula too
   if (a0 <= 0.003f) return;
   TexPtr now = texNow(m);
   if (!now) { text("…", m.pos, 22, fade(col::muted, a0), 0.5f, 0.5f); return; }
@@ -512,6 +512,20 @@ void Engine::drawMark(const Mark &mc) {
     if (auto at = findProp(m.props, "at"); at && at->type == Value::STR && anchorBox(at->str, box)) {
       // up to the target, clear of the index row; glides with the label, stays within the target
       Vector2 tip{std::clamp(m.pos.x, box.x + 8, box.x + box.width - 8), box.y + box.height + 22};
+      int cell;
+      Mark *tg = mark(baseId(at->str, &cell));
+      if (tg && effectiveKind(*tg) != "array" && !(m.pos.y > box.y + box.height + 20)) {
+        // beside or above its target: an arrow from the label's facing edge to the target's edge
+        Vector2 sz = measure(t, 19);
+        Rectangle lr{m.pos.x - sz.x / 2 - 4, m.pos.y - sz.y / 2 - 3, sz.x + 8, sz.y + 6};
+        Vector2 bc{box.x + box.width / 2, box.y + box.height / 2};
+        Vector2 to = rectEdgePoint(box, m.pos), from = rectEdgePoint(lr, bc);
+        Vector2 d = to - from;
+        float dl = len(d);
+        if (dl > 14) arrow(from + d * (2 / dl), to - d * (6 / dl), 2.5f, fade(c, a), 10);
+        text(t, m.pos, 19, fade(c, a), 0.5f, 0.5f);
+        return;
+      }
       if (at->str.find(':') != std::string::npos) { // a span: a bracket under the cells it covers
         float y = box.y + box.height + 26;
         DrawLineEx({box.x + 4, y}, {box.x + box.width - 4, y}, 2.5f, fade(c, a));

@@ -113,6 +113,12 @@
   "final": 100,
   "maxOverlaps": 0
  },
+ "scripts/pointers.txt": {
+  "mean": 98.8,
+  "worst": 61.5,
+  "final": 100,
+  "maxOverlaps": 3
+ },
  "scripts/recursion.txt": {
   "mean": 100,
   "worst": 100,
