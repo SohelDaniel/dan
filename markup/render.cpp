@@ -608,7 +608,11 @@ void Engine::drawLink(const Link &l) {
     else if (arrowHead && frac > 0.98f) arrow(g.pa, g.pb, 3, c, 16);
     else DrawLineEx(g.pa, end, 3, c);
   }
-  if (!g.label.empty() && frac > 0.6f) textBg(g.label, g.mid, 18, fade(col::fg, a), fade(col::bg, a * 0.9f), 0.5f, 0.5f, 6);
+  if (!g.label.empty() && frac > 0.6f) { // a coloured link names itself in its colour
+    Color tc = col::fg;
+    if (auto cv = findProp(l.props, "color"); cv && cv->type == Value::STR) colorByName(cv->str, tc);
+    textBg(g.label, g.mid, 18, fade(tc, a), fade(col::bg, a * 0.9f), 0.5f, 0.5f, 6);
+  }
 }
 
 void Engine::drawGroup(const Group &g) {

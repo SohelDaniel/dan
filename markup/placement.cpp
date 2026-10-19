@@ -715,8 +715,18 @@ void Engine::placeAllLabels(float dt) {
       size_t i0 = std::min((size_t)f, g.line.size() - 2);
       return lerp(g.line[i0], g.line[i0 + 1], f - i0);
     };
-    for (float t : {0.5f, 0.35f, 0.65f, 0.25f, 0.75f}) {
-      Vector2 q = at(t);
+    // many links into one thing: stagger their labels along the links, so they don't stack in one
+    // column near the middle where the links converge
+    int n = 0, k = 0;
+    for (auto &oid : order_)
+      if (auto o = links_.find(oid); o != links_.end() && o->second.b == lt->second.b && alphaOf(o->second) >= 0.05f) {
+        if (oid == id) k = n;
+        n++;
+      }
+    float t0 = n >= 3 ? 0.22f + 0.5f * k / (n - 1) : 0.5f;
+    { Vector2 a0 = at(t0); pl.mid = {a0.x, a0.y}; }
+    for (float t : {t0, t0 - 0.08f, t0 + 0.08f, 0.5f, 0.35f, 0.65f}) {
+      Vector2 q = at(std::clamp(t, 0.15f, 0.85f));
       pl.along.push_back({q.x, q.y});
     }
     plinks.push_back(pl);

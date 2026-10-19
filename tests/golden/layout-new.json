@@ -17,6 +17,12 @@
   "final": 100,
   "maxOverlaps": 1
  },
+ "chat/exemplars/median.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
  "chat/exemplars/newton.txt": {
   "mean": 100,
   "worst": 100,

@@ -6,16 +6,22 @@
   "maxOverlaps": 0
  },
  "chat/exemplars/derivative.txt": {
-  "mean": 97.7,
+  "mean": 97.8,
   "worst": 81.8,
   "final": 100,
   "maxOverlaps": 1
  },
  "chat/exemplars/descent.txt": {
-  "mean": 91.1,
-  "worst": 79.9,
-  "final": 79.9,
+  "mean": 94,
+  "worst": 85.2,
+  "final": 85.2,
   "maxOverlaps": 1
+ },
+ "chat/exemplars/median.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
  },
  "chat/exemplars/newton.txt": {
   "mean": 100,

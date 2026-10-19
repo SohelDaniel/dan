@@ -502,6 +502,24 @@ void Engine::layout(float dt) {
       y += h + 14;
     }
     if (!blocks.empty() && !alone) { stage.y += total + 6; stage.height -= total + 6; }
+    // blocks placed in an edge region get that edge kept free, so the schema's picture doesn't fill it
+    // (a card asked for region=bottom otherwise lands on whatever the graph or plot put there)
+    float top = 0, bottom = 0, left = 0, right = 0;
+    for (auto &id : order_) {
+      Mark *m = mark(id);
+      if (!m || !isBlockKind(effectiveKind(*m)) || m->appear <= 0) continue;
+      const Value *r = findProp(m->props, "region");
+      if (!r || r->type != Value::STR) continue;
+      Rectangle b = bodyBounds(*m);
+      const std::string &rg = r->str;
+      if (rg.rfind("top", 0) == 0) top = std::max(top, b.height + 14);
+      else if (rg.rfind("bottom", 0) == 0) bottom = std::max(bottom, b.height + 14);
+      else if (rg == "left") left = std::max(left, b.width + 14);
+      else if (rg == "right") right = std::max(right, b.width + 14);
+    }
+    top = std::min(top, stage.height * 0.35f); bottom = std::min(bottom, stage.height * 0.35f);
+    left = std::min(left, stage.width * 0.35f); right = std::min(right, stage.width * 0.35f);
+    stage = {stage.x + left, stage.y + top, stage.width - left - right, stage.height - top - bottom};
   }
 
   if (s == "free") layoutFree(stage, body);
