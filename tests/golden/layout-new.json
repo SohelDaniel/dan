@@ -12,8 +12,8 @@
   "maxOverlaps": 0
  },
  "chat/exemplars/descent.txt": {
-  "mean": 99.7,
-  "worst": 79.4,
+  "mean": 99.8,
+  "worst": 86.4,
   "final": 100,
   "maxOverlaps": 1
  },
@@ -48,8 +48,8 @@
   "maxOverlaps": 0
  },
  "scripts/compound.txt": {
-  "mean": 99.8,
-  "worst": 84.4,
+  "mean": 99.9,
+  "worst": 87.7,
   "final": 100,
   "maxOverlaps": 1
  },
@@ -120,8 +120,8 @@
   "maxOverlaps": 0
  },
  "scripts/showcase.txt": {
-  "mean": 99.4,
-  "worst": 72.2,
+  "mean": 99.5,
+  "worst": 80,
   "final": 100,
   "maxOverlaps": 1
  },

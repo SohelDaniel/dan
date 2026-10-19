@@ -133,6 +133,8 @@ int main(int argc, char **argv) {
     for (size_t i = 0; i < finalMsgs.size(); i++) std::fprintf(f, "%s\"%s\"", i ? "," : "", esc(finalMsgs[i]).c_str());
     std::fprintf(f, "],\"worstAt\":%.1f,\"worstIssues\":[", worstAt);
     for (size_t i = 0; i < worstMsgs.size(); i++) std::fprintf(f, "%s\"%s\"", i ? "," : "", esc(worstMsgs[i]).c_str());
+    std::fprintf(f, "],\"flips\":[");
+    for (size_t i = 0; i < eng.flipLog.size(); i++) std::fprintf(f, "%s\"%s\"", i ? "," : "", esc(eng.flipLog[i]).c_str());
     std::fprintf(f, "]}\n");
     if (f != stdout) std::fclose(f);
     return 0;

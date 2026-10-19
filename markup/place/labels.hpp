@@ -16,6 +16,7 @@ struct LabelReq {
   std::vector<Side> sides;        // allowed sides, best first (empty: S, E, N, W, then diagonals)
   std::vector<Vec> along;         // extra candidate centres (e.g. points near a curve's end)
   int prevSide = -1;              // where it was last time (index into sides, or -2 for an `along` spot)
+  float sticky = 0;               // extra worth of staying put: a thin line sweeping past beats a jump
   int owner = -1;                 // obstacle index of the thing it names (it may sit on it)
 };
 

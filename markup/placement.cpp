@@ -679,7 +679,19 @@ void Engine::placeAllLabels(float dt) {
         }
       } else if ((k == "line" || k == "arrow" || k == "vector") && stroke.size() == 2) { // by its far end, or its middle
         Vector2 e = stroke[1];
-        if (k != "vector") { // a line's far end can be off the axes: use where it leaves them
+        bool tangent = false;
+        if (k == "line" && findProp(m->props, "slope")) { // a line through a point (a tangent): its name stays near
+          bool hx, hy;                                     // that point, a fixed way along it, so it rides the line
+          double px = num(*m, "x", &hx), py = num(*m, "y", &hy);
+          Vector2 d = stroke[1] - stroke[0];
+          float dl = len(d);
+          if (hx && hy && dl > 1) {
+            if (d.x < 0) d = d * -1.f;
+            e = axes_.toScreen((float)px, (float)py) + d * (120.f / dl);
+            tangent = true;
+          }
+        }
+        if (k != "vector" && !tangent) { // a line's far end can be off the axes: use where it leaves them
           e.x = std::clamp(e.x, axes_.area.x + 40, axes_.area.x + axes_.area.width - 10);
           e.y = std::clamp(e.y, axes_.area.y + 20, axes_.area.y + axes_.area.height - 10);
         }
@@ -687,6 +699,18 @@ void Engine::placeAllLabels(float dt) {
         p.sides = {S::NE, S::NW, S::SE, S::SW, S::E, S::W, S::N, S::S};
         Vector2 mid = lerp(stroke[0], stroke[1], 0.5f);
         p.along = {{mid.x, mid.y - box.height / 2 - 10}, {mid.x, mid.y + box.height / 2 + 10}};
+        if (tangent) { // further along the line, either way, above or below it
+          Vector2 d = stroke[1] - stroke[0];
+          d = d * (1.f / std::max(1.f, len(d)));
+          if (d.x < 0) d = d * -1.f;
+          Vector2 c0 = e - d * 120.f;
+          p.along.clear();
+          for (float dist : {180.f, -150.f, 250.f, -220.f})
+            for (float side : {-1.f, 1.f}) {
+              Vector2 q = c0 + d * dist;
+              p.along.push_back({q.x, q.y + side * (box.height / 2 + 12)});
+            }
+        }
       } else {
         p.anchor = bodyBounds(*m);
         p.sides = {S::S, S::N, S::E, S::W};
@@ -748,6 +772,7 @@ void Engine::placeAllLabels(float dt) {
     r.along = p.along;
     if (auto it = obstacle.find(p.id); it != obstacle.end()) r.owner = it->second;
     if (auto s = labelSlots_.find(p.id); s != labelSlots_.end() && p.index < s->second.size()) r.prevSide = s->second[p.index].side;
+    r.sticky = 130; // a moving line crossing a label costs 120: the label rides it out instead of jumping
     reqs.push_back(r);
   }
   for (auto &pl : plinks) {
@@ -759,6 +784,7 @@ void Engine::placeAllLabels(float dt) {
     r.sides = {place::Side::C, place::Side::N, place::Side::S, place::Side::E, place::Side::W};
     r.along = pl.along;
     if (auto s = linkSlots_.find(pl.id); s != linkSlots_.end()) r.prevSide = s->second.side;
+    r.sticky = 130;
     reqs.push_back(r);
   }
   auto out = place::placeLabels(reqs, world);
@@ -792,7 +818,14 @@ void Engine::placeAllLabels(float dt) {
       prev = &it->second[pending[i].index];
     settle(s, prev);
     v[pending[i].index] = s;
-    if (reqs[i].prevSide != -1 && reqs[i].prevSide != out[i].side) labelFlips++;
+    if (reqs[i].prevSide != -1 && reqs[i].prevSide != out[i].side) {
+      labelFlips++;
+      if (flipLog.size() < 40) {
+        char b[96];
+        std::snprintf(b, sizeof b, "%.1fs %s#%zu %d->%d", clock_, pending[i].id.c_str(), pending[i].index, reqs[i].prevSide, out[i].side);
+        flipLog.push_back(b);
+      }
+    }
   }
   std::map<std::string, LabelSlot> lslots;
   for (size_t i = 0; i < plinks.size(); i++) {

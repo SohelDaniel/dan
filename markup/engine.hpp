@@ -204,6 +204,7 @@ public:
   std::map<std::string, std::vector<LabelSlot>> labelSlots_;
   std::map<std::string, LabelSlot> linkSlots_;
   int labelFlips = 0;                   // labels that changed side between frames (stability metric)
+  std::vector<std::string> flipLog;     // which, when (the first 40), for the layout report
   // curve and line geometry shared by drawing and labels
   std::vector<Vector2> curvePoints(const Mark &m);
   bool lineEnds(const Mark &m, Vector2 &a, Vector2 &b, bool &hasSlope);

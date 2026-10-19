@@ -58,7 +58,7 @@ std::vector<LabelOut> placeLabels(const std::vector<LabelReq> &reqs, const Label
         if (overlaps(box, o)) c += 2500 + 3000 * std::min(1.f, overlapArea(box, o) / boxArea);
       }
     }
-    if (same) c -= 3 + 0.2f * c; // hysteresis: worth one step of preference, never worth an overlap
+    if (same) c -= 3 + 0.2f * c + r.sticky; // hysteresis: a step of preference (and a crossing line), never an overlap
     return c;
   };
 
