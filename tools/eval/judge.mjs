@@ -16,7 +16,10 @@ const variants = flag('--variants', 'base,method,full').split(',');
 const model = flag('--model', 'sonnet');
 const jobs = Number(flag('--jobs', 4));
 const ENV = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^CLAUDECODE$|^CLAUDE_CODE_|^CLAUDE_PID$|^CLAUDE_EFFORT$/.test(k)));
-const KEYS = ['representation', 'concrete_first', 'key_idea_on_stage', 'sync_pointing', 'check_question', 'layout', 'accuracy', 'teaching'];
+const rubricName = flag('--rubric', 'v1');
+const KEYS = rubricName === 'v2'
+  ? ['fit', 'binding', 'natural', 'picture', 'layout', 'accuracy', 'teaching']
+  : ['representation', 'concrete_first', 'key_idea_on_stage', 'sync_pointing', 'check_question', 'layout', 'accuracy', 'teaching'];
 
 const RUBRIC = `You are an expert teacher and visual designer judging one answer from an AI tutor.
 The tutor answers by speaking (every \`Say:\` line is narrated) while an engine animates the markup;
@@ -34,13 +37,41 @@ Score each criterion 1-5 (5 = excellent):
 
 Reply with ONLY a JSON object: {"representation":n,"concrete_first":n,"key_idea_on_stage":n,"sync_pointing":n,"check_question":n,"layout":n,"accuracy":n,"teaching":n,"notes":"<= 40 words: the biggest weakness"}`;
 
+// v2: judges the decision (does the answer's shape fit the question?) and the binding of words to picture
+const RUBRIC_V2 = `You are an expert teacher and visual designer judging one turn of an AI visual tutor (a conversational
+assistant, not a video). The tutor speaks (every \`Say:\` line is narrated) while an engine animates the markup;
+\`|cue|\` markers fire the \`@cue\` lines on that word. Judge what this learner would experience.
+
+Score each criterion 1-5 (5 = excellent):
+- fit: the answer's shape and length fit THIS question and learner. A quick fact gets a quick answer (answer first,
+  one picture); a "why" gets the mechanism; a how-to gets worked steps; a comparison shows both on one picture; a
+  big compound question gets a short map of the parts and a sensible first chunk (or an offer to continue), not one
+  part answered as if it were everything; a follow-up answers the new part using what is already on stage; an
+  expert gets the intuition fast without a beginner's ramp.
+- binding: whenever the narration states a count, a sameness/sharing, a distinctness ("each has its own"), a
+  quantity, a symbol, or a process, the picture shows it at that moment (labels, shared colours, numbers, motion,
+  formula symbols coloured like their things). Metaphors and asides need not be drawn; do not reward clutter.
+- natural: sounds like a person answering, not a template (no ritual "Your turn" or stock openers; a question at
+  the end only when it genuinely helps).
+- picture: the representation suits the idea (the mechanism itself, in the fewest dimensions that hold the claim).
+- layout: frames legible, nothing overlapping or cut off (judge the frames).
+- accuracy: everything said and shown is correct.
+- teaching: overall, would this learner come away understanding what they asked?
+
+Reply with ONLY a JSON object: {"fit":n,"binding":n,"natural":n,"picture":n,"layout":n,"accuracy":n,"teaching":n,"notes":"<= 40 words: the biggest weakness"}`;
+
 function judge(dir) {
   return new Promise((resolve) => {
     const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8'));
-    const scene = fs.readFileSync(path.join(dir, 'scene.txt'), 'utf8');
+    let scene = fs.readFileSync(path.join(dir, 'scene.txt'), 'utf8');
+    if (meta.prior && fs.existsSync(path.join(dir, 'played.txt'))) { // a follow-up: the stage it started from, then its lines
+      const played = fs.readFileSync(path.join(dir, 'played.txt'), 'utf8');
+      scene = '# --- already on stage ---\n' + played.slice(0, played.length - scene.length) + '# --- this turn ---\n' + scene;
+    }
     const check = fs.readFileSync(path.join(dir, 'check.txt'), 'utf8');
     const frames = fs.readdirSync(dir).filter((f) => f.startsWith('frame_') && f.endsWith('.png')).sort();
-    const prompt = `${RUBRIC}\n\nThe learner asked: "${meta.q}"\n\nThe script:\n\`\`\`\n${scene}\n\`\`\`\n\nEngine check:\n${check}\n\n` +
+    const asked = meta.prior ? `Earlier the learner asked "${meta.prior}" (answered on the stage shown before the new lines). Now they ask: "${meta.q}"` : `The learner asked: "${meta.q}"`;
+    const prompt = `${rubricName === 'v2' ? RUBRIC_V2 : RUBRIC}\n\n${asked}\n\nThe script:\n\`\`\`\n${scene}\n\`\`\`\n\nEngine check:\n${check}\n\n` +
       `Look at these rendered frames with the Read tool before scoring (early, middle, end): ${frames.map((f) => path.join(dir, f)).join(', ')}` +
       (frames.length ? '' : '\n(No frames: the scene did not render. Score layout 1.)');
     const c = spawn('claude', ['-p', prompt, '--output-format', 'json', '--model', model, '--effort', 'low',
@@ -83,6 +114,8 @@ for (const v of variants) {
   rows.push({ variant: v, n: scores.length, ...Object.fromEntries(KEYS.map((k) => [k, mean(k)])),
     layout_geom: geoms.length ? (geoms.reduce((a, b) => a + b, 0) / geoms.length).toFixed(1) : '-',
     pos: `${metas.filter((m) => m.usesPos).length}/${metas.length}`,
+    yourTurn: `${metas.filter((m) => m.yourTurn).length}/${metas.length}`,
+    says: (metas.reduce((a, m) => a + m.says, 0) / Math.max(1, metas.length)).toFixed(1),
     checkOk: `${metas.filter((m) => m.ok).length}/${metas.length}`,
     secs: (metas.reduce((a, m) => a + m.secs, 0) / Math.max(1, metas.length)).toFixed(1) });
 }

@@ -1,0 +1,16 @@
+[
+  {"id": "relu", "type": "fact", "q": "what is relu?"},
+  {"id": "zero", "type": "fact", "q": "is zero even?"},
+  {"id": "chainrule", "type": "why", "q": "Why does backpropagation need the chain rule?"},
+  {"id": "matmul", "type": "how", "q": "How do I multiply two matrices?"},
+  {"id": "cnn_vs_dense", "type": "compare", "q": "What's the difference between a CNN and a normal neural network?"},
+  {"id": "softmax", "type": "interpret", "q": "What does the softmax formula e^(z_i) / sum_j e^(z_j) actually do?"},
+  {"id": "compound", "type": "compound", "q": "explain convelutional neural networks and the diffrence between it and normal one with softmax and relu and cross entropy loss and backprobigation"},
+  {"id": "layer", "type": "why", "q": "how does one layer of a neural network compute its output?"},
+  {"id": "gd", "type": "why", "q": "explain gradient decent"},
+  {"id": "expert", "type": "expert", "q": "I'm an ML engineer. Quick intuition: why does the gradient of cross-entropy after softmax come out as p minus y?"},
+  {"id": "followup", "type": "followup", "q": "wait, why do the steps get smaller near the bottom?",
+   "prior": "explain gradient decent",
+   "stage": "title \"Gradient descent\"\nschema axes x=[-1,9] y=[-1,13] xlabel=\"weight w\" ylabel=\"loss L(w)\"\nmark f path fn={(x-4)^2/2} label=\"L(w)\"\nmark p dot x=3.5 y=0.125 trail=all label=\"you\"\nmark rule tex tex=\"w \\leftarrow w - \\eta\\,L'(w)\" region=top"},
+  {"id": "mean_median", "type": "compare", "q": "mean vs median, when do they differ?"}
+]

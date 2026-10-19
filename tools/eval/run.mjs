@@ -48,7 +48,10 @@ function generate(p) {
     const dir = path.join(OUT, p.id);
     fs.mkdirSync(dir, { recursive: true });
     const t0 = Date.now();
-    const c = spawn('claude', ['-p', `<stage>\n(empty)\n</stage>\n\nLearner: ${p.q}`, '--output-format', 'json',
+    // a follow-up starts from a stage and an earlier question (as the chat server sends them)
+    const ctx = (p.prior ? `<history>\nLearner: ${p.prior}\n(you answered it on the stage below)\n</history>\n\n` : '') +
+      `<stage>\n${p.stage || '(empty)'}\n</stage>\n\nLearner: ${p.q}`;
+    const c = spawn('claude', ['-p', ctx, '--output-format', 'json',
       '--tools', '', '--strict-mcp-config', '--model', model, '--effort', 'low', '--append-system-prompt', SYSTEM],
     { cwd: dir, env: ENV });
     let out = '';
@@ -61,25 +64,28 @@ function generate(p) {
       fs.writeFileSync(path.join(dir, 'plan.txt'), block(reply, 'plan'));
       const scene = block(reply, 'scene');
       fs.writeFileSync(path.join(dir, 'scene.txt'), scene);
-      const chk = spawnSync(TUTOR, [path.join(dir, 'scene.txt'), '--check'], { cwd: ROOT, encoding: 'utf8' });
+      // what plays: a follow-up is appended to the stage it started from
+      const played = p.stage ? p.stage + '\n' + scene : scene;
+      fs.writeFileSync(path.join(dir, 'played.txt'), played);
+      const chk = spawnSync(TUTOR, [path.join(dir, 'played.txt'), '--check'], { cwd: ROOT, encoding: 'utf8' });
       fs.writeFileSync(path.join(dir, 'check.txt'), (chk.stdout || '') + (chk.stderr || ''));
       // frames: early, middle, end (muted timing). Rendering opens a hidden window, which can fail
       // when many start at once: retry, and say so if it still fails (the judge must not score blind)
       for (let attempt = 0; attempt < 3; attempt++) {
-        spawnSync(TUTOR, [path.join(dir, 'scene.txt'), '--snapshot', path.join(dir, 'frame'), '--at', '6,14,end'],
+        spawnSync(TUTOR, [path.join(dir, 'played.txt'), '--snapshot', path.join(dir, 'frame'), '--at', '6,14,end'],
           { cwd: ROOT, encoding: 'utf8' });
         if (fs.readdirSync(dir).some((f) => f.startsWith('frame_'))) break;
         if (attempt === 2) console.warn(`${variant}/${p.id}: frames failed to render`);
       }
       // the exact layout checker (geometry), next to the judge's impression of the frames
-      const lr = spawnSync(TUTOR, [path.join(dir, 'scene.txt'), '--layout-report', '-'], { cwd: ROOT, encoding: 'utf8' });
+      const lr = spawnSync(TUTOR, [path.join(dir, 'played.txt'), '--layout-report', '-'], { cwd: ROOT, encoding: 'utf8' });
       let layout = null;
       try { layout = JSON.parse(lr.stdout.trim().split('\n').pop()); fs.writeFileSync(path.join(dir, 'layout.json'), JSON.stringify(layout)); } catch {}
       const says = scene.split('\n').filter((l) => l.trim().startsWith('Say:'));
-      const meta = { id: p.id, subject: p.subject, q: p.q, variant, model, secs, ok: chk.status === 0,
+      const meta = { id: p.id, subject: p.subject, type: p.type, q: p.q, prior: p.prior, variant, model, secs, ok: chk.status === 0,
         says: says.length, lastSay: says.at(-1) || '', lines: scene.split('\n').filter((l) => l.trim()).length,
         layoutGeom: layout ? layout.mean : null, layoutWorst: layout ? layout.worst : null,
-        usesPos: /\bpos=/.test(scene), usesNew: (scene.match(/\b(camera|trail=|field|slope|solution|heat|contour)\b/g) || []).filter((v, i, a) => a.indexOf(v) === i), usesWords: /\b(region|below|above|left-of|right-of|near|align|on|in|over)=/.test(scene) };
+        usesPos: /\bpos=/.test(scene), usesNew: (scene.match(/\b(camera|trail=|field|slope|solution|heat|contour)\b/g) || []).filter((v, i, a) => a.indexOf(v) === i), yourTurn: /your turn/i.test(scene), usesWords: /\b(region|below|above|left-of|right-of|near|align|on|in|over)=/.test(scene) };
       fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(meta, null, 1));
       console.log(`${variant}/${p.id}: ${secs.toFixed(1)}s, check ${meta.ok ? 'ok' : 'FAIL'}, ${meta.says} Say`);
       resolve(meta);
