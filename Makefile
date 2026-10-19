@@ -6,7 +6,7 @@ FRAMEWORKS := -framework CoreVideo -framework IOKit -framework Cocoa -framework 
 LIB_SRC := rm/raymanim.cpp markup/viz/viz.cpp
 PLACE_SRC := $(wildcard markup/place/*.cpp)
 VIZ_SRC := $(wildcard markup/viz/*.cpp)
-MK_SRC  := $(PLACE_SRC) markup/placement.cpp markup/camera.cpp markup/fields.cpp markup/expr.cpp markup/script.cpp markup/engine.cpp markup/layout.cpp markup/render.cpp markup/tts.cpp markup/tex.cpp
+MK_SRC  := $(PLACE_SRC) markup/placement.cpp markup/camera.cpp markup/fields.cpp markup/trails.cpp markup/expr.cpp markup/script.cpp markup/engine.cpp markup/layout.cpp markup/render.cpp markup/tts.cpp markup/tex.cpp
 
 all: tutor manim_demo
 

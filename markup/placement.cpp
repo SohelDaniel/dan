@@ -107,6 +107,11 @@ place::Picture Engine::picture() {
       idx[id] = lineInk(id, inkName(*m), {s0, e1}, owner, -1);
     }
   }
+  for (auto &id : order_) // trails: strokes owned by the thing that leaves them
+    if (Mark *m = mark(id); m && m->positioned && findProp(m->props, "trail") && isAxes(schemaNow())) {
+      int owner = idx.count(id) ? idx[id] : -1;
+      lineInk(id + "~trail", "the trail of '" + id + "'", trailLine(*m), owner, -1);
+    }
   // labels: every mark's outside text, owned by the mark (so a name may sit on its own thing)
   for (auto &id : order_) {
     Mark *m = mark(id);
@@ -639,6 +644,11 @@ void Engine::placeAllLabels(float dt) {
       else if (k == "vector") { Vector2 a, b; if (vectorEnds(*m, a, b)) stroke = {a, b}; }
     }
     if (!stroke.empty()) world.strokes.push_back(thin(stroke));
+    if (findProp(m->props, "trail") && isAxes(schemaNow())) { // labels keep off trails too
+      std::vector<place::Vec> tl;
+      for (auto &q : trailLine(*m)) tl.push_back({q.x, q.y});
+      if (tl.size() > 1) world.strokes.push_back(tl);
+    }
     auto labels = markLabelsAt(*m);
     for (size_t i = 0; i < labels.size(); i++) {
       const TextLabel &l = labels[i];

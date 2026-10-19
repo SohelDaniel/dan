@@ -53,6 +53,12 @@
   "final": 100,
   "maxOverlaps": 5
  },
+ "scripts/descent.txt": {
+  "mean": 99.9,
+  "worst": 97.2,
+  "final": 100,
+  "maxOverlaps": 1
+ },
  "scripts/energy.txt": {
   "mean": 100,
   "worst": 100,

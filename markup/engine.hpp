@@ -243,6 +243,7 @@ private:
   void doGroup(const Line &ln);
   void doMorph(const Line &ln);
   void doCamera(const Line &ln);
+  void settleActive(const std::string &id, const std::string &prop);
   void startSay(const Line &ln);
   void fireHook(const std::string &name);
   void closeSentence();                    // run this sentence's cued lines that never got their cue
@@ -413,6 +414,31 @@ private:
   struct StreamCache { std::string sig; std::vector<std::vector<viz::V2>> lines; std::vector<std::vector<float>> mags; };
   std::map<std::string, StreamCache> streamCache_;
   std::map<std::string, Texture2D> heatTex_;
+
+  // ---- history and trails (trails.cpp). Every numeric change is recorded as a segment (when, how long,
+  // from, to, ease), so any mark's position at any past time can be evaluated exactly: trails are
+  // recomputed from the motion, not accumulated per frame, so they are the same at any frame rate, in
+  // snapshots, after a skip or after appended lines.
+  struct HistSeg {
+    double t0 = 0;
+    float dur = 0;
+    double from = 0, to = 0;
+    rm::RateFunc ease = nullptr;
+    Value final, before;      // the value it ends at; the value it had before (for times earlier than this)
+    bool set = false;         // an instant change
+  };
+  std::map<std::string, std::vector<HistSeg>> hist_; // by "id.prop"
+  std::map<std::string, double> bornAt_;
+  double histT_ = NAN;        // when finite, num() reads properties as they were at this time
+  float frameDt_ = 0;
+  void recordActive(const Active &a, const Value &before);
+  void recordSet(const std::string &id, const std::string &prop, const Value &before, const Value &after);
+  bool histValue(const std::string &id, const std::string &prop, double t, double &out);
+  std::vector<double> histBreaks(double t0, double t1);
+  bool trailSpec(const Mark &m, double &window, bool &all);
+  void drawTrail(Mark &m);
+  std::vector<std::vector<rm::StripPt>> trailRuns(Mark &m);
+  std::vector<Vector2> trailLine(Mark &m); // thinned, for the placer and the checker
 };
 
 } // namespace mk

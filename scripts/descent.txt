@@ -1,0 +1,19 @@
+# Fields, trails and the camera together: gradient descent on a long, narrow valley.
+title "Gradient descent"
+schema plane x=[-3,3] y=[-2,2]
+mark L heat fn={x^2 + 6*y^2}
+mark C contour fn={x^2 + 6*y^2} levels=log
+mark p dot x=-2.6 y=1.4 trail=all label="you"
+Say: "This is a loss |land|landscape: dark is low, bright is high."
+@land indicate C
+Say: "Each step goes straight |down|downhill, across the contour lines."
+@down mark p x=-1.924 y=-0.784
+Say: "The valley is steep across and |flat|flat along, so the steps |zig|zig-zag."
+@flat mark p x=-1.424 y=0.439
+@zig mark p x=-1.054 y=-0.246
+Say: "Let's look |close|closer."
+@close camera zoom=2 on=p
+Say: "Smaller |small|and smaller zig-zags, |down|all the way to the bottom."
+@small mark p x=-0.78 y=0.138
+@down mark p x=-0.577 y=-0.077
+Say: "Why does it zig-zag instead of rolling straight along the valley?"

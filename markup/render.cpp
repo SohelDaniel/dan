@@ -745,6 +745,12 @@ void Engine::draw() {
   for (auto &id : order_) if (auto l = links_.find(id); l != links_.end()) drawLink(l->second);
   for (auto &id : order_)
     if (Mark *m = mark(id); m && effectiveKind(*m) == "vector") drawMark(*m);
+  if (isAxes(s)) { // trails under the things that leave them
+    BeginScissorMode((int)axes_.area.x, (int)axes_.area.y, (int)axes_.area.width, (int)axes_.area.height);
+    for (auto &id : order_)
+      if (Mark *m = mark(id); m && findProp(m->props, "trail")) drawTrail(*m);
+    EndScissorMode();
+  }
   for (auto &id : order_)
     if (Mark *m = mark(id)) {
       std::string k = effectiveKind(*m);

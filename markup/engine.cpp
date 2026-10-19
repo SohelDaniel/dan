@@ -17,10 +17,10 @@ static const std::set<std::string> kPositional = {"x",  "y",     "t",     "at", 
                                                   "xt", "yt",     "bend", "pos",    "range", "size",
                                                   "opacity", "dx", "dy", "h", "height", "pts", "cols", "line",
                                                   "grid", "axes", "equal", "index", "cells", "items", "n", "m", "xlabel", "ylabel",
-                                                  "vx", "vy", "levels", "labels"};
+                                                  "vx", "vy", "levels", "labels", "trail"};
 static const std::set<std::string> kTextKeys = {"label", "name", "text", "fn",   "of",   "color",
                                                 "shape", "ease", "unit", "note", "title", "tex",
-                                                "at", "to", "side", "style", "cmap", "levels"};
+                                                "at", "to", "side", "style", "cmap", "levels", "trail"};
 
 Engine::Engine(EngineOptions opt) : opt_(std::move(opt)) {}
 Engine::~Engine() {
@@ -238,6 +238,8 @@ void Engine::reset() {
   graphSig_.clear();
   graphPos_.clear();
   cam_ = Camera{};
+  hist_.clear();
+  bornAt_.clear();
   clock_ = 0;
   lastTex_.clear();
   labelSlots_.clear();
@@ -279,7 +281,14 @@ void Engine::interrupt() {
   say_.lingering = 0;
   waitingPause_ = false;
   paused_ = false;
-  for (auto &a : actives_) a.t = a.dur + 1;
+  for (auto &a : actives_) {
+    if (a.kind == Active::NUM && a.t < a.dur) { // it jumps to its end now: history says so too
+      Obj *o = find(a.id);
+      const Value *cur = o ? findProp(o->props, a.prop) : nullptr;
+      recordSet(a.id, a.prop, cur ? *cur : Value::number(a.from), a.finalVal);
+    }
+    a.t = a.dur + 1;
+  }
   tickActives(0);
   while (!finished()) update(0);
   opt_.instant = was;
@@ -331,6 +340,10 @@ double Engine::num(const Value &v, int depth) {
 }
 
 double Engine::num(const Obj &o, const std::string &key, bool *ok, int depth) {
+  if (std::isfinite(histT_)) { // as it was at histT_ (trails)
+    double h;
+    if (histValue(o.id, key, histT_, h)) { if (ok) *ok = true; return h; }
+  }
   const Value *v = findProp(o.props, key);
   if (!v || !v->isNumeric()) {
     if (ok) *ok = false;
@@ -521,6 +534,8 @@ void Engine::clearStage() {
   rangesInit_ = false;
   cam_ = Camera{};
   clearFieldCaches();
+  hist_.clear();
+  bornAt_.clear();
   schema_ = "auto";
   schemaProps_.clear();
   if (sceneIdx_ + 1 < autoSchemas_.size()) autoSchema_ = autoSchemas_[++sceneIdx_];
@@ -661,6 +676,7 @@ void Engine::doMark(const Line &ln) {
     m.appear = opt_.instant ? 1 : 0;
     order_.push_back(ln.id);
     Mark &mm = marks_.emplace(ln.id, m).first->second;
+    bornAt_[ln.id] = clock_;
     claimColor(mm);
     std::string k = effectiveKind(mm), mp = magProp(mm), cv = catValue(mm);
     std::string rule = "thing -> a " + k;
@@ -687,6 +703,7 @@ void Engine::doMark(const Line &ln) {
     actives_.push_back(a);
   }
   for (auto &p : ln.props) {
+    settleActive(m.id, p.key);
     Value *cur = findProp(m.props, p.key);
     if (cur && cur->type == Value::NUM && p.val.type == Value::NUM && cur->num != p.val.num) {
       Active a;
@@ -695,6 +712,7 @@ void Engine::doMark(const Line &ln) {
       a.dur = opt_.instant ? 0 : 0.7f;
       a.blocking = false;
       a.log = "mark " + m.id + "." + p.key + " " + fmtNum(a.from) + " -> " + fmtNum(a.to);
+      recordActive(a, *cur);
       actives_.push_back(a);
     } else if (cur && cur->type == Value::LIST && p.val.type == Value::LIST && cur->markup() != p.val.markup()) {
       // a list re-marked: points glide, array items travel to their new cells
@@ -711,6 +729,7 @@ void Engine::doMark(const Line &ln) {
       a.kind = Active::STR; a.id = m.id; a.prop = p.key; a.dur = opt_.instant ? 0 : 0.8f; a.blocking = false;
       actives_.push_back(a);
     } else {
+      if (p.val.isNumeric() || (cur && cur->isNumeric())) recordSet(m.id, p.key, cur ? *cur : Value::number(NAN), p.val);
       setProp(m.props, p.key, p.val);
     }
   }
@@ -754,13 +773,32 @@ void Engine::doGroup(const Line &ln) {
   caption("part-of -> an enclosure around " + std::to_string(ln.members.size()) + " parts");
 }
 
+// A new change to id.prop takes over from any change still running on it: one that has already reached
+// its end (instant mode, or a zero duration not yet ticked) lands first, so the new one starts from there.
+void Engine::settleActive(const std::string &id, const std::string &prop) {
+  for (auto it = actives_.begin(); it != actives_.end();) {
+    if (it->id == id && it->prop == prop && (it->kind == Active::NUM || it->kind == Active::STR)) {
+      bool done = it->dur <= 0 || it->t >= it->dur;
+      if (it->kind == Active::NUM && done)
+        if (Obj *o = find(id)) setProp(o->props, prop, it->finalVal);
+      if (done && !it->log.empty()) { // as if it had been ticked to its end
+        since_.push_back(it->log + " done");
+        if (since_.size() > 16) since_.erase(since_.begin());
+      }
+      if (it->kind == Active::STR)
+        if (Obj *o = find(id)) o->strBlend.erase(prop);
+      it = actives_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
+
 void Engine::doMorph(const Line &ln) {
   Obj *o = find(ln.id);
   if (!o) { warn("morph: no thing called '" + ln.id + "' (line " + std::to_string(ln.lineNo) + ")"); return; }
   // a newer morph of the same property takes over
-  actives_.erase(std::remove_if(actives_.begin(), actives_.end(),
-                                [&](const Active &a) { return a.id == ln.id && a.prop == ln.prop; }),
-                 actives_.end());
+  settleActive(ln.id, ln.prop);
   Value *cur = findProp(o->props, ln.prop);
   std::string target = ln.id + "." + ln.prop;
   float dur = opt_.instant ? 0 : std::max(0.f, ln.dur);
@@ -792,12 +830,14 @@ void Engine::doMorph(const Line &ln) {
       warn("identity: line " + std::to_string(ln.lineNo) + " morphs " + target + " from " + fmtNum(f) + " but it is " +
            fmtNum(start) + "; morphing from the real value (no jump cuts)");
   }
+  Value before = cur ? *cur : Value::number(start);
   if (!cur) setProp(o->props, ln.prop, Value::number(start));
   Active a;
   a.kind = Active::NUM; a.id = ln.id; a.prop = ln.prop;
   a.from = start; a.to = num(ln.to); a.finalVal = ln.to;
   a.dur = dur;
   a.ease = rateByName(ln.ease);
+  recordActive(a, before);
   a.log = "morph " + target + " " + fmtNum(a.from) + " -> " + ln.to.markup();
   actives_.push_back(a);
 
@@ -1045,7 +1085,14 @@ void Engine::skip() {
     say_.active = false;
     say_.lingering = 2.0f;
   }
-  for (auto &a : actives_) a.t = a.dur + 1;
+  for (auto &a : actives_) {
+    if (a.kind == Active::NUM && a.t < a.dur) { // it jumps to its end now: history says so too
+      Obj *o = find(a.id);
+      const Value *cur = o ? findProp(o->props, a.prop) : nullptr;
+      recordSet(a.id, a.prop, cur ? *cur : Value::number(a.from), a.finalVal);
+    }
+    a.t = a.dur + 1;
+  }
   tickActives(0);
   for (auto &id : order_) if (Obj *o = find(id)) o->appear = 1;
 }
@@ -1064,6 +1111,7 @@ bool Engine::finished() const {
 void Engine::update(float dt) {
   if (paused_) return;
   clock_ += dt;
+  frameDt_ = dt;
   while (!blocking() && cursor_ < script_.steps.size()) {
     size_t idx = cursor_++;
     if (!script_.steps[idx].hook.empty()) continue; // armed: runs when the voice reaches |hook|

@@ -130,11 +130,14 @@ void Engine::camApply(Rectangle area) {
       double x0, x1, y0, y1;
       if (camBox(ids, x0, x1, y0, y1)) {
         const double margin = 56; // px around the fitted things (their names need room)
-        double pw = std::max((x1 - x0) * sx, 1.0), ph = std::max((y1 - y0) * sy, 1.0);
+        // a single point (or a thin thing) still gets a sensible frame: at least a third of the stage tall
+        double minPx = area.height / 3;
+        double pw = std::max((x1 - x0) * sx, minPx), ph = std::max((y1 - y0) * sy, minPx);
         T.cx = (x0 + x1) / 2;
         T.cy = (y0 + y1) / 2;
         T.z = std::min((area.width - 2 * margin) / pw, (area.height - 2 * margin) / ph);
         T.z = std::clamp(T.z, 0.25, 64.0);
+        if (const Value *z = findProp(ln.props, "zoom")) { double zz = num(*z); if (std::isfinite(zz) && zz > 0) T.z = zz; }
       }
     } else {
       const Value *on = findProp(ln.props, "on");
