@@ -124,6 +124,12 @@ void Engine::checkBinding(size_t sayIdx, size_t nextIdx) {
   auto touch = [&](const Line &ln) { if (!ln.id.empty()) touched.insert(baseId(ln.id)); };
   for (auto &w : say.words) // [id] pointers in the sentence
     for (auto &h : w.hooks) if (h.rfind("@pt:", 0) == 0) touched.insert(baseId(h.substr(4)));
+  for (size_t i = sayIdx; i-- > 0;) { // set-up lines just before it (since the last sentence) play as it starts
+    if (script_.steps[i].main.verb == Verb::SAY) break;
+    if (!script_.steps[i].hook.empty()) continue;
+    touch(script_.steps[i].main);
+    for (auto &w : script_.steps[i].withs) touch(w);
+  }
   for (size_t i = sayIdx; i < nextIdx && i < script_.steps.size(); i++) {
     if (i > sayIdx && script_.steps[i].hook.empty()) break; // set-up lines for the next sentence
     if (i > sayIdx) touch(script_.steps[i].main);
@@ -222,7 +228,12 @@ void Engine::checkBinding(size_t sayIdx, size_t nextIdx) {
     issue("says each has its own, but none of the " + std::to_string(links) + " arrows carries a name or value (label a "
           "few: label=\"w₁₁\", or w=0.5 to show the value)");
 
-  // 4. formula symbols that name a thing on stage, not coloured like it
+  // 4. an action described while nothing on stage changes
+  static const std::regex act(R"(\b(adds?|added|multipl\w*|divides?|divided|subtracts?|slides?|moves?|grows?|shrinks?|splits?|pairs? up|combines?|flows?|swaps?|squash\w*|sums? up|rotates?|stretches|shifts?)\b)");
+  if (!question && touched.empty() && std::regex_search(low, sm, act))
+    issue("says something " + sm.str() + ", but nothing on stage changes during this sentence (show it happening, on that word)");
+
+  // 5. formula symbols that name a thing on stage, not coloured like it
   for (auto &tid : touched) {
     Mark *t = mark(tid);
     if (!t || effectiveKind(*t) != "tex") continue;
