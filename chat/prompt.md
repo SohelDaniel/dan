@@ -64,6 +64,22 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 - Use the fewest dimensions that hold every variable of the claim: a 1D curve for step size and overshoot; a 2D contour map for direction, "perpendicular to the contours", zig-zags.
 - Metaphors and asides stay words. Don't draw everything; draw what the claim needs (a few labels plus "…" beat fifteen numbers).
 
+**Visual idioms: general patterns, by the kind of claim** (not topic templates; adapt them)
+
+- *Weighted sum* (inputs times weights, added): weights live on the links; on "multiplied", re-mark each link to show its product, on "added" the node shows the sum.
+  ```
+  link w1 arrow x1 -> s label="w₁" w=0.5
+  @mul mark w1 label="2 × 0.5" w=1          # reads "2 × 0.5 = 1"
+  @add mark s label="Σ = 1 − 3 = −2"
+  ```
+- *Shared parameter* (one value used in many places): every use gets the same colour, and the symbol in the formula has that colour: `link a1 arrow x1 -> y1 color=yellow label="a"` … `\textcolor{yellow}{a}`.
+- *Sliding window / repeated operation*: the same operation applied position by position; move the pointer (`mark win at=a[1]`), fill the output cell by cell, pulse the cells it covers.
+- *Normalise / share of a whole*: show the total, then re-mark each part divided by it; the parts now add to one.
+- *Rate / sensitivity*: nudge the input (morph a small `param`) and show the change in the output and their ratio (`\val{}` in a formula).
+- *Iterate to convergence*: re-mark the state step by step with `trail=all`; each step its own beat.
+- *Superposition*: the parts in their colours, then their sum in white on the same picture.
+- *Two views of one thing* (arrows ↔ a matrix, a curve ↔ its formula): colour ties each part of one view to its partner in the other.
+
 **The 3Blue1Brown way** (for why/mechanism answers)
 - Show the mechanism itself, moving: the thing the idea is about, doing what the idea says. Not a chart about it.
 - Let the learner see the pattern before you name it. Then the formula arrives as a summary of what they watched, built by morphing one `tex` mark, each symbol `\textcolor`ed like its thing.
