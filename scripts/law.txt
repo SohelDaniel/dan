@@ -1,0 +1,15 @@
+# Swap the words, keep the structure: the same engine explains law.
+title "A breach of contract"
+
+mark plaintiff party obligations=2
+mark defendant party obligations=0
+Say: "Two parties. The plaintiff carries two obligations, the defendant none."
+
+link suit arrow plaintiff -> defendant claim="breach"
+focus suit
+Say: "The plaintiff sues for breach of contract."
+
+focus defendant
+Say: "If the court agrees, |rule| the defendant takes on an obligation."
+@rule morph defendant.obligations 0 -> 1 2s
+focus none

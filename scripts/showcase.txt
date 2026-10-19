@@ -1,0 +1,50 @@
+# Three scenes in one lesson: parametric motion, a graph with shapes and two-way links,
+# and hand-placed marks.  Run: ./tutor scripts/showcase.txt
+
+title "Orbits"
+schema axes x=[-2.5,2.5] y=[-1.6,1.6]
+
+mark orbit  path xt={2*cos(t)} yt={1.2*sin(t)} range=[0,6.2832] label="orbit"
+mark sun    dot x=1.6 y=0 shape=star r=16 color=yellow label="Sun"
+mark angle  label value=0 label="θ"
+mark planet dot x={2*cos(angle)} y={1.2*sin(angle)} r=10 label="planet"
+
+Say: "A planet moves along an ellipse, with the sun at one focus."
+focus planet
+Say: "As the angle |go| sweeps all the way around, the planet traces the orbit."
+@go morph angle.value 0 -> 6.2832 5s ease=linear
+focus none
+
+scene "Who owes whom"
+schema graph
+
+mark ana  person debt=40 shape=circle
+mark ben  person debt=10 shape=circle
+mark bank company debt=0 shape=square
+link l1 arrow ana -> ben  label="owes 20"
+link l2 arrow ben -> ana  label="owes 5"
+link l3 arrow ben -> bank label="loan"
+
+Say: "Ana and Ben owe each other money, and Ben also owes the bank."
+focus l2
+Say: "Two arrows in opposite directions bend apart, so both stay readable."
+morph ana.debt 40 -> 25 1.5s
+with morph ben.debt 10 -> 25 1.5s
+focus bank
+Say: "People are circles, companies are squares. Shape carries the category."
+focus none
+
+scene "Cause and effect"
+schema free
+
+mark rain   box weather mm=30
+mark ground box soil    wetness=0
+mark crop   box plant   height=10
+link r1 arrow rain -> ground label="soaks"
+link r2 arrow ground -> crop label="feeds"
+
+Say: "Rain soaks the ground, |wet| and wet ground feeds the crop."
+@wet morph ground.wetness 0 -> 80 1.5s
+Say: "So the crop |grow| grows."
+@grow morph crop.height 10 -> 45 2s
+focus none

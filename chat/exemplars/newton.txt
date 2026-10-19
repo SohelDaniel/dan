@@ -1,0 +1,22 @@
+# Newton's second law, shown as the thing itself: two carts, the same push, different mass.
+# A hidden clock drives their positions (x = x0 + ½·(F/m)·t²), so the motion is the physics.
+title "Newton's second law"
+schema plane x=[0,12] y=[0,5] grid=false axes=false
+mark clock param value=0
+mark F param value=6
+mark light rect cart x={1 + 0.5*(F/1)*clock^2} y=3.5 w=1.4 h=0.9 shape=cart label="1 kg"
+mark heavy rect cart x={1 + 0.5*(F/3)*clock^2} y=1.2 w=1.6 h=1.4 shape=cart label="3 kg"
+Say: "Two carts. The bottom one is three times heavier."
+Say: "Give each one exactly the same |push|push."
+@push mark fl vector force at=light side=right dx=1.5 label="F"
+with mark fh vector force at=heavy side=right dx=1.5 label="F"
+Say: "Now watch which one |go|pulls ahead."
+@go morph clock.value 0 -> 1.6 2.5s ease=linear
+Say: "Same force, a third of the mass, and the light cart went |three|three times as far."
+@three indicate light
+Say: "So the push speeds things |up|up, and the mass holds them |back|back."
+@up mark eq tex tex="a \;\propto\; \textcolor{fl}{F}"
+@back morph eq.tex -> "a = \frac{\textcolor{fl}{F}}{\textcolor{light}{m}}" 1.2s
+Say: "Multiply both sides by the mass, and that's Newton's second |law|law."
+@law morph eq.tex -> "\textcolor{fl}{F} = \textcolor{light}{m}\,a" 1.2s
+Say: "Your turn: if we doubled the push on the heavy cart, would it catch up?"

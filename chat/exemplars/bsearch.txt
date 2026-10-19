@@ -1,0 +1,22 @@
+# Binary search: pointers on a real array; every look throws half away.
+title "Binary search"
+mark a array items=[2,5,8,12,16,23,38,56,72] label="sorted, looking for 23"
+mark lo label text="lo" at=a[0]
+mark hi label text="hi" at=a[8]
+Say: "We want twenty-three. The list is sorted, so every look can rule out half of it."
+Say: "Check the |m|middle: sixteen."
+@m mark mid label text="mid" at=a[4]
+with indicate a[4]
+Say: "Sixteen is too small, and so is everything left of it. Move lo |past|past it."
+@past mark lo at=a[5]
+Say: "New middle: |m|thirty-eight. Too big, so hi comes |back|back."
+@m mark mid at=a[6]
+with indicate a[6]
+@back mark hi at=a[5]
+Say: "Lo and hi meet on |found|twenty-three. Three looks instead of six."
+@found mark mid at=a[5]
+with focus a[5]
+Say: "Each look halves what's |left|left."
+@left mark rule card text="n items take about log₂ n looks" label="Key idea"
+with focus none
+Say: "Your turn: roughly how many looks would a list of a thousand need?"

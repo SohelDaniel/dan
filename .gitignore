@@ -1,0 +1,21 @@
+# secrets
+.inworld_key
+.env
+# caches and build output
+.tutor_cache/
+node_modules/
+/tutor
+/manim_demo
+tests/test_place
+tests/bench_place
+tests/test_fonts
+*.dSYM/
+*.o
+build/
+tutor_shot_*.png
+# personal data: chats and the learner profile stay local
+chat/sessions/
+chat/memory/
+# generated eval runs
+tools/eval/out*/
+.DS_Store

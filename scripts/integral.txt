@@ -1,0 +1,15 @@
+# Calculus: area under a curve grows as the right edge moves.
+title "An integral is accumulated area"
+schema axes x=[0,4] y=[0,10]
+
+mark f path fn={0.5*x^2 + 1} label="f(x)"
+mark area region of=f from=0 to=0.2 label="area"
+mark A label value={integral(f, 0, area.to)} label="area so far"
+
+Say: "Here is a curve. Shade the area under it, starting at zero."
+focus area
+Say: "Push the right edge |sweep| out to three, and the area accumulates."
+@sweep morph area.to 0.2 -> 3 4s ease=linear
+focus A
+Say: "From zero to three the area is seven and a half."
+focus none

@@ -1,0 +1,24 @@
+# Code: a for-loop as things, properties, relations and change.
+title "What a for-loop does"
+
+group state part-of=[i,n] label="loop condition: i < n"
+mark i     bar value=0 label="i"
+mark n     bar value=4 label="n"
+mark total bar sum=0   label="total"
+
+Say: "i starts at zero and n is four. While i is shorter than n, we keep going."
+focus total
+Say: "Each pass adds i to the total, |a| then i grows by one."
+@a morph i.value 0 -> 1 0.8s
+Say: "Pass two. |b|"
+@b morph total.sum 0 -> 1 0.8s
+@b morph i.value 1 -> 2 0.8s
+Say: "Pass three. |c|"
+@c morph total.sum 1 -> 3 0.8s
+@c morph i.value 2 -> 3 0.8s
+Say: "Pass four. |d|"
+@d morph total.sum 3 -> 6 0.8s
+@d morph i.value 3 -> 4 0.8s
+focus state
+Say: "Now i equals n, the condition is false, and the loop stops with a total of six."
+focus none

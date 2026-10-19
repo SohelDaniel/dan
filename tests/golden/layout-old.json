@@ -1,0 +1,104 @@
+{
+ "chat/exemplars/bsearch.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "chat/exemplars/derivative.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "chat/exemplars/newton.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "chat/exemplars/photosynthesis.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "chat/exemplars/vectors.txt": {
+  "mean": 86.9,
+  "worst": 72.2,
+  "final": 72.2,
+  "maxOverlaps": 2
+ },
+ "scripts/bank.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/compound.txt": {
+  "mean": 94.2,
+  "worst": 73.3,
+  "final": 100,
+  "maxOverlaps": 2
+ },
+ "scripts/contract.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/derivative.txt": {
+  "mean": 57.7,
+  "worst": 2.6,
+  "final": 2.6,
+  "maxOverlaps": 6
+ },
+ "scripts/energy.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/integral.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/law.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/loop.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/mean.txt": {
+  "mean": 99.9,
+  "worst": 95.3,
+  "final": 100,
+  "maxOverlaps": 1
+ },
+ "scripts/placement.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/recursion.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/showcase.txt": {
+  "mean": 96.1,
+  "worst": 75,
+  "final": 100,
+  "maxOverlaps": 2
+ }
+}

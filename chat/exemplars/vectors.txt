@@ -1,0 +1,14 @@
+# Vector addition as a walk: tail of v on the tip of u, the sum is where you end up.
+title "Adding vectors"
+schema plane x=[-1,7] y=[-1,5]
+mark u vector x=0 y=0 dx=4 dy=1 label="u"
+mark v vector x=0 y=0 dx=1 dy=3 label="v"
+Say: "Two arrows. u goes four across and one up. v goes one across and three up."
+Say: "To add them, walk along u, then put v's tail on u's |tip|tip."
+@tip morph v.x 0 -> 4 1.2s
+with morph v.y 0 -> 1 1.2s
+Say: "The sum is the arrow from where you started to where you |end|ended."
+@end mark s vector x=0 y=0 dx=5 dy=4 label="u + v"
+Say: "Across, four plus one is five. Up, one plus three is |four|four."
+@four mark eq tex tex="\textcolor{u}{\begin{pmatrix}4\\1\end{pmatrix}} + \textcolor{v}{\begin{pmatrix}1\\3\end{pmatrix}} = \textcolor{s}{\begin{pmatrix}5\\4\end{pmatrix}}"
+Say: "Your turn: if you walk v first and then u, where do you end up?"

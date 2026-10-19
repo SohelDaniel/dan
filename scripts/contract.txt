@@ -1,0 +1,22 @@
+# A timeline: law as events in order.
+title "When is a contract breached?"
+schema timeline
+
+mark seller box party label="Seller"
+mark buyer  box party label="Buyer"
+link owes arrow seller -> buyer label="owes goods"
+
+mark signed   dot t=0  status=done    label="signed (day 0)"
+mark delivery dot t=30 status=pending label="goods due (day 30)"
+mark payment  dot t=45 status=pending label="payment due (day 45)"
+
+Say: "Day zero, the contract is signed. The seller now owes the buyer goods."
+focus delivery
+Say: "Delivery is due on day thirty. |late| The day passes with nothing delivered."
+@late morph delivery.status pending -> breached 1.5s
+focus owes
+Say: "The obligation is now a breach, and the buyer can withhold payment."
+@hold morph payment.status pending -> suspended 1.5s
+focus payment
+Say: "Payment is |hold| suspended."
+focus none

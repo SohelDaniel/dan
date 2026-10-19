@@ -1,0 +1,20 @@
+# Stats on a number line: one outlier drags the mean.
+title "Where does the mean sit?"
+schema numberline prop=score
+
+mark ana dot student score=62
+mark ben dot student score=70
+mark cy  dot student score=74
+mark dee dot student score=78
+mark eve dot student score=72
+mark avg label score={mean(score)} label="mean"
+
+Say: "Five students, all scoring in the sixties and seventies."
+focus avg
+Say: "The mean sits at seventy one."
+focus eve
+Say: "Now suppose Eve |drop| had a terrible day."
+@drop morph eve.score 72 -> 20 3s
+focus avg
+Say: "One outlier pulls the mean all the way down to sixty one."
+focus none

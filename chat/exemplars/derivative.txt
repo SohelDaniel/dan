@@ -1,0 +1,18 @@
+# The derivative as what a secant becomes: slide Q into P and watch the slope settle.
+title "The derivative: slope at a point"
+schema axes x=[0,6] y=[0,9]
+mark f path fn={x^2/4} label="f(x) = x²/4"
+mark h param value=2
+mark p dot point x=2 y={f(2)} label="P"
+mark q dot point x={2+h} y={f(2+h)} label="Q"
+Say: "Pick a point P on the curve, and a second point Q a little further along."
+Say: "The line through them has a slope: rise over |run|run."
+@run mark sec line x1=2 y1={f(2)} x2={2+h} y2={f(2+h)} extend=1 label="secant"
+with mark slope tex tex="\textcolor{sec}{\text{slope}} = \frac{f(2+h)-f(2)}{h} = \val{(f(2+h)-f(2))/h}"
+Say: "Now slide Q |slide|toward P, and keep an eye on the slope."
+@slide morph h.value 2 -> 0.02 3s
+Say: "It settles on a single number: |one|one."
+@one indicate slope
+Say: "That limit is the derivative: the slope of the curve |right|right at P."
+@right morph slope.tex -> "f'(2) = \lim_{h\to 0}\frac{f(2+h)-f(2)}{h} = 1" 1.2s
+Say: "Your turn: at x equals four, is the curve steeper or flatter than at two?"

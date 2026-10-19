@@ -1,0 +1,17 @@
+# How a bank transfer works: the example from the spec.
+title "How a bank transfer works"
+
+mark alice bar account balance=100 label="Alice" unit=$
+mark bob   bar account balance=20  label="Bob"   unit=$
+
+Say: "Alice has a hundred dollars. Bob has twenty."
+focus alice
+Say: "Alice sends Bob thirty |go|."
+@go link pay arrow alice -> bob amount=30
+@go morph alice.balance 100 -> 70 1.5s
+with morph bob.balance 20 -> 50 1.5s
+
+focus bob
+Say: "Now Alice has seventy and Bob has fifty."
+focus none
+Say: "Nothing was created or destroyed. Thirty dollars just moved."

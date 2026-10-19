@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tutor Console</title>
+<style>
+  :root {
+    --bg: #f7f6f3; --panel: #ffffff; --side: #efede8; --ink: #1f1e1c; --muted: #6f6c66; --faint: #b9b5ad; --line: #e4e1db;
+    --me: #2f5bd3; --me-ink: #fff; --accent: #c2632f; --ok: #2e7d4f; --warn: #b26a00; --err: #b3261e;
+    --code: #f0eee9; --sel: #e2e6f5; --now: #9a6b00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161615; --panel: #1f1f1d; --side: #1a1a19; --ink: #ecebe7; --muted: #9a978f; --faint: #5d5b56; --line: #33322f;
+      --me: #4b74e6; --code: #2a2926; --ok: #5cbf86; --warn: #e2a33b; --err: #ef6b62; --sel: #2a3150; --now: #f0c24b; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: grid; grid-template-columns: 240px 1fr; }
+  body.noside { grid-template-columns: 0 1fr; }
+  body.noside aside { visibility: hidden; }
+
+  aside { background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+  aside .top { padding: 10px; display: flex; gap: 6px; }
+  aside .top button { flex: 1; }
+  #sessions { overflow-y: auto; flex: 1; padding: 0 6px 10px; }
+  .sess { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 7px 10px; border-radius: 7px;
+    cursor: pointer; color: var(--ink); font-size: 13.5px; }
+  .sess:hover { background: var(--line); }
+  .sess.on { background: var(--sel); }
+  .sess small { display: block; color: var(--muted); font-size: 11.5px; }
+  .sess span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .main { display: grid; grid-template-rows: auto 1fr auto; min-width: 0; height: 100vh; }
+  header { display: flex; gap: 8px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line);
+    background: var(--panel); flex-wrap: wrap; }
+  header h1 { font-size: 15px; margin: 0 auto 0 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  button, select { font: inherit; font-size: 13px; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 7px; padding: 5px 10px; cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  #log { overflow-y: auto; padding: 18px 16px; display: flex; flex-direction: column; gap: 14px; }
+  .msg { max-width: 720px; width: 100%; margin: 0 auto; }
+  .me .bubble { background: var(--me); color: var(--me-ink); margin-left: auto; width: fit-content; max-width: 85%;
+    padding: 7px 12px; border-radius: 12px 12px 3px 12px; white-space: pre-wrap; }
+  .me .src { text-align: right; color: var(--muted); font-size: 11px; margin-top: 2px; }
+  /* the tutor's spoken lines: a transcript, lit word by word as the stage says them */
+  .ai .said { margin: 0 0 6px; font-size: 16.5px; line-height: 1.55; }
+  .ai .said .w { color: var(--faint); transition: color .12s; }
+  .ai .said .w.on { color: var(--ink); }
+  .ai .said .w.now { color: var(--now); }
+  .ai .said.done .w { color: var(--ink); }
+  .ai .said.ask { font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px; }
+  .chip { font: 12px ui-monospace, Menlo, monospace; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+  .chip.draw { color: var(--ok); border-color: var(--ok); }
+  .chip.mem { color: var(--accent); border-color: var(--accent); }
+  .chip.cut { color: var(--warn); border-color: var(--warn); }
+  details.more { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--panel);
+    padding: 6px 12px; font-size: 13px; margin-top: 6px; }
+  details.more summary { cursor: pointer; color: var(--muted); }
+  .ok { color: var(--ok); } .warn { color: var(--warn); }
+  details.more pre { font: 12px/1.45 ui-monospace, Menlo, monospace; white-space: pre-wrap; margin: 8px 0 0; }
+  .error { color: var(--err); white-space: pre-wrap; font-size: 13px; }
+  .thinking { color: var(--muted); font-size: 14px; }
+  .thinking::after { content: '…'; animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: .2; } }
+  .empty { margin: auto; text-align: center; color: var(--muted); max-width: 460px; }
+  .empty b { color: var(--ink); }
+  form { padding: 12px 16px 16px; background: var(--panel); border-top: 1px solid var(--line); }
+  .row { max-width: 720px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; }
+  textarea { flex: 1; resize: none; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px; padding: 9px 12px; min-height: 42px; max-height: 160px; }
+  textarea:focus { outline: 2px solid var(--me); outline-offset: -1px; }
+  #send { background: var(--me); color: #fff; border: none; height: 42px; padding: 0 16px; border-radius: 10px; }
+  .hint { max-width: 720px; margin: 6px auto 0; color: var(--muted); font-size: 12px; }
+  .hint.turn { color: var(--now); }
+
+  dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); width: min(640px, 92vw); padding: 16px; }
+  dialog::backdrop { background: rgba(0, 0, 0, .35); }
+  dialog h2 { font-size: 16px; margin: 0 0 4px; }
+  dialog p { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+  dialog textarea { width: 100%; height: 50vh; max-height: none; font: 13px/1.5 ui-monospace, Menlo, monospace; }
+  dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+  @media (max-width: 700px) { body { grid-template-columns: 0 1fr; } aside { visibility: hidden; }
+    body.side-open { grid-template-columns: 200px 1fr; } body.side-open aside { visibility: visible; } }
+</style>
+</head>
+<body>
+<aside>
+  <div class="top"><button id="new" title="Start a fresh stage and conversation">+ New</button></div>
+  <nav id="sessions"></nav>
+</aside>
+
+<div class="main">
+  <header>
+    <button id="toggle" title="Show or hide past sessions">☰</button>
+    <h1 id="title">Tutor</h1>
+    <select id="model" title="Model">
+      <option value="sonnet">Sonnet · fast</option>
+      <option value="opus">Opus · best</option>
+      <option value="haiku">Haiku · fastest</option>
+    </select>
+    <label style="font-size:13px"><input type="checkbox" id="voice"> voice</label>
+    <button id="replay" title="Play the last answer again on the stage">Replay</button>
+    <button id="replayAll" title="Play every turn from the start, as one lesson">Lesson</button>
+    <button id="save" title="Save the current stage to the library">Save scene</button>
+    <button id="mem" title="What the tutor remembers about you">Memory</button>
+  </header>
+
+  <main id="log"></main>
+
+  <form id="f">
+    <div class="row">
+      <textarea id="in" rows="1" placeholder="Ask anything… (or type straight onto the stage window)" autofocus></textarea>
+      <button id="send">Send</button>
+    </div>
+    <div class="hint" id="hint">The stage answers by speaking and drawing. Typing while it talks interrupts it.</div>
+  </form>
+</div>
+
+<dialog id="memDlg">
+  <h2>Memory</h2>
+  <p>What the tutor knows about you, read at the start of every turn and updated as you go. Edit freely.</p>
+  <textarea id="memText"></textarea>
+  <div class="actions"><button id="memCancel">Close</button><button id="memSave">Save</button></div>
+</dialog>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const log = $('#log'), input = $('#in');
+let current = null, block = null; // session id; the tutor block now being spoken into
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function ago(ts) {
+  const m = Math.round((Date.now() - ts) / 60000);
+  if (m < 1) return 'just now'; if (m < 60) return m + ' min ago';
+  const h = Math.round(m / 60); if (h < 24) return h + ' h ago';
+  return new Date(ts).toLocaleDateString();
+}
+const near = () => log.scrollHeight - log.scrollTop - log.clientHeight < 120;
+function add(cls, html) {
+  $('.empty')?.remove();
+  const stick = near();
+  const d = document.createElement('div'); d.className = 'msg ' + cls; d.innerHTML = html;
+  log.appendChild(d);
+  if (stick) log.scrollTop = log.scrollHeight;
+  return d;
+}
+function userMsg(text, source) {
+  add('me', `<div class="bubble">${esc(text)}</div>` + (source === 'stage' ? '<div class="src">typed on the stage</div>' : ''));
+}
+
+// ---- a tutor block: chips, spoken lines, then details
+function newBlock() {
+  const b = add('ai', '<div class="chips"></div><div class="lines"></div><div class="tail"></div>');
+  b.chips = b.querySelector('.chips'); b.lines = b.querySelector('.lines'); b.tail = b.querySelector('.tail');
+  return b;
+}
+function chip(b, cls, text) {
+  if (b.chips.querySelector('.' + cls)) return;
+  b.chips.insertAdjacentHTML('beforeend', `<span class="chip ${cls}">${text}</span>`);
+}
+function thinking(b, on) {
+  b.tail.querySelector('.thinking')?.remove();
+  if (on) b.tail.insertAdjacentHTML('afterbegin', '<div class="thinking">thinking</div>');
+}
+function spokenLine(b, text, uid, done) {
+  const p = document.createElement('p');
+  p.className = 'said' + (done ? ' done' : '') + (/\?\s*$/.test(text) ? ' ask' : '');
+  if (uid != null) p.dataset.uid = uid;
+  p.innerHTML = text.split(' ').map((w) => `<span class="w">${esc(w)}</span>`).join(' ');
+  b.lines.appendChild(p);
+  if (near()) log.scrollTop = log.scrollHeight;
+  return p;
+}
+function details(b, m) {
+  let html = '';
+  if (m.stage) {
+    const e = m.stage;
+    html += `<details class="more"><summary>scene · <span class="${e.ok ? 'ok' : 'warn'}">${e.ok ? 'check ok' : 'check failed'}</span>` +
+      (e.lints.length ? ` <span class="warn">${e.lints.length} issue${e.lints.length > 1 ? 's' : ''} (the tutor sees them next turn)</span>` : '') + `</summary>` +
+      (e.lints.length ? `<pre>${esc(e.lints.join('\n'))}</pre>` : '') +
+      `<pre><b>this turn</b>\n${esc(e.turn.trim())}\n\n<b>now on stage</b>\n${esc(e.state.trim())}</pre></details>`;
+  }
+  if (m.plan && m.plan.trim()) html += `<details class="more"><summary>plan</summary><pre>${esc(m.plan.trim())}</pre></details>`;
+  const t = m.meta;
+  if (t && t.done != null) {
+    const parts = [];
+    if (t.stage != null) parts.push(`visuals ${t.stage}s`);
+    if (t.voice != null) parts.push(`voice ${t.voice}s`);
+    parts.push(`written ${t.done}s`);
+    html += `<div class="hint">${parts.join(' · ')}</div>`;
+  }
+  if (m.error) html += `<div class="error">${esc(m.error)}</div>`;
+  b.tail.insertAdjacentHTML('beforeend', html);
+}
+
+// ---- history
+function emptyState(lib) {
+  log.innerHTML = `<div class="empty"><p><b>Ask anything.</b> The tutor answers on the stage: it speaks, and draws what it's talking about as it says it. This page is the transcript.</p>
+    <p>Type here, or just start typing on the stage window. Interrupt any time.</p>` +
+    (lib.length ? `<p>Saved scenes: ${lib.map((n) => `<code>${esc(n)}</code>`).join(' ')}<br>Say “load the <i>name</i> scene” to reuse one.</p>` : '') + `</div>`;
+}
+function sidebar(r) {
+  $('#title').textContent = r.title || 'New session';
+  $('#sessions').innerHTML = r.sessions.map((s) =>
+    `<button class="sess${s.id === r.session ? ' on' : ''}" data-id="${esc(s.id)}"><span>${esc(s.title)}</span>` +
+    `<small>${s.turns} scenes · ${ago(s.updated)}</small></button>`).join('');
+}
+async function load() {
+  const r = await (await fetch('/api/info')).json();
+  current = r.session;
+  $('#model').value = r.model; $('#voice').checked = !r.mute;
+  sidebar(r);
+  log.innerHTML = ''; block = null;
+  if (!r.messages.length) emptyState(r.library);
+  for (const m of r.messages) {
+    if (m.role === 'user') { userMsg(m.text, m.source); continue; }
+    const b = newBlock();
+    if (m.memory) chip(b, 'mem', '🧠 remembered');
+    if (m.cut) chip(b, 'cut', 'interrupted');
+    for (const s of m.spoken || []) spokenLine(b, s, null, true);
+    if (m.text) spokenLine(b, m.text, null, true); // older sessions had a chat reply
+    details(b, m);
+  }
+  log.scrollTop = log.scrollHeight;
+}
+async function refreshSidebar() { sidebar(await (await fetch('/api/info')).json()); }
+
+// ---- live: everything the stage and the tutor do arrives here
+const es = new EventSource('/api/events');
+let turnMeta = {};
+es.onmessage = (msg) => {
+  const e = JSON.parse(msg.data);
+  if (e.t === 'user') {
+    userMsg(e.text, e.source);
+    block = newBlock(); turnMeta = {};
+    thinking(block, true);
+    $('#hint').textContent = 'The stage answers by speaking and drawing. Typing while it talks interrupts it.';
+    $('#hint').classList.remove('turn');
+    return;
+  }
+  if (!block) block = newBlock();
+  if (e.t === 'drawing') chip(block, 'draw', '● drawing on stage');
+  else if (e.t === 'say') { thinking(block, false); spokenLine(block, e.text, e.uid, false); }
+  else if (e.t === 'word') {
+    const p = block.lines.querySelector(`p[data-uid="${e.uid}"]`) || log.querySelector(`p.said[data-uid="${e.uid}"]:last-of-type`);
+    if (!p) return;
+    const ws = p.querySelectorAll('.w');
+    ws.forEach((w, k) => { w.classList.toggle('on', k < e.i); w.classList.toggle('now', k === e.i); });
+  } else if (e.t === 'end') {
+    log.querySelectorAll(`p.said[data-uid="${e.uid}"]`).forEach((p) => p.classList.add('done'));
+  } else if (e.t === 'memory') chip(block, 'mem', '🧠 remembered');
+  else if (e.t === 'stage') turnMeta.stage = e;
+  else if (e.t === 'meta') { turnMeta.meta = e; turnMeta.plan = e.plan; details(block, turnMeta); thinking(block, false); refreshSidebar(); }
+  else if (e.t === 'error') block.tail.insertAdjacentHTML('beforeend', `<div class="error">${esc(e.v)}</div>`);
+  else if (e.t === 'state' && e.v === 'listening') {
+    $('#hint').textContent = 'Your turn: answer the question (here or on the stage).';
+    $('#hint').classList.add('turn');
+    input.focus();
+  }
+};
+
+const post = (u, b) => fetch(u, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b || {}) })
+  .then((r) => r.json());
+$('#f').onsubmit = (e) => {
+  e.preventDefault();
+  const t = input.value.trim(); if (!t) return;
+  input.value = ''; input.style.height = '';
+  post('/api/send', { text: t, model: $('#model').value });
+};
+input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#f').requestSubmit(); } });
+input.addEventListener('input', () => { input.style.height = ''; input.style.height = input.scrollHeight + 'px'; });
+$('#replay').onclick = () => post('/api/replay-turn');
+$('#replayAll').onclick = () => post('/api/replay-all');
+$('#voice').onchange = (e) => post('/api/voice', { on: e.target.checked });
+$('#toggle').onclick = () => document.body.classList.toggle(matchMedia('(max-width: 700px)').matches ? 'side-open' : 'noside');
+$('#save').onclick = async () => {
+  const name = prompt('Save the current stage as:'); if (!name) return;
+  const r = await post('/api/save', { name });
+  add('ai', `<div class="hint">${r.ok ? 'Saved to library as ' + esc(r.name) : esc(r.error)}</div>`);
+};
+$('#new').onclick = async () => { await post('/api/new'); load(); input.focus(); };
+$('#sessions').onclick = async (e) => {
+  const b = e.target.closest('.sess');
+  if (!b || b.dataset.id === current) return;
+  await post('/api/open', { id: b.dataset.id });
+  load();
+};
+$('#mem').onclick = async () => {
+  const r = await (await fetch('/api/memory')).json();
+  $('#memText').value = r.text;
+  $('#memDlg').showModal();
+};
+$('#memCancel').onclick = () => $('#memDlg').close();
+$('#memSave').onclick = async () => { await post('/api/memory', { text: $('#memText').value }); $('#memDlg').close(); };
+load();
+</script>
+</body>
+</html>

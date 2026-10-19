@@ -1,0 +1,24 @@
+# Formulas as things: a live value, terms colored by the thing they name, and a formula that morphs.
+title "Kinetic energy"
+
+mark mass bar mass m=2 label="mass" unit=kg
+mark speed bar speed v=3 label="speed" unit=m/s
+mark ke tex tex="E_k = \frac{1}{2}\textcolor{mass}{m}\textcolor{speed}{v}^2"
+
+Say: "Kinetic energy is one half, times mass, times speed squared."
+focus mass
+Say: "This is the mass,"
+focus speed
+Say: "and this is the speed."
+focus none
+morph ke.tex -> "E_k = \frac{1}{2}\textcolor{mass}{m}\textcolor{speed}{v}^2 = \val{0.5*mass*speed^2}\,\text{J}" 1.5s
+Say: "With two kilograms at three metres per second, that's nine joules."
+Say: "Now double the |go|speed."
+@go morph speed.v 3 -> 6 2s
+Say: "Energy goes up four times, because speed is squared."
+
+scene "On a graph"
+schema axes x=[0,6] y=[0,40]
+mark curve path fn={0.5*2*x^2} label="E(v)"
+mark tag tex tex="E = v^2" x=4.2 y=30 size=30
+Say: "As a function of speed, the energy is a parabola."

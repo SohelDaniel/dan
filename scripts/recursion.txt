@@ -1,0 +1,27 @@
+# A graph: a call stack winding and unwinding.
+title "How recursion unwinds"
+schema graph
+
+mark main box frame label="main()"
+mark f3 box frame n=3 label="fact(3)"
+link c1 arrow main -> f3 label="calls"
+Say: "Main calls factorial of three."
+
+mark f2 box frame n=2 label="fact(2)"
+link c2 arrow f3 -> f2 label="calls"
+mark f1 box frame n=1 label="fact(1)"
+link c3 arrow f2 -> f1 label="calls"
+Say: "Which calls factorial of two, which calls factorial of one."
+
+focus f1
+mark f1 returns=1
+Say: "Factorial of one is the base case. It returns one."
+focus f2
+mark f2 returns=0
+morph f2.returns 0 -> 2 1s
+Say: "Factorial of two multiplies two by one, and returns two."
+focus f3
+mark f3 returns=0
+morph f3.returns 0 -> 6 1s
+Say: "And factorial of three returns three times two, six."
+focus none

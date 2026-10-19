@@ -1,0 +1,21 @@
+# Photosynthesis as a process: inputs flow into the chloroplast, outputs flow out; the equation sums it up.
+title "Photosynthesis"
+mark light box input label="sunlight"
+mark water box input label="water"
+mark co2 box input label="CO₂ from air"
+mark leaf box process label="chloroplast"
+mark sugar box output label="glucose"
+mark o2 box output label="oxygen"
+Say: "A leaf is a little factory, and the |work|work happens in the chloroplast."
+@work indicate leaf
+Say: "In go water from the roots, and carbon dioxide from the |air|air."
+@air link w1 arrow water -> leaf
+with link c1 arrow co2 -> leaf
+Say: "Sunlight is the |power|power."
+@power link l1 arrow light -> leaf
+Say: "Out come glucose, the plant's food, and |oxygen|oxygen, which we breathe."
+@oxygen link s1 arrow leaf -> sugar
+with link o1 arrow leaf -> o2
+Say: "All of it in one |line|line."
+@line mark eq tex tex="\ce{6CO2 + 6H2O ->[\text{light}] C6H12O6 + 6O2}"
+Say: "Your turn: where does the mass of a tree mostly come from, the soil or the air?"

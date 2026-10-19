@@ -1,0 +1,60 @@
+# Why compound interest wins: three scenes.
+# Run: ./tutor scripts/compound.txt
+
+# ---------------------------------------------------------------- scene 1: two accounts
+title "Simple vs compound interest"
+
+mark year     label value=0 label="year"
+mark simple   bar account balance={100 + 10*year}  max=260 label="Simple 10%"   unit=$
+mark compound bar account balance={100 * 1.1^year} max=260 label="Compound 10%" unit=$
+mark gap      label value={compound.balance - simple.balance} label="compound is ahead by" unit=$
+
+Say: "Two accounts each start with a hundred dollars, both earning ten percent a year."
+focus simple
+Say: "The simple account only earns interest on the original hundred, so it grows by ten every year."
+focus compound
+Say: "The compound account earns interest on its interest. Watch ten years go |go| by."
+@go morph year.value 0 -> 10 6s ease=linear
+focus gap
+Say: "After ten years the compound account is ahead by fifty nine dollars, and the gap keeps widening."
+focus none
+
+# ---------------------------------------------------------------- scene 2: the curves
+scene "The shape of growth"
+schema axes x=[0,10] y=[0,280]
+
+mark f    path fn={100*1.1^x} label="compound"
+mark g    path fn={100 + 10*x} label="simple"
+mark yr   label value=0 label="year"
+mark rate label value={deriv(f, yr)} label="growing per year" unit=$
+mark p    dot x={yr} y={f(yr)} label="you"
+mark tan  line x={yr} y={f(yr)} slope={deriv(f, yr)} label="growth rate"
+
+Say: "Plot both. The simple line is straight, and the compound curve bends upward."
+focus tan
+Say: "The slope of the tangent is how fast your money grows. Slide forward |slide| through the years."
+@slide morph yr.value 0 -> 10 6s ease=linear
+focus rate
+Say: "By year ten it grows twenty six dollars a year, more than twice the simple rate."
+focus f
+Say: "Exponential growth is slow at first, then fast. Time does the heavy lifting."
+focus none
+
+# ---------------------------------------------------------------- scene 3: where it comes from
+scene "Where the interest comes from"
+schema graph
+
+mark you      person  savings=259 shape=circle label="You"
+mark bank     company reserves=50 shape=square label="Bank"
+mark borrower person  loan=200    shape=circle label="Borrower"
+link d1 arrow you -> bank label="deposit"
+link l1 arrow bank -> borrower label="lends"
+link r1 arrow borrower -> bank label="repays + 15%"
+link i1 arrow bank -> you label="pays 10%"
+
+Say: "The bank lends your deposit to a borrower, who pays it back with more interest."
+focus r1
+Say: "The bank keeps the difference |keep| and passes ten percent back to you."
+@keep morph bank.reserves 50 -> 60 1.5s
+focus none
+Say: "That is the whole machine: your money works while you wait."

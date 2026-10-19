@@ -1,0 +1,14 @@
+[
+  {"id": "tides", "subject": "physics", "q": "Why does the moon cause tides?"},
+  {"id": "pythagoras", "subject": "geometry", "q": "What is the Pythagorean theorem and why is it true?"},
+  {"id": "compound", "subject": "finance", "q": "How does compound interest work?"},
+  {"id": "integral", "subject": "calculus", "q": "What is an integral?"},
+  {"id": "bubblesort", "subject": "algorithms", "q": "How does bubble sort work?"},
+  {"id": "matrix", "subject": "linear algebra", "q": "What does a 2x2 matrix do to the plane?"},
+  {"id": "vaccines", "subject": "biology", "q": "How do vaccines train the immune system?"},
+  {"id": "ww1", "subject": "history", "q": "What caused World War 1?"},
+  {"id": "stddev", "subject": "statistics", "q": "What is standard deviation?"},
+  {"id": "supply", "subject": "economics", "q": "Why does supply and demand set prices?"},
+  {"id": "ionic", "subject": "chemistry", "q": "What is an ionic bond?"},
+  {"id": "recursion", "subject": "computer science", "q": "What does recursion mean?"}
+]

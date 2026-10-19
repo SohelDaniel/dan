@@ -1,0 +1,24 @@
+# Calculus: the derivative as the limit of secant slopes.
+title "The derivative is a limit"
+schema axes x=[-0.5,3] y=[-1,9]
+
+mark f   path fn={x^2} label="f(x) = x²"
+mark h   label value=1 label="h"
+mark m   label value={(f(1+h) - f(1)) / h} label="secant slope"
+mark p   dot x=1 y={f(1)} label="P"
+mark q   dot x={1+h} y={f(1+h)} label="Q"
+mark sec line x1=1 y1={f(1)} x2={1+h} y2={f(1+h)} extend=1 label="secant"
+
+Say: "Take two points on the curve, P and Q, a distance h apart."
+focus sec
+Say: "The line through them is a secant. Its slope is three."
+focus q
+Say: "Now let h shrink toward zero, |shrink| and watch Q slide down to P."
+@shrink morph h.value 1 -> 0.01 4s ease=smooth
+@shrink link close similar q -- p
+focus m
+Say: "The secant slope settles at two."
+mark tan line x=1 y={f(1)} slope={deriv(f, 1)} label="tangent"
+focus tan
+Say: "That limiting line is the tangent. Its slope, two, is the derivative of x squared at one."
+focus none
