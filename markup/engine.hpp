@@ -48,6 +48,10 @@ inline bool isCurveKind(const std::string &k) { return k == "path" || k == "solu
 inline bool isBlockKind(const std::string &k) {
   return k == "tex" || k == "card" || k == "code" || k == "array" || k == "table";
 }
+// annotations: marks about other things (of=…): annotate.cpp
+inline bool isAnnotationKind(const std::string &k) {
+  return k == "brace" || k == "enclose" || k == "underline" || k == "cross" || k == "check";
+}
 // "a[3]" -> "a" (and k = 3); "a" -> "a" (k = -1)
 inline std::string baseId(const std::string &ref, int *cell = nullptr) {
   size_t b = ref.find('[');
@@ -426,6 +430,21 @@ private:
   Rectangle stageRect() const;           // the stage in layout coordinates (the screen's at zoom 1)
   Rectangle toStage(Rectangle screen) const; // a screen rectangle (a reserved zone) in layout coordinates
   void fitStage(float dt);
+  // annotations (annotate.cpp): where one goes is derived from what it is about
+  struct Annotation {
+    bool ok = false;
+    Rectangle target{0, 0, 0, 0}, box{0, 0, 0, 0}, bounds{0, 0, 0, 0};
+    std::vector<Vector2> path;          // brace / underline stroke
+    std::string label;
+    Vector2 labelAt{0, 0}, labelAnchor{0.5f, 0};
+    int side = 0;                        // 0 below, 1 right, 2 above, 3 left
+  };
+  Annotation annotation(const Mark &m);
+  bool annotationTarget(const Mark &m, Rectangle &out);
+  bool texPartBox(const Mark &m, const std::string &part, Rectangle &out);
+  void layoutAnnotations();
+  float annotationRoom(const Mark &block);
+  void drawAnnotation(const Mark &m);
   Vector2 infoOrigin();                  // where labels with no place of their own stack: below the band, or in the plot's corner               // after layout: shrink if what's laid out outgrew the stage
   float bandH_ = -1;                // the block band's height, eased (-1: not laid out yet)
   bool blockRows_ = false;         // this scene's blocks flow in rows (once chosen, kept: no mid-scene reshuffle)

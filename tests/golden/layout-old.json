@@ -47,6 +47,18 @@
   "final": 72.2,
   "maxOverlaps": 2
  },
+ "scripts/annotate-graph.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/annotate.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
  "scripts/attach.txt": {
   "mean": 100,
   "worst": 100,

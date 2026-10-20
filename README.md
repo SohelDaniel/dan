@@ -81,6 +81,21 @@ Modifiers:
 - `@hook <line>` waits until the voice reaches `|hook|`.
 - `[id]` glued to a word points at that thing as the word is spoken: `Say: "each [w11]weight is learned"` pulses `w11` on "weight". It is the cheapest way to point; use it whenever a sentence names something on stage.
 
+### Annotations: point at a part
+
+An annotation is a thing about other things. It sits where its target is (below something wide, beside something tall, on the side its arrows don't use) and moves with it.
+
+```
+mark s brace of=f[wx] label="weighted sum"      # a brace under the part of formula f written \textcolor{wx}{…}
+mark n brace of=[x1,x2,x3] label="3 inputs"     # along several things
+mark r enclose of=a[2] label="pivot"            # a box around a thing, a cell, or a part
+mark u underline of=a[1:3]                      # a line under cells 1 to 3
+mark c cross of=guess                           # wrong (red)
+mark k check of=answer label="right"            # right (green)
+```
+
+A target is a thing, an array cell or span (`a[k]`, `a[i:j]`), or a named part of a formula (`f[id]`, the glyphs inside `\textcolor{id}{…}`; the name needs no thing of its own). Mark the annotation on the word that names the part (`@sum mark s brace of=f[wx] …`), and `hide` it when the sentence moves on.
+
 A bare `|go|` fires where it sits in the sentence. A marker attached to a word, like `thirty|go|`, fires when that word is spoken. A marker belongs to its sentence: it fires the `@go` lines between that `Say` and the next one, so the same name can be reused sentence after sentence. Names are one word and match regardless of case.
 
 Re-marking an existing id updates it in place, with numbers easing to their new values. It never errors. There is no delete verb (axiom 1).

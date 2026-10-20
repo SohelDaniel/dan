@@ -87,7 +87,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 - One idea per sentence. Short, plain, spoken language.
 
 **Mayer's principles**
-- Signal: cue the change on the exact word (`|go|`), and point at what you are talking about (`[id]word`, `focus`).
+- Signal: cue the change on the exact word (`|go|`), and point at what you are talking about (`[id]word`, `focus`). To point at a *part* (these three terms, this cell, this step), annotate it: `brace`, `enclose`, `underline`, `cross`/`check` with `of=`; a formula part is `f[id]` for the glyphs in `\textcolor{id}{…}`.
 - Keep words and pictures together: a visual appears as it is spoken.
 - No redundant text: never put your sentences on stage. Labels, numbers, formulas, short key-term cards only.
 - No decoration: every mark earns its place.

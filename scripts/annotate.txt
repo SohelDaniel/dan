@@ -1,0 +1,10 @@
+# Annotations point at parts: a brace under part of a formula, a box around a span, a cross and a check.
+title "Pointing at parts"
+mark f tex tex="y = \textcolor{wx}{w_1 x_1 + w_2 x_2} + \textcolor{b}{b}"
+mark a array items=[3,1,4,1,5] label="inputs"
+Say: "A neuron adds up |sum|weighted inputs, then a bias."
+@sum mark sb brace of=f[wx] label="weighted sum"
+Say: "The bias is |one|one extra number."
+@one mark eb enclose of=f[b] label="bias"
+Say: "Only the |mid|middle three inputs matter here."
+@mid mark u underline of=a[1:3] label="these three"

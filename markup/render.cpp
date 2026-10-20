@@ -433,6 +433,7 @@ void Engine::drawMark(const Mark &mc) {
     return;
   }
   if (isBlockKind(k)) { drawBlock(m); return; }
+  if (isAnnotationKind(k)) { drawAnnotation(m); return; }
   float a = alphaOf(m);
   if (a <= 0.003f) return;
   Color c = colorOf(m);
@@ -796,6 +797,8 @@ void Engine::draw() {
       std::string k = effectiveKind(*m);
       if (k == "dot" || k == "bar" || k == "box" || k == "label" || isBlockKind(k)) drawMark(*m);
     }
+  for (auto &id : order_) // annotations on top of what they are about
+    if (Mark *m = mark(id); m && isAnnotationKind(effectiveKind(*m))) drawMark(*m);
   drawPulses();
   drawInfo();
   EndMode2D();

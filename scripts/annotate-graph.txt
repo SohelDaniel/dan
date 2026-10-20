@@ -1,0 +1,16 @@
+# Annotations on a diagram: a brace along a column (on the side away from its arrows), a cross, a check.
+title "Which is right?"
+schema graph
+mark g1 box guess label="2 + 2 = 5"
+mark g2 box guess label="2 + 2 = 4"
+mark x1 box input label="x₁"
+mark x2 box input label="x₂"
+mark x3 box input label="x₃"
+mark h box output label="sum"
+link l1 arrow x1 -> h
+link l2 arrow x2 -> h
+link l3 arrow x3 -> h
+mark n brace of=[x1,x2,x3] label="3 inputs"
+mark no cross of=g1
+mark yes check of=g2 label="right"
+Say: "Pick one."

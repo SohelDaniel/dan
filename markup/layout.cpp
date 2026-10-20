@@ -66,6 +66,10 @@ Vector2 Engine::boxSize(const Mark &m) {
 Rectangle Engine::bodyBounds(const Mark &m) {
   std::string k = effectiveKind(m), s = schemaNow();
   Vector2 p = m.pos;
+  if (isAnnotationKind(k)) {
+    Annotation a = annotation(m);
+    return a.ok ? a.bounds : Rectangle{p.x, p.y, 0, 0};
+  }
   if (k == "bar" && m.anchorBottom) {
     std::string mp = magProp(m);
     double v = mp.empty() ? 0 : num(m, mp);
@@ -463,7 +467,7 @@ void Engine::layout(float dt) {
     std::string k = effectiveKind(*m);
     if (k == "label" || k == "path" || k == "region" || k == "line" || k == "arrow" || k == "param") continue;
     if (isFieldKind(k) || k == "solution") continue;
-    if (isBlockKind(k) || isWorldKind(k)) continue;
+    if (isBlockKind(k) || isWorldKind(k) || isAnnotationKind(k)) continue;
     if (attachment(*m)) continue; // touches another thing: placed with the pointers
     if (auto at = findProp(m->props, "at"); at && at->type == Value::STR) continue; // placed at another thing
     body.push_back(id);
@@ -483,7 +487,7 @@ void Engine::layout(float dt) {
       // a hidden block keeps its slot as a ghost: nothing after it moves (a new scene makes room)
       blocks.push_back(m);
       if (m->appear < 0.05f) arriving.push_back(m);
-      total += bodyBounds(*m).height + 14;
+      total += bodyBounds(*m).height + annotationRoom(*m) + 14;
     }
     bool alone = body.empty() && (s == "free" || s == "graph");
     int declared = sceneIdx_ < sceneBlocks_.size() ? sceneBlocks_[sceneIdx_] : 0;
@@ -504,7 +508,7 @@ void Engine::layout(float dt) {
         if (!row.empty() && x + b.width > S.width) flush();
         row.push_back({m, {b.width, b.height}});
         x += b.width + 24;
-        rowH = std::max(rowH, b.height);
+        rowH = std::max(rowH, b.height + annotationRoom(*m));
       }
       if (!row.empty()) flush();
       total = y - S.y - 4;
@@ -519,7 +523,7 @@ void Engine::layout(float dt) {
       float h = bodyBounds(*m).height;
       m->tpos = {S.x + S.width / 2, y + h / 2};
       m->positioned = true;
-      y += h + 14;
+      y += h + annotationRoom(*m) + 14;
     }
     // the picture below the band moves with it, eased (a new formula never snaps a plot aside), and
     // keeps a good part of the stage: plots get at least 40% (the band is capped); anything else may
@@ -627,6 +631,7 @@ void Engine::layout(float dt) {
     takenPointers.push_back(rectAt(cand[side]));
   }
 
+  layoutAnnotations();
   fitStage(dt);
   for (auto &[id, m] : marks_) {
     if (!m.positioned) continue;
@@ -671,7 +676,7 @@ void Engine::fitStage(float dt) {
   for (auto &[id, m] : marks_) {
     if (!m.positioned) continue;
     std::string k = effectiveKind(m);
-    if (k != "box" && k != "dot" && k != "bar" && k != "label" && !isBlockKind(k)) continue;
+    if (k != "box" && k != "dot" && k != "bar" && k != "label" && !isBlockKind(k) && !isAnnotationKind(k)) continue;
     Rectangle b = bodyBounds(m);
     b.x += m.tpos.x - m.pos.x;
     b.y += m.tpos.y - m.pos.y;

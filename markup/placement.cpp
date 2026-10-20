@@ -22,7 +22,10 @@ std::string Engine::inkName(const Mark &m) {
 place::Picture Engine::picture() {
   place::Picture p;
   std::map<std::string, int> idx; // mark id -> ink
-  auto pointerTarget = [&](const Mark &m) -> std::string {
+  auto pointerTarget = [&](const Mark &m) -> std::string { // what a pointer or an annotation is about
+    if (isAnnotationKind(effectiveKind(m)))
+      if (const Value *of = findProp(m.props, "of"))
+        return baseId(of->type == Value::LIST ? (of->list.empty() ? "" : of->list[0]) : of->str);
     const Value *at = findProp(m.props, "at");
     return at && at->type == Value::STR && !isWorldKind(effectiveKind(m)) ? baseId(at->str) : "";
   };
@@ -44,10 +47,13 @@ place::Picture Engine::picture() {
       if (!target.empty()) {
         auto t = idx.find(target);
         ink.owner = t == idx.end() ? -1 : t->second;
-        ink.what = "pointer '" + id + "'";
+        ink.what = (isAnnotationKind(effectiveKind(*m)) ? effectiveKind(*m) : std::string("pointer")) + " '" + id + "'";
       }
       if (!focus_.empty() && baseId(focus_) == id) ink.priority = 2;
       idx[id] = p.add(ink);
+      if (const Value *of = findProp(m->props, "of"); of && of->type == Value::LIST && isAnnotationKind(effectiveKind(*m)))
+        for (auto &ref : of->list) // it covers all its targets, not just the first
+          if (auto t = idx.find(baseId(ref)); t != idx.end()) p.allow(idx[id], t->second);
     }
   auto lineInk = [&](const std::string &id, const std::string &what, const std::vector<Vector2> &pts, int owner, int other) {
     if (pts.size() < 2) return -1;
@@ -310,7 +316,7 @@ std::vector<TextLabel> Engine::markLabels(const Mark &m, bool legacy) {
 std::vector<TextLabel> Engine::markLabelsAt(const Mark &m) {
   std::vector<TextLabel> out;
   std::string k = effectiveKind(m), s = schemaNow();
-  if (!m.positioned) return out;
+  if (!m.positioned || isAnnotationKind(k)) return out; // an annotation draws its own name
   std::string name = displayName(m), mp = magProp(m), cp = catProp(m), cv = catValue(m);
   auto add = [&](const std::string &t, Vector2 at, float size, float ax, float ay, TextLabel::Ink ink,
                  const char *role) -> TextLabel & {

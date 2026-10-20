@@ -128,7 +128,7 @@ void Engine::analyze(bool fresh) {
     scenePrescan_.push_back(cur);
     cur = Prescan{};
   };
-  std::set<std::string> defined, sayHooks, deferredHooks;
+  std::set<std::string> defined, sayHooks, deferredHooks, parts; // parts: formula parts named by annotations (f[id])
   std::vector<std::pair<int, std::string>> pointed; // [id] in Say lines
   eachLine(script_, [&](const Line &ln) {
     if (!ln.deferred.empty()) deferredHooks.insert(ln.deferred);
@@ -145,6 +145,9 @@ void Engine::analyze(bool fresh) {
       if (ln.kind == "path" || ln.kind == "region") hasAxes = hasFn = true;
       if (isWorldKind(ln.kind)) hasWorld = true;
       if (ln.kind == "box") hasBox = true;
+      if (const Value *of = findProp(ln.props, "of"); of && isAnnotationKind(ln.kind))
+        for (auto &ref : of->type == Value::LIST ? of->list : std::vector<std::string>{of->str})
+          if (size_t b = ref.find('['); b != std::string::npos) parts.insert(ref.substr(b + 1, ref.find(']') - b - 1));
       if (isBlockKind(ln.kind) && sceneBlockIds.insert(ln.id).second) blockLines++;
       if (ln.kind == "slope") hasAxes = hasFn = true;                                   // y against x
       else if (isFieldKind(ln.kind) || ln.kind == "solution") { hasWorld = true; hasFn = false; } // the plane
@@ -174,7 +177,7 @@ void Engine::analyze(bool fresh) {
   if (fresh) lint_.clear();
   else // whole-script lints are re-derived: a chunk can end between a Say and its @hook lines
     for (auto it = lint_.begin(); it != lint_.end();)
-      it = (it->rfind("hook:", 0) == 0 || it->find("which is never marked") != std::string::npos) ? lint_.erase(it)
+      it = (it->rfind("hook:", 0) == 0 || it->find("which is never marked") != std::string::npos || it->find("\\textcolor{") != std::string::npos) ? lint_.erase(it)
                                                                                                     : std::next(it);
   for (auto &h : deferredHooks)
     if (!sayHooks.count(h)) warn("hook: lines tagged @" + h + " have no |" + h + "| spoken, so they only run when their sentence ends");
@@ -214,11 +217,21 @@ void Engine::analyze(bool fresh) {
     if (!fresh) return; // appended live: the window shows TeX errors itself
     TexPtr L = tex::typeset(src);
     std::string where = "tex: line " + std::to_string(ln.lineNo) + ": ";
-    if (!L->ok) { warn(where + L->error); return; }
-    for (auto &g : L->glyphs) {
+    if (!L->ok) warn(where + L->error);
+  });
+  // \textcolor{name}: a thing, a part an annotation points at, or a colour. Read from the source, so it
+  // is re-derived as the script streams (the annotation naming a part may come after its formula)
+  eachLine(script_, [&](const Line &ln) {
+    const Value *v = ln.verb == Verb::MARK ? findProp(ln.props, "tex") : ln.verb == Verb::MORPH && ln.prop == "tex" ? &ln.to : nullptr;
+    if (!v || v->type != Value::STR) return;
+    for (size_t p = 0; (p = v->str.find("\\textcolor{", p)) != std::string::npos;) {
+      size_t a = p + 11, b = v->str.find('}', a);
+      if (b == std::string::npos) break;
+      std::string name = v->str.substr(a, b - a);
       Color c;
-      if (!g.color.empty() && !defined.count(g.color) && !colorByName(g.color, c))
-        warn(where + "\\textcolor{" + g.color + "} is neither a thing on stage nor a color name");
+      if (!defined.count(name) && !parts.count(name) && !colorByName(name, c))
+        warn("tex: line " + std::to_string(ln.lineNo) + ": \\textcolor{" + name + "} is neither a thing on stage, a part an annotation points at, nor a color name");
+      p = b;
     }
   });
 }
