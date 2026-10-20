@@ -391,6 +391,7 @@ void Engine::drawContour(Mark &m, float a, Color c) {
 // ---------------------------------------------------------------- solution curves
 // of=<slope>: y(x) through from=[x0,y0] across the view; of=<field>: the path a particle takes from there
 std::vector<Vector2> Engine::solutionPoints(const Mark &m) {
+  DataScope dataScope(*this, dataViewOf(m));  // its own view's axes, ranges and camera
   std::vector<Vector2> out;
   const Value *of = findProp(m.props, "of");
   Mark *src = of && of->type == Value::STR ? mark(of->str) : nullptr;

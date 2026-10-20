@@ -21,6 +21,7 @@ std::string Engine::inkName(const Mark &m) {
 
 // a translucent world shape as the eye reads it: its outline (things and names may sit inside it)
 std::vector<Vector2> Engine::shapeOutline(const Mark &m) {
+  DataScope dataScope(*this, dataViewOf(m));  // its own view's axes, ranges and camera
   std::string k = effectiveKind(m);
   std::vector<Vector2> pts;
   if (k == "polygon") {
@@ -99,7 +100,7 @@ place::Picture Engine::picture() {
   // curves, lines and vectors are strokes, not boxes: polylines (a vector may touch what it's attached to)
   for (auto &id : order_) {
     Mark *m = mark(id);
-    if (!m || !m->positioned || alphaOf(*m) < 0.05f || !isAxes(schemaNow())) continue;
+    if (!m || !m->positioned || alphaOf(*m) < 0.05f || !isAxes(schemaOf(*m))) continue;
     std::string k = effectiveKind(*m);
     if (isCurveKind(k)) {
       auto pts = curvePoints(*m);
@@ -148,7 +149,7 @@ place::Picture Engine::picture() {
     }
   }
   for (auto &id : order_) // trails: strokes owned by the thing that leaves them
-    if (Mark *m = mark(id); m && m->positioned && findProp(m->props, "trail") && isAxes(schemaNow())) {
+    if (Mark *m = mark(id); m && m->positioned && findProp(m->props, "trail") && isAxes(schemaOf(*m))) {
       int owner = idx.count(id) ? idx[id] : -1;
       lineInk(id + "~trail", "the trail of '" + id + "'", trailLine(*m), owner, -1);
     }
@@ -266,7 +267,19 @@ static float easeBackL(float t) { return rm::rate::ease_out_back(std::clamp(t, 0
 
 // ---------------------------------------------------------------- axis furniture
 // where the axes put text: the tick numbers under the x axis and left of the y axis, and the titles
+// every data view's furniture (each with its own axes)
 std::vector<Rectangle> Engine::furniture() {
+  std::vector<Rectangle> out = furnitureHere();
+  for (auto &[vid, c] : dataCtx_)
+    if (vid != curData_) {
+      DataScope ds(*this, vid);
+      auto more = furnitureHere();
+      out.insert(out.end(), more.begin(), more.end());
+    }
+  return out;
+}
+
+std::vector<Rectangle> Engine::furnitureHere() {
   std::vector<Rectangle> out;
   std::string s = schemaNow();
   if (!isAxes(s)) return out;
@@ -291,6 +304,7 @@ std::vector<Rectangle> Engine::furniture() {
 
 // ---------------------------------------------------------------- curve / line geometry
 std::vector<Vector2> Engine::curvePoints(const Mark &m) {
+  DataScope dataScope(*this, dataViewOf(m));  // its own view's axes, ranges and camera
   if (effectiveKind(m) == "solution") return solutionPoints(m);
   std::vector<Vector2> pts;
   if (isParametric(m)) {
@@ -314,6 +328,7 @@ std::vector<Vector2> Engine::curvePoints(const Mark &m) {
 }
 
 bool Engine::lineEnds(const Mark &m, Vector2 &A, Vector2 &B, bool &hs) {
+  DataScope dataScope(*this, dataViewOf(m));  // its own view's axes, ranges and camera
   bool h1, h2;
   double x1 = num(m, "x1", &h1), y1 = num(m, "y1"), x2 = num(m, "x2", &h2), y2 = num(m, "y2");
   double slope = num(m, "slope", &hs);
@@ -355,6 +370,7 @@ std::vector<TextLabel> Engine::markLabels(const Mark &m, bool legacy) {
 }
 
 std::vector<TextLabel> Engine::markLabelsAt(const Mark &m) {
+  DataScope dataScope(*this, dataViewOf(m));  // its own view's axes, ranges and camera
   std::vector<TextLabel> out;
   std::string k = effectiveKind(m), s = schemaOf(m);
   if (!m.positioned || isAnnotationKind(k)) return out; // an annotation draws its own name
@@ -536,6 +552,7 @@ std::vector<TextLabel> Engine::markLabelsAt(const Mark &m) {
 
 // a vector's tail (at=<thing>, its side, or x y) and tip (dx dy, to=[x,y] or to=<thing>), on screen
 bool Engine::vectorEnds(const Mark &m, Vector2 &s0, Vector2 &e1) {
+  DataScope dataScope(*this, dataViewOf(m));  // its own view's axes, ranges and camera
   float ppx = axes_.area.width / std::max(1e-6f, axes_.xmax - axes_.xmin);
   float ppy = axes_.area.height / std::max(1e-6f, axes_.ymax - axes_.ymin);
   double sx = num(m, "x"), sy = num(m, "y");
@@ -756,6 +773,7 @@ void Engine::placeAllLabels(float dt) {
   for (auto &id : order_) {
     Mark *m = mark(id);
     if (!m || !m->positioned || alphaOf(*m) < 0.05f) continue;
+    DataScope ds(*this, dataViewOf(*m)); // its own plot's axes
     std::string k = effectiveKind(*m);
     std::vector<Vector2> stroke;
     if (isAxes(schemaOf(*m))) {

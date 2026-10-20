@@ -195,6 +195,7 @@ public:
   LinkGeom linkGeometryAt(const Link &l);
   std::string linkLabel(const Link &l);   // the text on a link: its label (with its value), else its properties
   std::vector<Rectangle> furniture();   // tick numbers and axis titles (placement.cpp)
+  std::vector<Rectangle> furnitureHere(); // the current data view's
   const Value *attachment(const Mark &m) const; // on= / in= / over=: touching a thing on purpose
   // the new placer (--placer new): every movable label placed together, each frame, with hysteresis
   // where the placer put a label (box, side) and where it is drawn now. The springs act on the label's
@@ -397,7 +398,7 @@ private:
   std::map<std::string, std::string> graphSig_; // per view ("" for the scene's one graph)
   std::map<std::string, Vector2> graphPos_;
   // views: named schemas sharing the stage (schema net graph / schema loss axes …), in declaration order.
-  // At most one holds data (axes, plane, number line, timeline): it sets schema_ / schemaProps_.
+  // Each view that holds data (axes, plane, number line, timeline) has its own ranges and axes (DataCtx).
   struct View { std::string id, schema; Props props; Rectangle area{0, 0, 0, 0}; };
   std::vector<View> views_;
   std::string curView_;                    // new marks join it
@@ -444,6 +445,30 @@ private:
     float vx = 0, vy = 0;     // follow spring velocities
     std::string spec;         // the camera line as written back by readback
   } cam_;
+  // A view that holds data (axes, plane, number line, timeline) owns all the state above that maps data
+  // to the screen. The current one lives in the members (so the code that reads axes_, nl_, cam_ … is
+  // unchanged); the others wait in dataCtx_. DataScope makes a view's state current for a while.
+  struct DataCtx {
+    std::string schema = "auto", nlProp, rangeSig;
+    Props props;
+    float binR = 10, nlMin = 0, nlMax = 10, axX0 = -1, axX1 = 5, axY0 = -1, axY1 = 10, tlMin = 0, tlMax = 10;
+    float nlTarget[2] = {0, 10}, axTarget[4] = {-1, 5, -1, 10}, tlTarget[2] = {0, 10};
+    bool rangesInit = false;
+    rm::Axes axes;
+    rm::NumberLine nl;
+    Camera cam;
+  };
+  std::map<std::string, DataCtx> dataCtx_; // by view id: every data view but the current one (its slot is idle)
+  std::string curData_;                    // the data view whose state is in the members ("" without views)
+  void swapData(DataCtx &c);               // the members <-> c
+  void useData(const std::string &view);   // make that data view's state current ("" or not a data view: no change)
+  std::string dataViewOf(const Mark &m) const; // the data view it belongs to ("" if none)
+  struct DataScope {
+    Engine &e;
+    std::string was;
+    DataScope(Engine &en, const std::string &view) : e(en), was(en.curData_) { e.useData(view); }
+    ~DataScope() { e.useData(was); }
+  };
   float lastDt_ = 0;
   std::map<std::string, int> pointerSide_;
   std::vector<int> sceneBlocks_;   // per scene: how many blocks its script declares
@@ -471,6 +496,7 @@ private:
   void layoutAnnotations();
   bool refBox(const std::string &ref, Rectangle &out); // a thing, cell, span or formula part, as drawn now
   void drawFlights();
+  void drawFurniture();
   std::vector<std::pair<std::string, Rectangle>> screenZones();
   // the area diagram (area.cpp): parts of a whole as proportional strips, each optionally split again
   Vector2 areaSize(const Mark &m);

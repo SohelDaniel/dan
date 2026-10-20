@@ -227,6 +227,12 @@
   "final": 100,
   "maxOverlaps": 1
  },
+ "scripts/views-plots.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
  "scripts/views.txt": {
   "mean": 100,
   "worst": 100,

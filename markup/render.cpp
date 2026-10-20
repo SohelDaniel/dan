@@ -507,6 +507,7 @@ void Engine::drawLabels(const Mark &m) {
 }
 
 void Engine::drawMark(const Mark &mc) {
+  DataScope dataScope(*this, dataViewOf(mc));  // its own view's axes, ranges and camera
   Mark &m = const_cast<Mark &>(mc);
   if (!m.positioned && effectiveKind(m) != "label") return;
   std::string k = effectiveKind(m), s = schemaOf(m);
@@ -786,21 +787,9 @@ void Engine::drawHud() {
   else if (waitingPause_) textBg("press → to continue", {W / 2.f, 40}, 20, col::fg, fade(col::grid, 0.9f));
 }
 
-void Engine::draw() {
-  ClearBackground(col::bg);
+// the current data view's furniture: its line or axes, ticks and titles, and heat maps under them
+void Engine::drawFurniture() {
   std::string s = schemaNow();
-  if (!title_.empty()) text(title_, {24, 14}, 24, col::muted, 0, 0);
-  // the stage, scaled when the scene outgrew it; title, subtitles and hints stay at screen size
-  Rectangle S = stageRect();
-  Vector2 c{S.x + S.width / 2, S.y + S.height / 2}; // the stage's centre is the same at every scale
-  // multiplied into the current matrix, not replacing it (BeginMode2D would drop the high-DPI scaling
-  // a Retina window draws with, and the stage would shrink into the top-left corner)
-  rlPushMatrix();
-  rlTranslatef(c.x, c.y, 0);
-  rlScalef(zoom_, zoom_, 1);
-  rlTranslatef(-c.x, -c.y, 0);
-
-  // schema furniture
   const float F = stageFade_;
   if (s == "numberline") nl_.draw(col::fg, F, true);
   if (s == "timeline") {
@@ -815,7 +804,7 @@ void Engine::draw() {
   }
   if (isAxes(s)) // heat maps lie under the axes and grid
     for (auto &id : order_)
-      if (Mark *m = mark(id); m && m->positioned && effectiveKind(*m) == "heat") drawMark(*m);
+      if (Mark *m = mark(id); m && m->positioned && inDataView(*m) && effectiveKind(*m) == "heat") drawMark(*m);
   if (s == "axes") axes_.draw(col::muted, F, true, true);
   if (isAxes(s)) { // axis titles: xlabel= ylabel= on the schema
     auto xl = findProp(schemaProps_, "xlabel"), yl = findProp(schemaProps_, "ylabel");
@@ -835,6 +824,27 @@ void Engine::draw() {
     if (axesOn) axes_.draw(fade(col::muted, 0.8f), F, true, grid);
     else if (grid) axes_.draw(fade(col::muted, 0.35f), F * 0.6f, false, true);
   }
+
+}
+
+void Engine::draw() {
+  ClearBackground(col::bg);
+  std::string s = schemaNow();
+  if (!title_.empty()) text(title_, {24, 14}, 24, col::muted, 0, 0);
+  // the stage, scaled when the scene outgrew it; title, subtitles and hints stay at screen size
+  Rectangle S = stageRect();
+  Vector2 c{S.x + S.width / 2, S.y + S.height / 2}; // the stage's centre is the same at every scale
+  // multiplied into the current matrix, not replacing it (BeginMode2D would drop the high-DPI scaling
+  // a Retina window draws with, and the stage would shrink into the top-left corner)
+  rlPushMatrix();
+  rlTranslatef(c.x, c.y, 0);
+  rlScalef(zoom_, zoom_, 1);
+  rlTranslatef(-c.x, -c.y, 0);
+
+  // schema furniture, for every data view with its own axes
+  drawFurniture();
+  for (auto &[vid, c] : dataCtx_) if (vid != curData_) { DataScope ds(*this, vid); drawFurniture(); }
+  const float F = stageFade_;
 
   // shared zero baselines, one per run of bars with the same property
   {
@@ -892,12 +902,14 @@ void Engine::draw() {
   for (auto &id : order_) if (auto l = links_.find(id); l != links_.end()) drawLink(l->second);
   for (auto &id : order_)
     if (Mark *m = mark(id); m && effectiveKind(*m) == "vector") drawMark(*m);
-  if (isAxes(s)) { // trails under the things that leave them
-    BeginScissorMode((int)axes_.area.x, (int)axes_.area.y, (int)axes_.area.width, (int)axes_.area.height);
-    for (auto &id : order_)
-      if (Mark *m = mark(id); m && findProp(m->props, "trail")) drawTrail(*m);
-    EndScissorMode();
-  }
+  for (auto &id : order_) // trails under the things that leave them, clipped to their own plot
+    if (Mark *m = mark(id); m && findProp(m->props, "trail")) {
+      DataScope ds(*this, dataViewOf(*m));
+      if (!isAxes(schemaNow())) continue;
+      BeginScissorMode((int)axes_.area.x, (int)axes_.area.y, (int)axes_.area.width, (int)axes_.area.height);
+      drawTrail(*m);
+      EndScissorMode();
+    }
   for (auto &id : order_)
     if (Mark *m = mark(id)) {
       std::string k = effectiveKind(*m);

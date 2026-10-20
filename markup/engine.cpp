@@ -272,6 +272,8 @@ void Engine::reset() {
   schemaProps_.clear();
   views_.clear();
   curView_.clear();
+  dataCtx_.clear();
+  curData_.clear();
   title_.clear();
   sceneIdx_ = 0;
   if (!autoSchemas_.empty()) autoSchema_ = autoSchemas_[0];
@@ -596,6 +598,8 @@ bool Engine::paramAt(const Mark &p, double t, double &x, double &y) {
 void Engine::clearStage() {
   views_.clear();
   curView_.clear();
+  dataCtx_.clear();
+  curData_.clear();
   marks_.clear();
   links_.clear();
   groups_.clear();
@@ -748,6 +752,7 @@ void Engine::execLine(const Line &ln) {
     if (!ln.id.empty() && views_.empty() && schema_ != "auto") {
       views_.push_back({"main", schema_, schemaProps_});
       for (auto &[id, m] : marks_) if (m.view.empty()) m.view = "main";
+      if (isAxes(schema_) || schema_ == "numberline" || schema_ == "timeline") curData_ = "main";
     }
     if (!ln.id.empty() || !views_.empty()) { // a named view: create it, or select it for the marks that follow
       Line named = ln;
@@ -758,13 +763,18 @@ void Engine::execLine(const Line &ln) {
       else if (!ln.kind.empty()) { v->schema = ln.kind; v->props = ln.props; }
       curView_ = ln.id;
       bool data = isAxes(v->schema) || v->schema == "numberline" || v->schema == "timeline";
-      if (data && !ln.kind.empty()) {
-        if (isAxes(schema_) || schema_ == "numberline" || schema_ == "timeline")
-          if (schema_ != v->schema || std::count_if(views_.begin(), views_.end(), [&](const View &w) { return w.schema == schema_; }) > 1)
-            warn("schema: one view per scene can hold data (axes, plane, number line, timeline); '" + ln.id + "' takes it over");
-        schema_ = v->schema;
-        schemaProps_ = v->props;
-        rangesInit_ = false;
+      if (data && !ln.kind.empty()) { // the first data view's state is the members'; each later one has its own
+        if (curData_.empty() || curData_ == v->id) {
+          curData_ = v->id;
+          schema_ = v->schema;
+          schemaProps_ = v->props;
+          rangesInit_ = false;
+        } else {
+          DataCtx &c = dataCtx_[v->id];
+          c.schema = v->schema;
+          c.props = v->props;
+          c.rangesInit = false;
+        }
       }
       caption("view " + ln.id + " (" + v->schema + ") -> its own part of the stage, its own layout rules");
       break;

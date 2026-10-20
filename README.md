@@ -288,7 +288,7 @@ schema loss axes x=[0,10] y=[0,4] label="its loss"          # … and the loss c
 mark L path fn={3*exp(-0.35*x)+0.3}
 ```
 
-One view per scene can hold data (axes, plane, number line, timeline); the others are graphs or free rows. Formulas and cards still stack in the band above all of them.
+Each view has its own schema, so two plots can sit side by side with their own ranges (a signal in time beside its spectrum, two distributions). Formulas and cards still stack in the band above all of them.
 
 **Conversations.** `schema sequence` puts its things (the parties) across the top, each with a lifeline, and draws every link as a message on its own row, in the order written: a handshake, a protocol, a request and its reply, who said what to whom.
 

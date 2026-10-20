@@ -18,7 +18,32 @@ using namespace rm;
 static const Rectangle kStage{40, 66, 1200, 494};
 
 std::string Engine::schemaNow() const { return schema_ != "auto" ? schema_ : autoSchema_; }
-bool Engine::inDataView(const Mark &m) const { return views_.empty() || schemaOf(m) == schemaNow(); }
+bool Engine::inDataView(const Mark &m) const { return views_.empty() || (!curData_.empty() && dataViewOf(m) == curData_); }
+
+static bool isDataSchema(const std::string &s) { return isAxes(s) || s == "numberline" || s == "timeline"; }
+
+std::string Engine::dataViewOf(const Mark &m) const {
+  if (views_.empty()) return "";
+  const View *v = nullptr;
+  for (auto &w : views_) if (w.id == m.view) v = &w;
+  if (!v) v = &views_[0]; // marks from before the first view belong to it
+  return isDataSchema(v->schema) ? v->id : "";
+}
+
+void Engine::swapData(DataCtx &c) {
+  std::swap(schema_, c.schema); std::swap(schemaProps_, c.props); std::swap(nlProp_, c.nlProp); std::swap(rangeSig_, c.rangeSig);
+  std::swap(binR_, c.binR); std::swap(nlMin_, c.nlMin); std::swap(nlMax_, c.nlMax); std::swap(axX0_, c.axX0); std::swap(axX1_, c.axX1);
+  std::swap(axY0_, c.axY0); std::swap(axY1_, c.axY1); std::swap(tlMin_, c.tlMin); std::swap(tlMax_, c.tlMax);
+  std::swap(nlTarget_, c.nlTarget); std::swap(axTarget_, c.axTarget); std::swap(tlTarget_, c.tlTarget);
+  std::swap(rangesInit_, c.rangesInit); std::swap(axes_, c.axes); std::swap(nl_, c.nl); std::swap(cam_, c.cam);
+}
+
+void Engine::useData(const std::string &view) {
+  if (view.empty() || view == curData_ || !dataCtx_.count(view)) return;
+  swapData(dataCtx_[curData_]); // the current state goes back to its slot
+  swapData(dataCtx_[view]);     // and the view's comes out of its own
+  curData_ = view;
+}
 std::string Engine::schemaOf(const Mark &m) const {
   for (auto &v : views_) if (v.id == m.view) return v.schema;
   return views_.empty() ? schemaNow() : views_[0].schema; // marks from before the first view belong to it
@@ -72,6 +97,7 @@ Vector2 Engine::boxSize(const Mark &m) {
 }
 
 Rectangle Engine::bodyBounds(const Mark &m) {
+  DataScope dataScope(*this, dataViewOf(m));  // its own view's axes, ranges and camera
   std::string k = effectiveKind(m), s = schemaOf(m);
   Vector2 p = m.pos;
   if (isAnnotationKind(k)) {
@@ -191,6 +217,7 @@ std::vector<double> Engine::listNums(const Mark &m, const std::string &key) {
 
 // the box a world shape covers, in world units (false if it has none yet)
 bool Engine::worldExtent(const Mark &m, float &x0, float &x1, float &y0, float &y1) {
+  DataScope dataScope(*this, dataViewOf(m));  // its own view's axes, ranges and camera
   std::string k = m.kind;
   bool hx, hy;
   double x = num(m, "x", &hx), y = num(m, "y", &hy);
@@ -507,6 +534,7 @@ void Engine::layout(float dt) {
   lastDt_ = dt;
   for (auto &[id, m] : marks_) { m.positioned = false; m.anchorBottom = false; m.direct = false; m.culled = false; }
   computeRanges(dt);
+  for (auto &[vid, c] : dataCtx_) if (vid != curData_) { DataScope ds(*this, vid); computeRanges(dt); } // each data view's own
   std::string s = schemaNow();
 
   std::vector<std::string> body; // marks that need a place in free/graph layouts
@@ -733,10 +761,13 @@ void Engine::layoutViews(Rectangle area, const std::vector<std::string> &body) {
       if (Mark *m = mark(id); m && (m->view == v.id || (m->view.empty() && i == 0))) ids.push_back(id);
     if (v.schema == "graph") { layoutGraph(inner, ids, v.id); anyGraph = true; }
     else if (v.schema == "free") layoutFree(inner, ids);
-    else if (isAxes(v.schema)) layoutAxes(inner);
-    else if (v.schema == "numberline") layoutNumberline(inner);
-    else if (v.schema == "timeline") layoutTimeline(inner);
     else if (v.schema == "sequence") layoutSequence(inner, ids);
+    else {
+      DataScope ds(*this, v.id); // a data view lays out with its own axes and ranges
+      if (isAxes(v.schema)) layoutAxes(inner);
+      else if (v.schema == "numberline") layoutNumberline(inner);
+      else if (v.schema == "timeline") layoutTimeline(inner);
+    }
   }
   if (!anyGraph) linkRoute_.clear();
 }

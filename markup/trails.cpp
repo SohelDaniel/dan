@@ -90,11 +90,13 @@ bool Engine::trailSpec(const Mark &m, double &window, bool &all) {
 }
 
 void Engine::drawTrail(Mark &m) {
+  DataScope dataScope(*this, dataViewOf(m));  // its own view's axes, ranges and camera
   for (auto &run : trailRuns(m)) strip(run);
 }
 
 // the screen polyline(s) of a mark's trail at the current time; a teleport splits it
 std::vector<Vector2> Engine::trailLine(Mark &m) {
+  DataScope dataScope(*this, dataViewOf(m));  // its own view's axes, ranges and camera
   std::vector<Vector2> out;
   for (auto &run : trailRuns(m)) {
     // thin for the placer and checker: every ~10 px, and wherever it turns

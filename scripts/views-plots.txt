@@ -1,0 +1,10 @@
+# Two plots side by side, each with its own axes and ranges: a signal in time, and its frequencies.
+title "One signal, two views"
+schema time axes x=[0,6.3] y=[-2,2] xlabel="time" ylabel="signal" label="in time"
+mark s path fn={sin(x)+0.5*sin(3*x)} label="signal"
+mark p dot x=1.57 y=0.5 label="a peak"
+schema freq axes x=[0,4] y=[0,1.2] xlabel="frequency" ylabel="strength" label="in frequency"
+mark f1 region of=r1 from=0.8 to=1.2
+mark r1 path fn={exp(-40*(x-1)^2)+0.5*exp(-40*(x-3)^2)} label="spectrum"
+Say: "The same signal, seen in |time|time and in frequency."
+@time indicate s
