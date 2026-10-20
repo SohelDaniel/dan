@@ -1,6 +1,6 @@
 // Generate one first-turn scene per prompt with a given prompt variant, then check and render it.
 //
-//   node tools/eval/run.mjs --variant full|method|base --out DIR [--only a,b] [--model sonnet] [--jobs 4] [--prompts prompts-2d.json]
+//   node tools/eval/run.mjs --variant full|method|base --out DIR [--only a,b] [--model sonnet] [--jobs 4] [--prompts prompts-2d.json] [--prompt chat/prompt.md]
 //
 // Variants: base   = format + scene rules only (no plan, no teaching method, no examples)
 //           method = chat/prompt.md without the worked examples
@@ -32,7 +32,7 @@ function system() {
   if (variant === 'full')
     for (const f of fs.readdirSync(ex).filter((f) => f.endsWith('.txt')).sort())
       examples += `\n### ${f.slice(0, -4)}\n\n\`\`\`scene\n${fs.readFileSync(path.join(ex, f), 'utf8').trim()}\n\`\`\`\n`;
-  const file = variant === 'base' ? path.join(HERE, 'variants', 'base.md') : path.join(ROOT, 'chat', 'prompt.md');
+  const file = variant === 'base' ? path.join(HERE, 'variants', 'base.md') : path.resolve(flag('--prompt', path.join(ROOT, 'chat', 'prompt.md')));
   return fs.readFileSync(file, 'utf8').replace('{{EXAMPLES}}', examples) + lang;
 }
 const SYSTEM = system();
