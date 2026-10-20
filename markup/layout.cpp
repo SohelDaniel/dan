@@ -536,105 +536,74 @@ void Engine::computeRanges(float dt) {
 }
 
 // ================================================================ main layout
-void Engine::layout(float dt) {
-  lastDt_ = dt;
-  for (auto &[id, m] : marks_) { m.positioned = false; m.anchorBottom = false; m.direct = false; m.culled = false; }
-  computeRanges(dt);
-  for (auto &[vid, c] : dataCtx_) if (vid != curData_) { DataScope ds(*this, vid); computeRanges(dt); } // each data view's own
-  std::string s = schemaNow();
-
-  std::vector<std::string> body; // marks that need a place in free/graph layouts
-  for (auto &id : order_) {
-    Mark *m = mark(id);
-    if (!m) continue;
-    std::string k = effectiveKind(*m);
-    if (k == "label" || k == "path" || k == "region" || k == "line" || k == "arrow" || k == "param") continue;
-    if (isFieldKind(k) || k == "solution") continue;
-    if (isBlockKind(k) || isWorldKind(k) || isAnnotationKind(k)) continue;
-    if (attachment(*m)) continue; // touches another thing: placed with the pointers
-    if (auto at = findProp(m->props, "at"); at && at->type == Value::STR) continue; // placed at another thing
-    body.push_back(id);
-  }
-
-  // blocks (formulas, cards, code, arrays, tables) with no place of their own stack in a band at the
-  // top, and the schema gets the rest. With nothing else on a free stage, the stack is centred.
+// blocks (formulas, cards, code, arrays, tables) with no place of their own stack in a band at the
+// top, and the schema gets the rest. With nothing else on a free stage, the stack is centred. Returns the rest of the stage, for the schema.
+Rectangle Engine::layoutBand(const std::string &s, bool alone, float dt) {
   const Rectangle S = stageRect(); // the stage in layout coordinates (larger when zoomed out)
   Rectangle stage = S;
-  {
-    std::vector<Mark *> blocks, arriving;
-    float total = 0;
-    for (auto &id : order_) {
-      Mark *m = mark(id);
-      if (!m || !isBlockKind(effectiveKind(*m)) || attachment(*m)) continue;
-      if (isAxes(s) && findProp(m->props, "x") && findProp(m->props, "y")) continue;
-      // a hidden block keeps its slot as a ghost: nothing after it moves (a new scene makes room)
-      blocks.push_back(m);
-      if (m->appear < 0.05f) arriving.push_back(m);
-      total += bodyBounds(*m).height + annotationRoom(*m) + 14;
-    }
-    bool alone = body.empty() && (s == "free" || s == "graph");
-    int declared = sceneIdx_ < sceneBlocks_.size() ? sceneBlocks_[sceneIdx_] : 0;
-    if (blocks.size() > 1 && ((!alone && total > S.height * 0.4f) || (alone && total > S.height - 8))) blockRows_ = true;
-    if (declared >= 4) blockRows_ = true; // many blocks coming: rows from the start
-    if (blockRows_ && blocks.size() > 1) {
-      // a tall stack would leave the picture no room: flow the blocks in rows, side by side
-      float x = 0, rowH = 0, y = S.y + 4;
-      std::vector<std::pair<Mark *, Vector2>> row;
-      auto flush = [&] {
-        float w = x - 24, x0 = S.x + (S.width - w) / 2;
-        for (auto &[bm, sz] : row) { bm->tpos = {x0 + sz.x / 2, y + rowH / 2}; bm->positioned = true; x0 += sz.x + 24; }
-        y += rowH + 14;
-        row.clear(); x = 0; rowH = 0;
-      };
-      for (Mark *m : blocks) {
-        Rectangle b = bodyBounds(*m);
-        if (!row.empty() && x + b.width > S.width) flush();
-        row.push_back({m, {b.width, b.height}});
-        x += b.width + 24;
-        rowH = std::max(rowH, b.height + annotationRoom(*m));
-      }
-      if (!row.empty()) flush();
-      total = y - S.y - 4;
-      if (alone) { // centre the rows vertically, as the column would be
-        float off = std::max(0.f, (S.height - total) / 2 - 4);
-        for (auto &id : order_) if (Mark *bm = mark(id); bm && std::find(blocks.begin(), blocks.end(), bm) != blocks.end()) bm->tpos.y += off;
-      }
-      blocks.clear(); // placed
-    }
-    float y = alone ? S.y + std::max(4.f, (S.height - total) / 2) : S.y + 4;
+  std::vector<Mark *> blocks, arriving;
+  float total = 0;
+  for (auto &id : order_) {
+    Mark *m = mark(id);
+    if (!m || !isBlockKind(effectiveKind(*m)) || attachment(*m)) continue;
+    if (isAxes(s) && findProp(m->props, "x") && findProp(m->props, "y")) continue;
+    // a hidden block keeps its slot as a ghost: nothing after it moves (a new scene makes room)
+    blocks.push_back(m);
+    if (m->appear < 0.05f) arriving.push_back(m);
+    total += bodyBounds(*m).height + annotationRoom(*m) + 14;
+  }
+  int declared = sceneIdx_ < sceneBlocks_.size() ? sceneBlocks_[sceneIdx_] : 0;
+  if (blocks.size() > 1 && ((!alone && total > S.height * 0.4f) || (alone && total > S.height - 8))) blockRows_ = true;
+  if (declared >= 4) blockRows_ = true; // many blocks coming: rows from the start
+  if (blockRows_ && blocks.size() > 1) {
+    // a tall stack would leave the picture no room: flow the blocks in rows, side by side
+    float x = 0, rowH = 0, y = S.y + 4;
+    std::vector<std::pair<Mark *, Vector2>> row;
+    auto flush = [&] {
+      float w = x - 24, x0 = S.x + (S.width - w) / 2;
+      for (auto &[bm, sz] : row) { bm->tpos = {x0 + sz.x / 2, y + rowH / 2}; bm->positioned = true; x0 += sz.x + 24; }
+      y += rowH + 14;
+      row.clear(); x = 0; rowH = 0;
+    };
     for (Mark *m : blocks) {
-      float h = bodyBounds(*m).height;
-      m->tpos = {S.x + S.width / 2, y + h / 2};
-      m->positioned = true;
-      y += h + annotationRoom(*m) + 14;
+      Rectangle b = bodyBounds(*m);
+      if (!row.empty() && x + b.width > S.width) flush();
+      row.push_back({m, {b.width, b.height}});
+      x += b.width + 24;
+      rowH = std::max(rowH, b.height + annotationRoom(*m));
     }
-    // the picture below the band moves with it, eased (a new formula never snaps a plot aside), and
-    // keeps a good part of the stage: plots get at least 40% (the band is capped); anything else may
-    // run past the bottom, and then the whole stage is drawn smaller to fit (fitStage)
-    float want = total > 0 && !alone ? (isAxes(s) ? std::min(total + 6, S.height * 0.6f) : total + 6) : 0;
-    bandH_ = opt_.instant || bandH_ < 0 ? want : smoothApproach(bandH_, want, dt, 9);
-    if (bandH_ < want - 4) // room first, then the newcomer: a block arriving in a growing band waits for it
-      for (Mark *m : arriving) m->appear = 0;
-    stage.y += bandH_;
-    stage.height = std::max(S.height - bandH_, S.height * 0.4f);
+    if (!row.empty()) flush();
+    total = y - S.y - 4;
+    if (alone) { // centre the rows vertically, as the column would be
+      float off = std::max(0.f, (S.height - total) / 2 - 4);
+      for (auto &id : order_) if (Mark *bm = mark(id); bm && std::find(blocks.begin(), blocks.end(), bm) != blocks.end()) bm->tpos.y += off;
+    }
+    blocks.clear(); // placed
   }
-
-  seqRow_.clear(); // a sequence schema fills it this frame
-  barEased_.clear();
-  if (!views_.empty()) layoutViews(stage, body);
-  else {
-    if (s != "graph" || body.empty()) linkRoute_.clear();
-    if (s == "free") layoutFree(stage, body);
-    else if (s == "graph") layoutGraph(stage, body);
-    else if (s == "numberline") layoutNumberline(stage);
-    else if (isAxes(s)) layoutAxes(stage);
-    else if (s == "timeline") layoutTimeline(stage);
-    else if (s == "sequence") layoutSequence(stage, body);
+  float y = alone ? S.y + std::max(4.f, (S.height - total) / 2) : S.y + 4;
+  for (Mark *m : blocks) {
+    float h = bodyBounds(*m).height;
+    m->tpos = {S.x + S.width / 2, y + h / 2};
+    m->positioned = true;
+    y += h + annotationRoom(*m) + 14;
   }
+  // the picture below the band moves with it, eased (a new formula never snaps a plot aside), and
+  // keeps a good part of the stage: plots get at least 40% (the band is capped); anything else may
+  // run past the bottom, and then the whole stage is drawn smaller to fit (fitStage)
+  float want = total > 0 && !alone ? (isAxes(s) ? std::min(total + 6, S.height * 0.6f) : total + 6) : 0;
+  bandH_ = opt_.instant || bandH_ < 0 ? want : smoothApproach(bandH_, want, dt, 9);
+  if (bandH_ < want - 4) // room first, then the newcomer: a block arriving in a growing band waits for it
+    for (Mark *m : arriving) m->appear = 0;
+  stage.y += bandH_;
+  stage.height = std::max(S.height - bandH_, S.height * 0.4f);
+  return stage;
+}
 
-  // at=<thing> or at=a[3]: a pointer label names what it points at. Under an array cell it sits below the
-  // cell (the convention for indices); anything else gets the first free side of the target (below, right,
-  // above, left): in a column of boxes "below" is the next box. The side is kept while it stays free.
+// at=<thing> or at=a[3]: a pointer label names what it points at. Under an array cell it sits below the
+// cell (the convention for indices); anything else gets the first free side of the target (below, right,
+// above, left): in a column of boxes "below" is the next box. The side is kept while it stays free.
+void Engine::layoutPointers() {
+  const Rectangle S = stageRect();
   std::map<std::string, int> total, placedAt;
   for (auto &[id, m] : marks_)
     if (auto at = findProp(m.props, "at"); at && at->type == Value::STR && !isWorldKind(effectiveKind(m))) total[at->str]++;
@@ -721,7 +690,45 @@ void Engine::layout(float dt) {
     m->tpos = cand[side];
     takenPointers.push_back(rectAt(cand[side]));
   }
+}
 
+void Engine::layout(float dt) {
+  lastDt_ = dt;
+  for (auto &[id, m] : marks_) { m.positioned = false; m.anchorBottom = false; m.direct = false; m.culled = false; }
+  computeRanges(dt);
+  for (auto &[vid, c] : dataCtx_) if (vid != curData_) { DataScope ds(*this, vid); computeRanges(dt); } // each data view's own
+  std::string s = schemaNow();
+
+  std::vector<std::string> body; // marks that need a place in free/graph layouts
+  for (auto &id : order_) {
+    Mark *m = mark(id);
+    if (!m) continue;
+    std::string k = effectiveKind(*m);
+    if (k == "label" || k == "path" || k == "region" || k == "line" || k == "arrow" || k == "param") continue;
+    if (isFieldKind(k) || k == "solution") continue;
+    if (isBlockKind(k) || isWorldKind(k) || isAnnotationKind(k)) continue;
+    if (attachment(*m)) continue; // touches another thing: placed with the pointers
+    if (auto at = findProp(m->props, "at"); at && at->type == Value::STR) continue; // placed at another thing
+    body.push_back(id);
+  }
+
+  bool alone = body.empty() && (s == "free" || s == "graph");
+  Rectangle stage = layoutBand(s, alone, dt);
+
+  seqRow_.clear(); // a sequence schema fills it this frame
+  barEased_.clear();
+  if (!views_.empty()) layoutViews(stage, body);
+  else {
+    if (s != "graph" || body.empty()) linkRoute_.clear();
+    if (s == "free") layoutFree(stage, body);
+    else if (s == "graph") layoutGraph(stage, body);
+    else if (s == "numberline") layoutNumberline(stage);
+    else if (isAxes(s)) layoutAxes(stage);
+    else if (s == "timeline") layoutTimeline(stage);
+    else if (s == "sequence") layoutSequence(stage, body);
+  }
+
+  layoutPointers();
   layoutAnnotations();
   fitStage(dt);
   for (auto &[id, m] : marks_) {

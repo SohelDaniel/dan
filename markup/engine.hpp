@@ -16,6 +16,7 @@
 #include "tex.hpp"
 #include "place/check.hpp"
 #include "place/flow.hpp"
+#include "place/labels.hpp"
 #include "place/spring.hpp"
 #include "viz/viz.hpp"
 #include <functional>
@@ -214,6 +215,12 @@ public:
     Vector2 at() const { return {anchor.x + x.x, anchor.y + y.x}; }
   };
   void placeAllLabels(float dt);
+  struct LabelPass; // one frame's placement (placement.cpp)
+  void labelObstacles(LabelPass &lp);
+  void markLabelRequests(LabelPass &lp);
+  void labelSpots(const Mark &m, const std::string &k, const std::vector<Vector2> &stroke, Rectangle box, place::LabelReq &r);
+  void linkLabelRequests(LabelPass &lp);
+  void keepLabels(const LabelPass &lp, const std::vector<place::LabelOut> &out, float dt);
   bool movableLabel(const Mark &m, const TextLabel &l);
   std::map<std::string, std::vector<LabelSlot>> labelSlots_;
   std::map<std::string, LabelSlot> linkSlots_;
@@ -289,6 +296,8 @@ private:
   // ---- layout (layout.cpp)
   std::string schemaNow() const;
   void layout(float dt);
+  Rectangle layoutBand(const std::string &schema, bool alone, float dt); // blocks at the top; the rest of the stage
+  void layoutPointers();                                          // at= / on= / in= / over=
   void layoutFree(Rectangle area, const std::vector<std::string> &ids);
   void layoutGraph(Rectangle area, const std::vector<std::string> &ids, const std::string &view = "");
   void layoutNumberline(Rectangle area);

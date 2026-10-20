@@ -768,12 +768,21 @@ bool Engine::movableLabel(const Mark &m, const TextLabel &l) {
   return false;
 }
 
-void Engine::placeAllLabels(float dt) {
+// One frame of label placement: what's in the way, what wants a place, then where each label goes and how it
+// glides there. The order things enter the world matters: requests name obstacles and strokes by index.
+struct Engine::LabelPass {
   place::LabelWorld world;
-  auto R = [](Rectangle r) { return place::Rect{r.x, r.y, r.width, r.height}; };
-  world.bounds = R(toStage({16, 44, 1248, 540}));
-  std::map<std::string, int> obstacle;
-  // things are obstacles; a label may sit on its own thing
+  std::map<std::string, int> obstacle; // a thing's index among the obstacles: its own label may sit on it
+  std::vector<place::LabelReq> reqs;
+  struct Who { std::string id; size_t index; bool link; Vector2 anchor; }; // what each request is for
+  std::vector<Who> who;
+  std::string key(size_t i) const { return who[i].link ? "link:" + who[i].id : who[i].id + "#" + std::to_string(who[i].index); }
+};
+
+static place::Rect R(Rectangle r) { return {r.x, r.y, r.width, r.height}; }
+
+// things are obstacles (a label may sit on its own thing); areas and group outlines are strokes
+void Engine::labelObstacles(LabelPass &lp) {
   for (auto &id : order_) {
     Mark *m = mark(id);
     if (!m || !m->positioned || alphaOf(*m) < 0.05f) continue;
@@ -783,29 +792,88 @@ void Engine::placeAllLabels(float dt) {
     if (k == "rect" || k == "circle" || k == "polygon" || k == "angle") { // an area: names may sit inside it, not on its edge
       std::vector<place::Vec> line;
       for (auto &q : shapeOutline(*m)) line.push_back({q.x, q.y});
-      world.strokes.push_back(line);
+      lp.world.strokes.push_back(line);
       continue;
     }
     Rectangle b = bodyBounds(*m);
     if (b.width <= 0 || b.height <= 0) continue;
-    obstacle[id] = (int)world.obstacles.size();
-    world.obstacles.push_back(R(b));
+    lp.obstacle[id] = (int)lp.world.obstacles.size();
+    lp.world.obstacles.push_back(R(b));
   }
   for (auto &[gid, g] : groups_) { // a group's outline is a stroke: names sit inside or outside it, not on it
     Rectangle r = groupBounds(g);
     for (float d : {-4.f, 4.f}) // a little air either side of the drawn line
-      if (r.width > 0) world.strokes.push_back({{r.x - d, r.y - d}, {r.x + r.width + d, r.y - d}, {r.x + r.width + d, r.y + r.height + d}, {r.x - d, r.y + r.height + d}, {r.x - d, r.y - d}});
+      if (r.width > 0) lp.world.strokes.push_back({{r.x - d, r.y - d}, {r.x + r.width + d, r.y - d}, {r.x + r.width + d, r.y + r.height + d}, {r.x - d, r.y + r.height + d}, {r.x - d, r.y - d}});
   }
-  // labels that keep their place are obstacles too; strokes (curves, lines, vectors, links) shouldn't be covered
-  struct Pending { std::string id; size_t index; Rectangle anchor; Vector2 size; std::vector<place::Side> sides; std::vector<place::Vec> along; int priority; };
-  std::vector<Pending> pending;
+}
+
+// where a thing's label may go, by kind: beside a dot, near a curve's end, by a line's far end or middle
+void Engine::labelSpots(const Mark &m, const std::string &k, const std::vector<Vector2> &stroke, Rectangle box, place::LabelReq &r) {
+  using S = place::Side;
+  auto spot = [&](Rectangle a) { r.anchor = R(a); };
+  if (k == "dot") {
+    spot(bodyBounds(m));
+    r.sides = isAxes(schemaOf(m)) ? std::vector<S>{S::NE, S::NW, S::SE, S::SW, S::E, S::W, S::N, S::S}
+                                  : std::vector<S>{S::S, S::N, S::E, S::W, S::SE, S::SW, S::NE, S::NW};
+  } else if (isCurveKind(k) && !stroke.empty()) { // near the end of the curve (inside the axes), above or below it
+    Vector2 e = stroke.back();
+    e.x = std::clamp(e.x, axes_.area.x, axes_.area.x + axes_.area.width);
+    e.y = std::clamp(e.y, axes_.area.y + 10, axes_.area.y + axes_.area.height - 10);
+    spot({e.x - 3, e.y - 3, 6, 6});
+    r.sides = {S::NW, S::SW, S::N, S::S, S::W, S::NE, S::SE};
+    for (float f : {0.92f, 0.82f, 0.7f}) {
+      Vector2 q = stroke[(size_t)(f * (stroke.size() - 1))];
+      r.along.push_back({q.x, q.y - box.height / 2 - 10});
+      r.along.push_back({q.x, q.y + box.height / 2 + 10});
+    }
+  } else if ((k == "line" || k == "arrow" || k == "vector") && stroke.size() == 2) { // by its far end, or its middle
+    Vector2 e = stroke[1];
+    bool tangent = false;
+    if (k == "line" && findProp(m.props, "slope")) { // a line through a point (a tangent): its name stays near
+      bool hx, hy;                                    // that point, a fixed way along it, so it rides the line
+      double px = num(m, "x", &hx), py = num(m, "y", &hy);
+      Vector2 d = stroke[1] - stroke[0];
+      float dl = len(d);
+      if (hx && hy && dl > 1) {
+        if (d.x < 0) d = d * -1.f;
+        e = axes_.toScreen((float)px, (float)py) + d * (120.f / dl);
+        tangent = true;
+      }
+    }
+    if (k != "vector" && !tangent) { // a line's far end can be off the axes: use where it leaves them
+      e.x = std::clamp(e.x, axes_.area.x + 40, axes_.area.x + axes_.area.width - 10);
+      e.y = std::clamp(e.y, axes_.area.y + 20, axes_.area.y + axes_.area.height - 10);
+    }
+    spot({e.x - 4, e.y - 4, 8, 8});
+    r.sides = {S::NE, S::NW, S::SE, S::SW, S::E, S::W, S::N, S::S};
+    Vector2 mid = lerp(stroke[0], stroke[1], 0.5f);
+    r.along = {{mid.x, mid.y - box.height / 2 - 10}, {mid.x, mid.y + box.height / 2 + 10}};
+    if (tangent) { // further along the line, either way, above or below it
+      Vector2 d = stroke[1] - stroke[0];
+      d = d * (1.f / std::max(1.f, len(d)));
+      if (d.x < 0) d = d * -1.f;
+      Vector2 c0 = e - d * 120.f;
+      r.along.clear();
+      for (float dist : {180.f, -150.f, 250.f, -220.f})
+        for (float side : {-1.f, 1.f}) {
+          Vector2 q = c0 + d * dist;
+          r.along.push_back({q.x, q.y + side * (box.height / 2 + 12)});
+        }
+    }
+  } else {
+    spot(bodyBounds(m));
+    r.sides = {S::S, S::N, S::E, S::W};
+  }
+}
+
+// every movable name of every thing; fixed names are obstacles, and curves, lines and trails are strokes
+void Engine::markLabelRequests(LabelPass &lp) {
   auto thin = [](const std::vector<Vector2> &pts) {
     std::vector<place::Vec> o;
     for (size_t i = 0; i < pts.size(); i += 8) o.push_back({pts[i].x, pts[i].y});
     if (!pts.empty()) o.push_back({pts.back().x, pts.back().y});
     return o;
   };
-  using S = place::Side;
   for (auto &id : order_) {
     Mark *m = mark(id);
     if (!m || !m->positioned || alphaOf(*m) < 0.05f) continue;
@@ -817,94 +885,53 @@ void Engine::placeAllLabels(float dt) {
       else if (k == "line" || k == "arrow") { Vector2 A, B; bool hs; if (lineEnds(*m, A, B, hs)) stroke = {A, B}; }
       else if (k == "vector") { Vector2 a, b; if (vectorEnds(*m, a, b)) stroke = {a, b}; }
     }
-    if (!stroke.empty()) world.strokes.push_back(thin(stroke));
+    if (!stroke.empty()) lp.world.strokes.push_back(thin(stroke));
     if (findProp(m->props, "trail") && isAxes(schemaOf(*m))) { // labels keep off trails too
       std::vector<place::Vec> tl;
       for (auto &q : trailLine(*m)) tl.push_back({q.x, q.y});
-      if (tl.size() > 1) world.strokes.push_back(tl);
+      if (tl.size() > 1) lp.world.strokes.push_back(tl);
     }
     auto labels = markLabelsAt(*m);
     for (size_t i = 0; i < labels.size(); i++) {
       const TextLabel &l = labels[i];
       if (l.text.empty()) continue;
       Rectangle box = labelBox(l);
-      if (!movableLabel(*m, l)) { world.obstacles.push_back(R(box)); continue; }
-      Pending p{id, i, box, {box.width, box.height}, {}, {}, 2};
-      if (k == "dot") {
-        p.anchor = bodyBounds(*m);
-        p.sides = isAxes(schemaOf(*m)) ? std::vector<S>{S::NE, S::NW, S::SE, S::SW, S::E, S::W, S::N, S::S}
-                                      : std::vector<S>{S::S, S::N, S::E, S::W, S::SE, S::SW, S::NE, S::NW};
-      } else if (isCurveKind(k) && !stroke.empty()) { // near the end of the curve (inside the axes), above or below it
-        Vector2 e = stroke.back();
-        e.x = std::clamp(e.x, axes_.area.x, axes_.area.x + axes_.area.width);
-        e.y = std::clamp(e.y, axes_.area.y + 10, axes_.area.y + axes_.area.height - 10);
-        p.anchor = {e.x - 3, e.y - 3, 6, 6};
-        p.sides = {S::NW, S::SW, S::N, S::S, S::W, S::NE, S::SE};
-        for (float f : {0.92f, 0.82f, 0.7f}) {
-          Vector2 q = stroke[(size_t)(f * (stroke.size() - 1))];
-          p.along.push_back({q.x, q.y - box.height / 2 - 10});
-          p.along.push_back({q.x, q.y + box.height / 2 + 10});
-        }
-      } else if ((k == "line" || k == "arrow" || k == "vector") && stroke.size() == 2) { // by its far end, or its middle
-        Vector2 e = stroke[1];
-        bool tangent = false;
-        if (k == "line" && findProp(m->props, "slope")) { // a line through a point (a tangent): its name stays near
-          bool hx, hy;                                     // that point, a fixed way along it, so it rides the line
-          double px = num(*m, "x", &hx), py = num(*m, "y", &hy);
-          Vector2 d = stroke[1] - stroke[0];
-          float dl = len(d);
-          if (hx && hy && dl > 1) {
-            if (d.x < 0) d = d * -1.f;
-            e = axes_.toScreen((float)px, (float)py) + d * (120.f / dl);
-            tangent = true;
-          }
-        }
-        if (k != "vector" && !tangent) { // a line's far end can be off the axes: use where it leaves them
-          e.x = std::clamp(e.x, axes_.area.x + 40, axes_.area.x + axes_.area.width - 10);
-          e.y = std::clamp(e.y, axes_.area.y + 20, axes_.area.y + axes_.area.height - 10);
-        }
-        p.anchor = {e.x - 4, e.y - 4, 8, 8};
-        p.sides = {S::NE, S::NW, S::SE, S::SW, S::E, S::W, S::N, S::S};
-        Vector2 mid = lerp(stroke[0], stroke[1], 0.5f);
-        p.along = {{mid.x, mid.y - box.height / 2 - 10}, {mid.x, mid.y + box.height / 2 + 10}};
-        if (tangent) { // further along the line, either way, above or below it
-          Vector2 d = stroke[1] - stroke[0];
-          d = d * (1.f / std::max(1.f, len(d)));
-          if (d.x < 0) d = d * -1.f;
-          Vector2 c0 = e - d * 120.f;
-          p.along.clear();
-          for (float dist : {180.f, -150.f, 250.f, -220.f})
-            for (float side : {-1.f, 1.f}) {
-              Vector2 q = c0 + d * dist;
-              p.along.push_back({q.x, q.y + side * (box.height / 2 + 12)});
-            }
-        }
-      } else {
-        p.anchor = bodyBounds(*m);
-        p.sides = {S::S, S::N, S::E, S::W};
-      }
-      if (!focus_.empty() && baseId(focus_) == id) p.priority = 3;
-      pending.push_back(p);
+      if (!movableLabel(*m, l)) { lp.world.obstacles.push_back(R(box)); continue; }
+      place::LabelReq r;
+      r.anchor = R(box);
+      r.size = {box.width, box.height};
+      r.priority = !focus_.empty() && baseId(focus_) == id ? 3 : 2;
+      labelSpots(*m, k, stroke, box, r);
+      if (auto it = lp.obstacle.find(id); it != lp.obstacle.end()) r.owner = it->second;
+      if (auto s = labelSlots_.find(id); s != labelSlots_.end() && i < s->second.size()) r.prevSide = s->second[i].side;
+      // a line sweeping past costs 120: the label rides it out instead of jumping, but only for a moment
+      r.sticky = stickyFor(id + "#" + std::to_string(i));
+      lp.reqs.push_back(r);
+      lp.who.push_back({id, i, false, {r.anchor.x, r.anchor.y}});
     }
   }
-  // link labels: at the middle of the link, or a little along it
-  struct PendingLink { std::string id; Vector2 size; place::Vec mid; std::vector<place::Vec> along; int stroke; std::vector<place::Rect> foreign; };
-  std::vector<PendingLink> plinks;
+}
+
+// a link's label: on the link if there's room (a little along it), beside its middle if not; never inside a
+// group that doesn't hold both its ends
+void Engine::linkLabelRequests(LabelPass &lp) {
   for (auto &id : order_) {
     auto lt = links_.find(id);
     if (lt == links_.end() || alphaOf(lt->second) < 0.05f) continue;
-    LinkGeom g = linkGeometryAt(lt->second);
+    const Link &l = lt->second;
+    LinkGeom g = linkGeometryAt(l);
     if (!g.ok) continue;
     std::vector<place::Vec> line;
     for (auto &q : g.line) line.push_back({q.x, q.y});
-    world.strokes.push_back(line);
+    lp.world.strokes.push_back(line);
     if (g.label.empty()) continue;
-    int stroke = (int)world.strokes.size() - 1;
+    place::LabelReq r;
+    r.ownStroke = (int)lp.world.strokes.size() - 1;
     Vector2 sz = measure(g.label, 18);
-    PendingLink pl{id, {sz.x + 12, sz.y + 6}, {g.mid.x, g.mid.y}, {}, stroke, {}};
-    for (auto &[gid, gr] : groups_) { // a group that doesn't hold both ends
+    r.size = {sz.x + 12, sz.y + 6};
+    for (auto &[gid, gr] : groups_) {
       auto in = [&](const std::string &e) { return std::find(gr.members.begin(), gr.members.end(), e) != gr.members.end(); };
-      if (Rectangle r = groupBounds(gr); r.width > 0 && !(in(lt->second.a) && in(lt->second.b))) pl.foreign.push_back(R(r));
+      if (Rectangle b = groupBounds(gr); b.width > 0 && !(in(l.a) && in(l.b))) r.foreign.push_back(R(b));
     }
     auto at = [&](float t) {
       t = g.labelT0 + t * (g.labelT1 - g.labelT0);
@@ -917,72 +944,59 @@ void Engine::placeAllLabels(float dt) {
     // column near the middle where the links converge
     int n = 0, k = 0;
     for (auto &oid : order_)
-      if (auto o = links_.find(oid); o != links_.end() && o->second.b == lt->second.b && alphaOf(o->second) >= 0.05f) {
+      if (auto o = links_.find(oid); o != links_.end() && o->second.b == l.b && alphaOf(o->second) >= 0.05f) {
         if (oid == id) k = n;
         n++;
       }
     float t0 = n >= 3 ? 0.22f + 0.5f * k / (n - 1) : 0.5f;
     if (linkRoute_.count(id)) { // a routed link stands apart from its siblings near its own end
       int outs = 0;
-      for (auto &[oid, o] : links_) outs += o.a == lt->second.a && alphaOf(o) >= 0.05f;
+      for (auto &[oid, o] : links_) outs += o.a == l.a && alphaOf(o) >= 0.05f;
       t0 = outs > n ? 0.7f : n > 1 ? 0.3f : 0.5f;
     }
-    { Vector2 a0 = at(t0); pl.mid = {a0.x, a0.y}; }
+    Vector2 mid = at(t0);
+    r.anchor = {mid.x - 2, mid.y - 2, 4, 4};
     for (float t : {t0, t0 - 0.08f, t0 + 0.08f, 0.5f, 0.35f, 0.65f}) {
       Vector2 q = at(std::clamp(t, 0.15f, 0.85f));
-      pl.along.push_back({q.x, q.y});
+      r.along.push_back({q.x, q.y});
     }
-    plinks.push_back(pl);
-  }
-  // axis furniture: tick numbers along the axes and the axis titles
-  for (const Rectangle &f : furniture()) world.obstacles.push_back(R(f));
-  // reserved screen areas
-  for (auto &[name, r] : screenZones()) world.zones.push_back(R(r));
-
-  std::vector<place::LabelReq> reqs;
-  for (auto &p : pending) {
-    place::LabelReq r;
-    r.anchor = R(p.anchor);
-    r.size = {p.size.x, p.size.y};
-    r.priority = p.priority;
-    r.sides = p.sides;
-    r.along = p.along;
-    if (auto it = obstacle.find(p.id); it != obstacle.end()) r.owner = it->second;
-    if (auto s = labelSlots_.find(p.id); s != labelSlots_.end() && p.index < s->second.size()) r.prevSide = s->second[p.index].side;
-    // a line sweeping past costs 120: the label rides it out instead of jumping, but only for a moment
-    r.sticky = stickyFor(p.id + "#" + std::to_string(p.index));
-    reqs.push_back(r);
-  }
-  for (auto &pl : plinks) {
-    place::LabelReq r;
-    r.anchor = {pl.mid.x - 2, pl.mid.y - 2, 4, 4};
-    r.size = {pl.size.x, pl.size.y};
     r.priority = 1;
-    // on the link if there's room; beside its middle if not (a very short link, or one over things)
     r.sides = {place::Side::C, place::Side::N, place::Side::S, place::Side::E, place::Side::W};
-    r.along = pl.along;
-    if (auto s = linkSlots_.find(pl.id); s != linkSlots_.end()) r.prevSide = s->second.side;
-    r.sticky = stickyFor("link:" + pl.id);
-    r.ownStroke = pl.stroke;
-    r.foreign = pl.foreign;
-    reqs.push_back(r);
+    if (auto s = linkSlots_.find(id); s != linkSlots_.end()) r.prevSide = s->second.side;
+    r.sticky = stickyFor("link:" + id);
+    lp.reqs.push_back(r);
+    lp.who.push_back({id, 0, true, mid});
   }
-  auto out = place::placeLabels(reqs, world);
-  { // which labels a line crosses now, and since when (stickiness only bridges a passing line)
-    std::vector<place::Seg> segs;
-    for (auto &st : world.strokes) for (size_t k = 1; k < st.size(); k++) segs.push_back({st[k - 1], st[k]});
-    for (size_t i = 0; i < out.size(); i++) {
-      std::string key = i < pending.size() ? pending[i].id + "#" + std::to_string(pending[i].index) : "link:" + plinks[i - pending.size()].id;
-      bool crossed = false;
-      if (out[i].shown)
-        for (auto &sg : segs) if (place::hits(sg, place::inflate(out[i].box, -2))) { crossed = true; break; }
-      if (!crossed) crossedSince_.erase(key);
-      else if (!crossedSince_.count(key)) crossedSince_[key] = clock_;
-    }
+}
+
+// where the labels went: which a line crosses now (and since when), and each one's glide to its new spot
+void Engine::keepLabels(const LabelPass &lp, const std::vector<place::LabelOut> &out, float dt) {
+  std::vector<place::Seg> segs;
+  for (auto &st : lp.world.strokes) for (size_t k = 1; k < st.size(); k++) segs.push_back({st[k - 1], st[k]});
+  for (size_t i = 0; i < out.size(); i++) { // stickiness only bridges a passing line
+    bool crossed = false;
+    if (out[i].shown)
+      for (auto &sg : segs) if (place::hits(sg, place::inflate(out[i].box, -2))) { crossed = true; break; }
+    if (!crossed) crossedSince_.erase(lp.key(i));
+    else if (!crossedSince_.count(lp.key(i))) crossedSince_[lp.key(i)] = clock_;
   }
   // glide to the new spots (critically damped springs: a side change is a short move, not a jump)
   bool snap = opt_.instant || dt <= 0 || dt >= 0.5f;
-  auto settle = [&](LabelSlot &s, const LabelSlot *prev) {
+  std::map<std::string, std::vector<LabelSlot>> slots;
+  std::map<std::string, LabelSlot> lslots;
+  for (size_t i = 0; i < out.size(); i++) {
+    const auto &w = lp.who[i];
+    LabelSlot s;
+    s.box = {out[i].box.x, out[i].box.y, out[i].box.w, out[i].box.h};
+    s.side = out[i].side;
+    s.shown = out[i].shown;
+    s.anchor = w.anchor;
+    const LabelSlot *prev = nullptr;
+    if (w.link) {
+      if (auto it = linkSlots_.find(w.id); it != linkSlots_.end() && it->second.side != -1) prev = &it->second;
+    } else if (auto it = labelSlots_.find(w.id); it != labelSlots_.end() && w.index < it->second.size() && it->second[w.index].side != -1) {
+      prev = &it->second[w.index];
+    }
     float ox = s.box.x - s.anchor.x, oy = s.box.y - s.anchor.y; // where it should sit, relative to its thing
     if (prev && !snap) {
       s.x = prev->x;
@@ -993,46 +1007,32 @@ void Engine::placeAllLabels(float dt) {
       s.x = {ox, 0};
       s.y = {oy, 0};
     }
-  };
-  std::map<std::string, std::vector<LabelSlot>> slots;
-  for (size_t i = 0; i < pending.size(); i++) {
-    auto &v = slots[pending[i].id];
-    auto labels = markLabelsAt(*mark(pending[i].id));
-    if (v.size() < labels.size()) v.resize(labels.size());
-    LabelSlot s;
-    s.box = {out[i].box.x, out[i].box.y, out[i].box.w, out[i].box.h};
-    s.side = out[i].side;
-    s.shown = out[i].shown;
-    s.anchor = {pending[i].anchor.x, pending[i].anchor.y};
-    const LabelSlot *prev = nullptr;
-    if (auto it = labelSlots_.find(pending[i].id); it != labelSlots_.end() && pending[i].index < it->second.size() &&
-                                                   it->second[pending[i].index].side != -1)
-      prev = &it->second[pending[i].index];
-    settle(s, prev);
-    v[pending[i].index] = s;
-    if (reqs[i].prevSide != -1 && reqs[i].prevSide != out[i].side) {
+    if (w.link) { lslots[w.id] = s; continue; }
+    auto &v = slots[w.id];
+    if (size_t n = markLabelsAt(*mark(w.id)).size(); v.size() < n) v.resize(n);
+    v[w.index] = s;
+    if (int was = lp.reqs[i].prevSide; was != -1 && was != out[i].side) {
       labelFlips++;
       if (flipLog.size() < 40) {
         char b[96];
-        std::snprintf(b, sizeof b, "%.1fs %s#%zu %d->%d", clock_, pending[i].id.c_str(), pending[i].index, reqs[i].prevSide, out[i].side);
+        std::snprintf(b, sizeof b, "%.1fs %s#%zu %d->%d", clock_, w.id.c_str(), w.index, was, out[i].side);
         flipLog.push_back(b);
       }
     }
   }
-  std::map<std::string, LabelSlot> lslots;
-  for (size_t i = 0; i < plinks.size(); i++) {
-    const auto &o = out[pending.size() + i];
-    LabelSlot s;
-    s.box = {o.box.x, o.box.y, o.box.w, o.box.h};
-    s.side = o.side;
-    s.shown = o.shown;
-    s.anchor = {plinks[i].mid.x, plinks[i].mid.y};
-    auto it = linkSlots_.find(plinks[i].id);
-    settle(s, it != linkSlots_.end() && it->second.side != -1 ? &it->second : nullptr);
-    lslots[plinks[i].id] = s;
-  }
   labelSlots_ = std::move(slots);
   linkSlots_ = std::move(lslots);
+}
+
+void Engine::placeAllLabels(float dt) {
+  LabelPass lp;
+  lp.world.bounds = R(toStage({16, 44, 1248, 540}));
+  labelObstacles(lp);
+  markLabelRequests(lp);
+  linkLabelRequests(lp);
+  for (const Rectangle &f : furniture()) lp.world.obstacles.push_back(R(f)); // tick numbers and axis titles
+  for (auto &[name, r] : screenZones()) lp.world.zones.push_back(R(r));     // title, subtitles, sliders
+  keepLabels(lp, place::placeLabels(lp.reqs, lp.world), dt);
 }
 
 } // namespace mk
