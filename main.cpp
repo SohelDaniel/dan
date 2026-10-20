@@ -340,6 +340,8 @@ int main(int argc, char **argv) {
           path = l.substr(7);
           eng.load(path);
           SetWindowTitle(("tutor — " + path).c_str());
+        } else if (l.rfind("#!voice ", 0) == 0) { // a Say line ahead of its beat: start its audio now
+          eng.prefetchVoice(l.substr(8));
         } else if (l == "#!interrupt") {
           eng.interrupt();
         } else if (l.rfind("#!state ", 0) == 0) { // "#!state thinking <question>" | listening | idle

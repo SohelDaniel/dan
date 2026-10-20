@@ -337,6 +337,7 @@ function runTurn(text, source, model = defaultModel) {
   };
   const sceneLine = (line) => {
     if (line.trim().startsWith('Say:')) {
+      if (!S.cut) stageSend('#!voice ' + line.trim()); // its audio starts now; the beat follows when complete
       toStage(beat); // the previous beat is complete
       beat = [line];
       seenSay = true;

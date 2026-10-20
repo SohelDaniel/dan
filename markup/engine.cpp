@@ -1517,6 +1517,16 @@ void Engine::prepareVoice() {
   queueVoice(0, true);
 }
 
+void Engine::prefetchVoice(const std::string &sayLine) {
+  if (!opt_.voice || opt_.instant || opt_.tts.apiKey.empty()) return;
+  Script s;
+  if (!s.parse(sayLine) || s.steps.empty() || s.steps[0].main.verb != Verb::SAY) return;
+  if (!tts_) tts_ = std::make_unique<Tts>(opt_.tts);
+  std::string text; // the same text queueVoice asks for, so the beat finds it cached or in flight
+  for (auto &w : s.steps[0].main.words) text += (text.empty() ? "" : " ") + w.text;
+  tts_->request(text);
+}
+
 void Engine::queueVoice(size_t fromStep, bool report) {
   if (!opt_.voice || opt_.instant) return;
   if (opt_.tts.apiKey.empty()) {
