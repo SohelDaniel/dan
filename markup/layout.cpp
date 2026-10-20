@@ -839,7 +839,6 @@ void Engine::layoutGraph(Rectangle area, const std::vector<std::string> &ids) {
     place::FlowOut o = place::layoutFlow(in, flowMemo_);
     auto drawn = std::move(linkRoute_); // keep the bends where they are drawn now, to ease from
     linkRoute_.clear();
-    if (o.overflow) warn("layout: the graph doesn't fit the stage; group its parts, or start a new scene");
     for (size_t i = 0; i < ids.size(); i++) graphPos_[ids[i]] = {o.centre[i].x, o.centre[i].y};
     for (size_t e = 0; e < in.edges.size(); e++) {
       if (edgeLink[e].empty()) continue;

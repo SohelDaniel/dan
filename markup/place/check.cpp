@@ -18,8 +18,12 @@ static bool intended(const Picture &p, int i, int j) {
   if (b.kind == Ink::Label && a.kind == Ink::Link && b.owner == i) return true;
   auto encloses = [&](const Ink &g, int x) {
     if (g.kind != Ink::Group) return false;
-    for (int m : g.members) if (m == x || (p.ink[x].kind == Ink::Label && p.ink[x].owner == m)) return true;
-    return false;
+    auto member = [&](int m) { return std::find(g.members.begin(), g.members.end(), m) != g.members.end(); };
+    const Ink &k = p.ink[x];
+    if (member(x) || (k.kind == Ink::Label && member(k.owner))) return true;
+    // a link between two members (and its label) is inside the group too
+    int ln = k.kind == Ink::Link ? x : k.kind == Ink::Label && k.owner >= 0 && p.ink[k.owner].kind == Ink::Link ? k.owner : -1;
+    return ln >= 0 && member(p.ink[ln].owner) && member(p.ink[ln].other);
   };
   if (encloses(a, j) || encloses(b, i)) return true;
   if (a.kind == Ink::Furniture && b.kind == Ink::Furniture) return true;

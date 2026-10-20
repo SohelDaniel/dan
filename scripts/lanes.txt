@@ -1,0 +1,25 @@
+# Two pipelines side by side: each is a group (a lane); links make the stages, so stages line up.
+title "Two ways to read an image"
+schema graph
+mark img box input label="image"
+mark px  box dense label="784 pixels"
+mark hid box dense label="hidden layer"
+mark out box output label="scores"
+link f1 arrow img -> px label="flatten"
+link d1 arrow px -> hid label="fixed W₁" color=blue
+link d2 arrow hid -> out label="fixed W₂" color=blue
+group mlp part-of=[px,hid] label="dense net"
+Say: "A dense net |flat|flattens the image and multiplies by the same weights every time."
+@flat indicate d1
+mark p1 box token label="patch 1"
+mark p2 box token label="patch 2"
+mark p3 box token label="patch 3"
+link t1 arrow img -> p1 label="cut"
+link a12 arrow p1 -> p2 label="0.73" color=orange
+link a13 arrow p1 -> p3 label="0.20" color=orange
+link m2 arrow p2 -> out
+group vit part-of=[p1,p2,p3] label="transformer"
+Say: "A transformer cuts it into |cut|patches, and each patch weighs the others."
+@cut indicate t1
+mark key card text="Dense: fixed mixing. Transformer: mixing chosen by the data." label="Key idea"
+Say: "Fixed mixing, against mixing the data chooses."

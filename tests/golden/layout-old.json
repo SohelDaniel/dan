@@ -5,6 +5,12 @@
   "final": 100,
   "maxOverlaps": 0
  },
+ "chat/exemplars/compare.txt": {
+  "mean": 99.9,
+  "worst": 94.3,
+  "final": 100,
+  "maxOverlaps": 1
+ },
  "chat/exemplars/derivative.txt": {
   "mean": 97.8,
   "worst": 81.8,
@@ -42,6 +48,12 @@
   "maxOverlaps": 2
  },
  "scripts/attach.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/backprop.txt": {
   "mean": 100,
   "worst": 100,
   "final": 100,
@@ -90,6 +102,12 @@
   "maxOverlaps": 0
  },
  "scripts/integral.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/lanes.txt": {
   "mean": 100,
   "worst": 100,
   "final": 100,

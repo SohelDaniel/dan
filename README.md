@@ -46,7 +46,7 @@ Keys: `space` pause, `→` skip the current animation, `R` restart, `D` toggle t
 | `markup/render.cpp` | the dictionary drawn: marks, links, enclosures, focus, subtitles |
 | `markup/tts.*` | Inworld streaming TTS: worker pool, NDJSON/PCM parsing, audio-thread playback, disk cache |
 | `markup/tex.*` + `tools/tex/` | formulas: a node MathJax helper returns glyph outlines; cached in `.tutor_cache/tex`, rasterized per glyph |
-| `markup/place/` | the placement module, pure C++ (no raylib): map-style label placement with hysteresis, 1-D least squares under separation constraints (the core of VPSC), springs, and the exact layout checker |
+| `markup/place/` | the placement module, pure C++ (no raylib): the layered flow for graphs (columns from links, lanes from groups, routed links), map-style label placement with hysteresis, 1-D least squares under separation constraints (the core of VPSC), springs, and the exact layout checker |
 | `markup/placement.cpp` | the engine's side of placement: every label, curve, link and box as the checker and placer see them |
 | `tests/` | `make test` (placement unit tests), `make bench` (timing budget), `make golden` (layout score of every script vs baseline, both placers), `make append` (streamed = whole), `make test-fonts` (headless text sizes = GPU) |
 | `third_party/` | `json.hpp`, `doctest` (MIT) |
@@ -231,7 +231,8 @@ mark tag tex tex="E = v^2" x=4 y=30 size=30
 You never say where a thing goes. Position is a channel of the dictionary, like color: the engine derives it from what the script already says.
 
 - **Data** stays where its data puts it: axes, number line, timeline, plane.
-- **Links** make a flow (schema `graph`): cause on the left, effect on the right, in columns.
+- **Links** make a flow (schema `graph`): cause on the left, effect on the right, in columns. A link that skips columns is routed through the gaps; one that runs back (a cycle, a gradient) arcs.
+- **Groups** (`group g part-of=[…]`) are lanes in a flow: their parts stay together in a box, and the stages of two lanes line up, so two processes can be compared side by side.
 - **Order** of declaration is order on stage: left to right in a row, top to bottom in a column.
 - **Formulas, cards, code, arrays and tables** stack in a band at the top.
 - **Names and values** are placed beside their things by the label placer, clear of everything else.
@@ -264,9 +265,9 @@ If no schema is given, one is inferred. Paths, regions or `x=` give `axes`. `t=`
 | thing | a mark with a stable id | `doMark`; there is no delete |
 | magnitude | bar length / dot area, from a shared zero | `layoutFree`: one scale per property, fixed by pre-scanning every value the script ever uses |
 | category | color | `colorOf`: one palette slot per category, and every uncategorized thing gets its own slot |
-| order | left-to-right position | declaration order, or the schema's axis |
-| part-of | enclosure | `drawGroup` |
-| connected / cause | line / arrow | `drawLink`: an arc over bars, straight between boxes |
+| order | position | the schema's axis; in a graph, the column a thing's links give it, then declaration order within the column (`place/flow`) |
+| part-of | enclosure | `drawGroup`; in a graph, a lane: its parts stay together, and stages line up across lanes |
+| connected / cause | line / arrow | `drawLink`: an arc over bars; in a graph, routed through the gaps between columns (never through a box), against the flow as an arc |
 | equals / similar | dashed link marked `=` / `≈` | `drawLink` |
 | name, value | short text | labels; the voice carries sentences |
 | change | motion | `Active` morphs; categories cross-fade color |

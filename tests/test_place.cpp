@@ -280,7 +280,7 @@ TEST_CASE("flow: lanes keep their members together and their stages line up") {
   float bottomDense = 0, topTf = 1e9f;
   for (int i : {1, 2, 3}) bottomDense = std::max(bottomDense, boxOf(in, o, i).bottom());
   for (int i : {4, 5, 6}) topTf = std::min(topTf, boxOf(in, o, i).y);
-  CHECK(topTf - bottomDense >= 52); // room for the second lane's box and name
+  CHECK(topTf - bottomDense >= 68); // both lanes' boxes, the second one's name, and a margin
   // the fan from patch 1 leaves from distinct points, in the order of its targets
   CHECK(o.route[4].portA != o.route[5].portA);
   CHECK((o.route[4].portA < o.route[5].portA) == (o.centre[5].y < o.centre[6].y));

@@ -7,7 +7,8 @@
 namespace place {
 namespace {
 
-const float kLanePad = 52;   // a group's box: 14 px around its members and a 24 px name on top
+const float kLaneTop = 38, kLaneBottom = 14; // a group's box: 14 px around its members, a 24 px name on top
+const float kLanePad = kLaneTop + kLaneBottom + 16; // between lanes: both boxes and a margin
 const float kDummyH = 12;    // the room a link takes where it passes a column
 
 // the working graph: the things, then one stand-in ("dummy") per column a long link passes through
@@ -285,7 +286,11 @@ std::vector<float> assignY(const Work &w, const FlowInput &in, const FlowMemo &m
   float yGap = std::clamp((in.area.h - colH) / most, 24.f, 90.f);
   auto extent = [&](const std::vector<float> &y, float &top, float &bottom) {
     top = 1e9f; bottom = -1e9f;
-    for (int v = 0; v < n; v++) { top = std::min(top, y[v] - h(v) / 2); bottom = std::max(bottom, y[v] + h(v) / 2); }
+    for (int v = 0; v < n; v++) { // a lane's box and name count too
+      bool lane = w.node[v].lane >= 0;
+      top = std::min(top, y[v] - h(v) / 2 - (lane ? kLaneTop : 0));
+      bottom = std::max(bottom, y[v] + h(v) / 2 + (lane ? kLaneBottom : 0));
+    }
   };
   std::vector<float> y = solve(yGap);
   float top, bottom;

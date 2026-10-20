@@ -73,9 +73,9 @@ then Read the PNG. Never take full-screen screenshots: one once captured a priva
 | `main.cpp` | CLI: play, `--check`, `--readback`, `--snapshot`, `--layout-report`, `--stdin` (live mode used by the chat), voice, `TUTOR_VOICE` |
 | `markup/script.{hpp,cpp}` | the parser: verbs mark/link/group/morph/focus/indicate/hide/show/Say/wait/schema/title/scene/camera; `[id]` pointers in Say; a forgiving `mark a -> b` read as a link |
 | `markup/engine.{hpp,cpp}` | the model and timeline: steps, cues (`@cue` lines fire on words), actives (morphs), history for trails, readback, lints, `analyze()` prescan, key sets `kPositional`/`kTextKeys` (an unknown STRING prop becomes a colour **category**, a classic pitfall) |
-| `markup/layout.cpp` | **per-frame layout**: `computeRanges`; block band (tex/card/code/array/table stack at top, or flow in rows when crowded); edge-region reservation; schema layouts `layoutFree/Graph/Numberline/Axes/Timeline`; `at=` pointer placement (free side); `placeRelated()`; easing; `placeAllLabels` |
-| `markup/placement.cpp` | the engine↔placer adapter: `picture()` (everything as ink for the checker), `layoutCheck`, `markLabels`, `placeAllLabels` (labels with springs, stickiness), `placeRelated` (region=/below=/near=… solved with kiwi + separation), link label geometry |
-| `markup/place/*` | **pure C++ placement module** (no raylib; unit-tested): kiwi Cassowary solve, VPSC-style separation (Dykstra), map-style label placer (8 sides × rings, along-points, hysteresis, stickiness), exact checker with symbolic diagnostics + "free regions", 3×3 and 6×6 regions, skyline (unused), critically damped spring |
+| `markup/layout.cpp` | **per-frame layout**: `computeRanges`; block band (tex/card/code/array/table stack at top, or flow in rows when crowded); schema layouts `layoutFree/Graph/Numberline/Axes/Timeline` (`layoutGraph` is the adapter to `place/flow`); `at=` pointers (free side) and `on=/in=/over=` attachments; easing of marks and link waypoints; `placeAllLabels` |
+| `markup/placement.cpp` | the engine↔placer adapter: `picture()` (everything as ink for the checker), `layoutCheck`, `markLabels`, `placeAllLabels` (labels with springs, stickiness), link geometry (`linkGeometryAt`: routed links from `linkRoute_`, arcs, straight) |
+| `markup/place/*` | **pure C++ placement module** (no raylib; unit-tested): `flow` (the layered graph layout: model-order cycle breaking, longest-path columns, barycentre insertion with a memo for stability, lanes from groups, label-sized gaps, `solve1d` heights, routed links with spread ports), `qp` (1-D least squares under separation, Dykstra), map-style label placer, exact checker (overlaps, links through boxes, links along links, composition fill/offset), critically damped spring |
 | `markup/render.cpp` | drawing only (reads layout results); axes ticks; links; pointers; formulas (`drawTex` morph by glyph matching) |
 | `markup/camera.cpp` | camera on axes/plane (zoom/on/fit/follow/reset), anchored and van Wijk zoom paths |
 | `markup/fields.cpp` | field/slope/heat/contour/solution kinds |
@@ -92,10 +92,10 @@ then Read the PNG. Never take full-screen screenshots: one once captured a priva
 
 **Layout pipeline per frame** (`Engine::layout`):
 1. ranges;
-2. blocks into a top band (or rows), and edge regions reserved;
+2. blocks into a top band (or rows);
 3. schema layout of bodies in the remaining stage;
 4. `pos=`/`at=` pointers;
-5. `placeRelated` (relation words, solver);
+5. attachments (`on=`/`in=`/`over=`), placed like pointers;
 6. easing of `pos` toward `tpos`;
 7. `placeAllLabels`.
 
@@ -197,6 +197,21 @@ the subtitle zone is `{120,586,1040,100}`.
 - Never full-screen capture; use `--snapshot`.
 - Commits end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - Restart `node chat/server.mjs` after engine or prompt changes. It relaunches the stage.
+
+## 8b. 2026-10-20 (later): position comes from structure
+
+The user's frame of a "dense vs transformer" chat (boxes on boxes, an arrow through a box, three arrows on one
+line) traced to two layout systems owning halves of one scene: `region=`/`right-of=` took nodes out of the graph
+layout and a kiwi solver squeezed them back in. Research (dot, ELK model order, Bluefish's one-owner rule,
+Penrose, Mermaid/D2 issues; Code2Video, ALGOGEN; engraving, chemistry depiction, metro maps, film continuity)
+and the project's founding rule agreed: position is a channel of the dictionary, derived from structure.
+- Placement words (`region below above left-of right-of near align pos`) are **retired** (user's decision):
+  ignored with a lint. `at=` and `on=/in=/over=` remain. kiwi, the 2-D separator, regions and skyline are gone.
+- The graph schema is one layered flow (`markup/place/flow.cpp`, unit-tested): links make columns, declaration
+  order is order, groups are lanes with stages aligned, links routed through gaps with fanned ports.
+- `tools/compare-commit.sh` and `audit --sheet`: "it was better before" did not hold up against `8407f0c`.
+- Snapshots segfault when the display sleeps: run `caffeinate -u -d -t 900 &` first.
+- Known: boxes can overlap for ~0.5 s while gliding when a new column forms (newcomers snap, old ones ease).
 
 ## 9. Known loose ends
 

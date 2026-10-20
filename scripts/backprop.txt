@@ -1,0 +1,19 @@
+# Backprop on a tiny chain: the forward pass reads left to right; the gradients run back as arcs.
+title "Backpropagation"
+schema graph
+mark x box input label="x = 2"
+mark w box input label="w = 3"
+mark y box process label="y = w·x"
+mark L box output label="L = (y − t)²"
+link f1 arrow x -> y
+link f2 arrow w -> y
+link f3 arrow y -> L
+Say: "Forward: x and w |make|make y, and y makes the loss."
+@make indicate f3
+mark y box process label="y = 6"
+link g1 arrow L -> y label="∂L/∂y = 4" color=orange
+link g2 arrow y -> w label="∂y/∂w = 2" color=orange
+Say: "Backward: the loss sends its |grad|gradient to y, and y passes it on to w."
+@grad indicate g2
+mark key card text="gradient = incoming gradient × local slope" label="Key idea"
+Say: "Each step multiplies what comes in by its own slope."
