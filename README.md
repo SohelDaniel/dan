@@ -64,7 +64,7 @@ mark  <id> [kind] [category] key=value ...          a thing and its properties
 link  <id> [kind] <a> -> <b> key=value ...          a relation: arrow (cause, maps-to), line (connected), similar, equals
 group <id> part-of=[a,b,...] label="..."            a relation: part-of
 morph <id>.<prop> [from] -> <to> [1.5s] [ease=..]   a change; the only way anything moves
-focus <id> | none                                   what the voice is about (everything else dims)
+focus <id> | none                                   what the voice is about (everything else dims, for one sentence)
 Say: "text with |hook| markers"                     the voice
 ```
 
@@ -256,7 +256,7 @@ wait 1s
 pause                      # wait for space / →
 ```
 
-If no schema is given, one is inferred. Paths, regions or `x=` give `axes`. `t=` gives `timeline`. Links between things with no magnitudes give `graph`. Anything else is `free`.
+If no schema is given, one is inferred. Paths, regions or `x=` give `axes`. `t=` gives `timeline`. Boxes, or links between things with no magnitudes, give `graph`. Anything else is `free`.
 
 ## The dictionary, as implemented
 
@@ -279,7 +279,7 @@ If no schema is given, one is inferred. Paths, regions or `x=` give `axes`. `t=`
 2. **Structure.** Bars share a zero baseline. Scales are per property and never jump mid-script, because the whole script is pre-scanned.
 3. **Zero.** Unrelated things never share a color. Accidental overlaps are pulled apart in graph layouts. Where position is data (axes, number line), an overlap is reported as a lint, because coinciding reads as "equal".
 4. **Continuity.** Every change is a morph with easing. New marks grow in, links draw themselves, and focus fades.
-5. **Bounded focus.** `focus` lights one thing (or a group and its parts) and dims the rest.
+5. **Bounded focus.** `focus` lights one thing (or a group and its parts) and dims the rest, for one sentence: the one it is cued in, or the next one if it stands between sentences. Then everything is at full strength again.
 6. **Decodability.** `--readback` prints the final scene in the same vocabulary, plus derived facts (max, mean, order), overlaps, recent changes and lint. `--check` re-parses that readback and confirms it rebuilds the same scene.
 
 Readback looks like this:

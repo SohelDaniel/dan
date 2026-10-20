@@ -484,14 +484,15 @@ void Engine::layout(float dt) {
   // top, and the schema gets the rest. With nothing else on a free stage, the stack is centred.
   Rectangle stage = kStage;
   {
-    std::vector<Mark *> blocks;
+    std::vector<Mark *> blocks, arriving;
     float total = 0;
     for (auto &id : order_) {
       Mark *m = mark(id);
       if (!m || !isBlockKind(effectiveKind(*m)) || attachment(*m)) continue;
       if (isAxes(s) && findProp(m->props, "x") && findProp(m->props, "y")) continue;
-      if (ghost(*m) && m->placed) continue; // hidden: a ghost keeps its spot but takes no room
+      // a hidden block keeps its slot as a ghost: nothing after it moves (a new scene makes room)
       blocks.push_back(m);
+      if (m->appear < 0.05f) arriving.push_back(m);
       total += bodyBounds(*m).height + 14;
     }
     bool alone = body.empty() && (s == "free" || s == "graph");
@@ -530,7 +531,14 @@ void Engine::layout(float dt) {
       m->positioned = true;
       y += h + 14;
     }
-    if (total > 0 && !alone) { stage.y += total + 6; stage.height -= total + 6; }
+    // the picture below the band moves with it, eased (a new formula never snaps a plot aside),
+    // and always keeps a good part of the stage
+    float want = total > 0 && !alone ? std::min(total + 6, kStage.height * 0.6f) : 0;
+    bandH_ = opt_.instant || bandH_ < 0 ? want : smoothApproach(bandH_, want, dt, 9);
+    if (bandH_ < want - 4) // room first, then the newcomer: a block arriving in a growing band waits for it
+      for (Mark *m : arriving) m->appear = 0;
+    stage.y += bandH_;
+    stage.height -= bandH_;
   }
 
   if (s != "graph" || body.empty()) linkRoute_.clear();
@@ -1032,9 +1040,6 @@ void Engine::zeroCheck() {
     for (size_t j = i + 1; j < ms.size(); j++) {
       Mark &a = *ms[i], &b = *ms[j];
       if (related(a.id, b.id)) continue;
-      auto ca = findProp(a.props, "color"), cb = findProp(b.props, "color");
-      if (ca && cb && ca->str == cb->str)
-        warn("zero: " + a.id + " and " + b.id + " share color '" + ca->str + "' but are unrelated (same color reads as same kind)");
       if (!a.positioned || !b.positioned) continue;
       Rectangle ra = bodyBounds(a), rb = bodyBounds(b);
       if (ra.width <= 0 || rb.width <= 0) continue;

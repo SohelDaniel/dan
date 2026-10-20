@@ -34,7 +34,7 @@ place::Picture Engine::picture() {
       if (k == "param" || k == "grid" || k == "path" || k == "region" || k == "line" || k == "arrow" || k == "vector") continue;
       if (isFieldKind(k) || k == "solution") continue;
       if (k == "polygon" || k == "angle" || k == "circle") continue; // outlines, added below
-      if ((alphaOf(*m) < 0.05f && m->appear >= 1) || ghost(*m)) continue; // hidden: a ghost doesn't take space
+      if ((alphaOf(*m) < 0.05f && m->appear >= 1) || m->appear <= 0 || ghost(*m)) continue; // hidden, or not entered yet
       std::string target = pointerTarget(*m);
       if ((pass == 0) != target.empty()) continue;
       Rectangle b = bodyBounds(*m);
@@ -566,6 +566,18 @@ LinkGeom Engine::linkGeometryAt(const Link &l) {
   g.ok = true;
   g.label = linkLabel(l);
 
+  if (l.a == l.b) { // to itself (a state that stays, a retry): a loop over its top edge
+    float cx = ra.x + ra.width / 2, top = ra.y, s = std::min(ra.width * 0.25f, 22.f);
+    Vector2 p0{cx + s, top}, c1{cx + s + 26, top - 58}, c2{cx - s - 26, top - 58}, p1{cx - s, top};
+    for (int i = 0; i <= 24; i++) {
+      float t = i / 24.f, u = 1 - t;
+      g.line.push_back(p0 * (u * u * u) + c1 * (3 * u * u * t) + c2 * (3 * u * t * t) + p1 * (t * t * t));
+    }
+    g.pa = p0;
+    g.pb = p1;
+    g.mid = {cx, top - 58};
+    return g;
+  }
   g.overBars = ma && mb && ma->anchorBottom && mb->anchorBottom && effectiveKind(*ma) == "bar" && effectiveKind(*mb) == "bar";
   if (g.overBars) {
     // between things on a baseline: an arc over the top, both ends one height above the taller mark,

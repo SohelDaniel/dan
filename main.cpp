@@ -52,6 +52,18 @@ static int usage() {
   return 2;
 }
 
+#ifdef __APPLE__
+#include <IOKit/pwr_mgt/IOPMLib.h>
+// what `caffeinate -u` does: declare user activity, which wakes the display for a few seconds
+static void wakeDisplay() {
+  IOPMAssertionID id;
+  if (IOPMAssertionDeclareUserActivity(CFSTR("tutor snapshot"), kIOPMUserActiveLocal, &id) == kIOReturnSuccess)
+    IOPMAssertionRelease(id);
+}
+#else
+static void wakeDisplay() {}
+#endif
+
 int main(int argc, char **argv) {
   std::string path, record, font, key, snapshot, at = "end", layoutReport;
   bool mute = false;
@@ -191,9 +203,14 @@ int main(int argc, char **argv) {
 
   // ---------------------------------------------------------- snapshot: frames at given times, offscreen
   if (!snapshot.empty()) {
+    wakeDisplay(); // a sleeping display gives no GL context, and the hidden window would crash
     SetConfigFlags(FLAG_WINDOW_HIDDEN);
     SetTraceLogLevel(LOG_WARNING);
     InitWindow(rm::W, rm::H, "tutor snapshot");
+    if (!IsWindowReady()) {
+      std::fprintf(stderr, "snapshot: no window (is the display asleep?)\n");
+      return 2;
+    }
     rm::initGraphics();
     rm::initFonts(font.empty() ? nullptr : font.c_str());
     opt.voice = false;

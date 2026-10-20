@@ -416,6 +416,7 @@ private:
   float lastDt_ = 0;
   std::map<std::string, int> pointerSide_;
   std::vector<int> sceneBlocks_;   // per scene: how many blocks its script declares
+  float bandH_ = -1;                // the block band's height, eased (-1: not laid out yet)
   bool blockRows_ = false;         // this scene's blocks flow in rows (once chosen, kept: no mid-scene reshuffle)
   std::map<std::string, float> crossedSince_; // label key -> when a line started crossing it
   float stickyFor(const std::string &key); // pointer label id -> side it took (0 below, 1 right, 2 above, 3 left)

@@ -95,7 +95,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 **Structure is layout.** Never say where things go (no coordinates, no `region=`/`below=`/`near=`): say what relates and the engine places it. `link` makes a flow, cause on the left and effect on the right. `group … part-of=[…]` keeps parts together as one lane, so two groups with matching stages line up for comparison. Declaration order is order on stage. Formulas and cards stack at the top. `at=` points at a thing; `on=` / `in=` / `over=` touch it on purpose. `<last_scene_issues>` lists any overlaps.
 - Labels belong on the things they name; don't stack several names on one point.
 - Give axes a title.
-- Use `hide` to clear what's done before adding more.
+- `hide` dims what's done: it keeps its place, so nothing jumps. When the stage is full or the topic moves on, start a new `scene`.
 - **The camera points too.** Zoom in on the detail the sentence is about (`@in camera zoom=8 on=p`), at most one move per sentence, then `camera reset` to give the context back. Only on `axes` and `plane`.
 - After a numeric example, morph the formula to its general form (3² + 4² = 5² → a² + b² = c²).
 

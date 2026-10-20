@@ -115,17 +115,19 @@ static bool gFontReady = false, gMonoReady = false;
 static void initMono(const std::vector<int> &cps);
 static float spacingFor(float size);
 
+// whole Unicode blocks, not a hand-picked list: any text an explanation needs draws (Na⁺, ℝ, ⅓, ⇌, ✓)
 static std::vector<int> fontCodepoints() {
-  static const char *extra = "→←↔↑↓⇒⇔≈×·−≤≥≠≡∈∉∀∃∑∏∫∂∇∞√∝•…“”‘’—–°±µ"
-                             "αβγδεζηθικλμνξπρστυφχψωΓΔΘΛΞΠΣΦΨΩ"
-                             "⁰¹²³⁴⁵⁶⁷⁸⁹ⁿ₀₁₂₃₄₅₆₇₈₉ₙ★☆✓✗▲▼●○■□";
+  static const std::pair<int, int> blocks[] = {
+      {0x20, 0x7E},     {0xA0, 0x17F},    // ASCII, Latin-1, Latin Extended-A
+      {0x370, 0x3FF},                     // Greek
+      {0x2000, 0x206F}, {0x2070, 0x209F}, // punctuation, super- and subscripts
+      {0x20A0, 0x20BF}, {0x2100, 0x218F}, // currency, letterlike symbols, number forms
+      {0x2190, 0x21FF}, {0x2200, 0x22FF}, // arrows, mathematical operators
+      {0x2460, 0x24FF}, {0x25A0, 0x27BF}, // enclosed numbers; shapes, symbols, dingbats
+      {0x27E8, 0x27EF}};                  // angle brackets
   std::vector<int> cps;
-  for (int c = 32; c < 127; c++) cps.push_back(c);
-  for (int c = 160; c < 256; c++) cps.push_back(c);
-  int n = 0;
-  int *ex = LoadCodepoints(extra, &n);
-  for (int i = 0; i < n; i++) cps.push_back(ex[i]);
-  UnloadCodepoints(ex);
+  for (auto [lo, hi] : blocks)
+    for (int c = lo; c <= hi; c++) cps.push_back(c);
   return cps;
 }
 static const char *kMonoFonts[] = {"/System/Library/Fonts/Supplemental/Andale Mono.ttf",

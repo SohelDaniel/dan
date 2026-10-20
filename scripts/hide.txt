@@ -1,0 +1,17 @@
+# Hiding: a hidden thing stays faintly where it was and gives up its room; the rest closes up smoothly.
+title "Done, step back"
+schema graph
+mark f1 tex tex="a + b = c"
+mark f2 tex tex="c - b = a"
+mark a box part label="first"
+mark b box part label="second"
+mark c box part label="third"
+link ab arrow a -> b
+link bc arrow b -> c
+Say: "Three steps, two formulas."
+hide f1
+with hide b
+Say: "The first formula and the middle step are done."
+mark d box part label="next"
+link cd arrow c -> d
+Say: "And the flow goes on."

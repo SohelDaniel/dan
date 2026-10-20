@@ -6,10 +6,10 @@
   "maxOverlaps": 0
  },
  "chat/exemplars/compare.txt": {
-  "mean": 99.9,
-  "worst": 94.3,
+  "mean": 100,
+  "worst": 100,
   "final": 100,
-  "maxOverlaps": 1
+  "maxOverlaps": 0
  },
  "chat/exemplars/derivative.txt": {
   "mean": 97.8,
@@ -19,7 +19,7 @@
  },
  "chat/exemplars/descent.txt": {
   "mean": 94.3,
-  "worst": 85.9,
+  "worst": 85.8,
   "final": 85.9,
   "maxOverlaps": 1
  },
@@ -78,7 +78,7 @@
   "maxOverlaps": 0
  },
  "scripts/derivative.txt": {
-  "mean": 57.7,
+  "mean": 58.4,
   "worst": 2.6,
   "final": 2.6,
   "maxOverlaps": 6
@@ -96,6 +96,12 @@
   "maxOverlaps": 0
  },
  "scripts/fields.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/hide.txt": {
   "mean": 100,
   "worst": 100,
   "final": 100,
@@ -132,10 +138,10 @@
   "maxOverlaps": 1
  },
  "scripts/pointers.txt": {
-  "mean": 98.8,
-  "worst": 61.5,
+  "mean": 99.1,
+  "worst": 71.3,
   "final": 100,
-  "maxOverlaps": 3
+  "maxOverlaps": 2
  },
  "scripts/recursion.txt": {
   "mean": 100,

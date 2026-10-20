@@ -110,7 +110,7 @@ void Engine::analyze(bool fresh) {
     bool isInt = std::fabs(v.num - std::round(v.num)) < 1e-9;
     cur.isInt[k] = cur.isInt.count(k) ? (cur.isInt[k] && isInt) : isInt;
   };
-  bool hasAxes = false, hasT = false, hasLinks = false, hasMag = false, hasWorld = false, hasFn = false;
+  bool hasAxes = false, hasT = false, hasLinks = false, hasMag = false, hasWorld = false, hasFn = false, hasBox = false;
   autoSchemas_.clear();
   int blockLines = 0; // blocks this scene will hold (to choose the band's arrangement before they arrive)
   std::set<std::string> sceneBlockIds;
@@ -122,9 +122,9 @@ void Engine::analyze(bool fresh) {
     autoSchemas_.push_back(hasWorld && !hasFn ? "plane"
                            : hasAxes          ? "axes"
                            : hasT             ? "timeline"
-                           : (hasLinks && !hasMag) ? "graph"
-                                                   : "free");
-    hasAxes = hasT = hasLinks = hasMag = hasWorld = hasFn = false;
+                           : (hasBox || (hasLinks && !hasMag)) ? "graph" // boxes are graph things from the first one,
+                                                                 : "free");  // so links or numbers arriving later don't re-lay the scene
+    hasAxes = hasT = hasLinks = hasMag = hasWorld = hasFn = hasBox = false;
     scenePrescan_.push_back(cur);
     cur = Prescan{};
   };
@@ -144,6 +144,7 @@ void Engine::analyze(bool fresh) {
       }
       if (ln.kind == "path" || ln.kind == "region") hasAxes = hasFn = true;
       if (isWorldKind(ln.kind)) hasWorld = true;
+      if (ln.kind == "box") hasBox = true;
       if (isBlockKind(ln.kind) && sceneBlockIds.insert(ln.id).second) blockLines++;
       if (ln.kind == "slope") hasAxes = hasFn = true;                                   // y against x
       else if (isFieldKind(ln.kind) || ln.kind == "solution") { hasWorld = true; hasFn = false; } // the plane
@@ -254,6 +255,7 @@ void Engine::reset() {
   graphSig_.clear();
   graphPos_.clear();
   flowMemo_ = {};
+  bandH_ = -1;
   linkRoute_.clear();
   cam_ = Camera{};
   hist_.clear();
@@ -433,6 +435,9 @@ bool Engine::related(const std::string &a, const std::string &b) {
   if (ma && mb) {
     std::string ca = catValue(*ma), cb = catValue(*mb);
     if (!ca.empty() && ca == cb) return true;
+    // color= is the author saying "these are the same" (a cluster, a shared weight)
+    auto cv = findProp(ma->props, "color"), cw = findProp(mb->props, "color");
+    if (cv && cw && cv->type == Value::STR && cw->type == Value::STR && cv->str == cw->str) return true;
     auto of = [](Mark *m) { auto v = findProp(m->props, "of"); return v ? v->str : std::string(); };
     if (of(ma) == b || of(mb) == a) return true;
   }
@@ -557,11 +562,13 @@ void Engine::clearStage() {
   graphSig_.clear();
   graphPos_.clear();
   flowMemo_ = {};
+  bandH_ = -1;
   linkRoute_.clear();
   rangeSig_.clear();
   rangesInit_ = false;
   cam_ = Camera{};
   blockRows_ = false;
+  bandH_ = -1;
   pointerSide_.clear();
   crossedSince_.clear();
   clearFieldCaches();
@@ -978,6 +985,7 @@ void Engine::closeSentence() {
       execStep(i);
     }
   if (opt_.instant && sayStep_ < script_.steps.size() && script_.steps[sayStep_].main.verb == Verb::SAY) checkBinding(sayStep_, next);
+  focus_.clear(); // focus is what the voice is about: it ends with its sentence (axiom 5)
 }
 
 void Engine::tickSay(float dt) {
@@ -1255,8 +1263,10 @@ std::string Engine::texSource(const std::string &raw) {
 
 TexPtr Engine::texNow(const Mark &m) {
   const Value *v = findProp(m.props, "tex");
-  if (!v || v->type != Value::STR || opt_.instant) return nullptr;
-  TexPtr L = tex::request(texSource(v->str));
+  if (!v || v->type != Value::STR) return nullptr;
+  // headless runs wait for the typesetter (the prescan already did the literal formulas, so this
+  // is a cache hit), so checks measure formulas as the stage will draw them
+  TexPtr L = opt_.instant ? (tex::available() ? tex::typeset(texSource(v->str)) : nullptr) : tex::request(texSource(v->str));
   TexPtr &last = lastTex_[m.id];
   if (L && (L->ok || !last || !last->ok)) last = L;
   return last;
