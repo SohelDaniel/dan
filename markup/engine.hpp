@@ -291,6 +291,10 @@ private:
   float footprint(const Mark &m);
   float dotRadius(const Mark &m);
   Vector2 boxSize(const Mark &m);
+  // arrays: cols= makes a grid (rows of that many cells, row-major). A reference names cells:
+  // a[3], a[1:3] (a span), and on a grid M[1][2], M[1][:] (a row), M[:][2] (a column)
+  int arrayCols(const Mark &m);
+  std::vector<int> cellsOf(const Mark &m, const std::string &ref);
   // what a box shows, used by both its size and its drawing: the name (wrapped), then one row per
   // property that is content (not position, style or structure)
   std::vector<std::string> boxNameLines(const Mark &m);

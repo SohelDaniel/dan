@@ -1,0 +1,11 @@
+# A grid of numbers: cols= lays an array out in rows; M[r][c] is a cell, M[r][:] a row, M[:][c] a column.
+title "One entry of a matrix product"
+mark A array cols=2 items=[1,2,3,4] label="A"
+mark B array cols=2 items=[5,6,7,8] label="B"
+mark C array cols=2 items=[19,?,?,?] colors=[yellow,-,-,-] label="A × B"
+Say: "The top-left entry takes A's |row|first row and B's |col|first column."
+@row mark r enclose of=A[0][:] label="row 0"
+@col mark c enclose of=B[:][0] label="column 0"
+Say: "One times five plus two times seven: |sum|nineteen."
+@sum mark eq tex tex="1 \cdot 5 + 2 \cdot 7 = 19"
+with indicate C[0][0]

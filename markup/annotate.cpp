@@ -50,7 +50,9 @@ bool Engine::annotationTarget(const Mark &m, Rectangle &out) {
       if (!anchorBox(ref, r)) continue;
       r.x += t->tpos.x - t->pos.x; // where it is going, so the annotation moves with it
       r.y += t->tpos.y - t->pos.y;
-      if (effectiveKind(*t) == "array") r.height += 18; // its cells' index numbers belong to it
+      const Value *items = findProp(t->props, "items");
+      if (effectiveKind(*t) == "array" && items && items->type == Value::LIST && arrayCols(*t) >= (int)items->list.size())
+        r.height += 18; // a row of cells: its index numbers belong to it
     }
     out = unite(out, r);
   }
@@ -116,8 +118,28 @@ Engine::Annotation Engine::annotation(const Mark &m) {
     a.labelAnchor = a.side == 0 ? Vector2{0.5f, 0} : a.side == 1 ? Vector2{0, 0.5f} : a.side == 2 ? Vector2{0.5f, 1} : Vector2{1, 0.5f};
   } else if (k == "enclose") {
     a.box = {T.x - gap, T.y - gap, T.width + 2 * gap, T.height + 2 * gap};
-    a.labelAt = {a.box.x + a.box.width, a.box.y - 4};
-    a.labelAnchor = {1, 1};
+    // its name goes on the first corner clear of other things: above right, below right, above left, below left
+    const Rectangle &B = a.box;
+    const std::pair<Vector2, Vector2> spots[] = {{{B.x + B.width, B.y - 4}, {1, 1}}, {{B.x + B.width, B.y + B.height + 4}, {1, 0}},
+                                                 {{B.x, B.y - 4}, {0, 1}}, {{B.x, B.y + B.height + 4}, {0, 0}}};
+    a.labelAt = spots[0].first;
+    a.labelAnchor = spots[0].second;
+    for (auto &[at, anchor] : spots) {
+      Rectangle lb{at.x - ls.x * anchor.x, at.y - ls.y * anchor.y, ls.x, ls.y};
+      bool clear = true;
+      for (auto &[oid, o] : marks_) {
+        if (&o == &m || !o.positioned || isAnnotationKind(effectiveKind(o)) || ghost(o)) continue;
+        Rectangle ob = bodyBounds(o);
+        if (findProp(o.props, "label") && isBlockKind(effectiveKind(o))) { // a block: its name on the top edge, then its content
+          Rectangle name{ob.x, ob.y, measure(displayName(o), 18).x + 6, 26};
+          if (CheckCollisionRecs(lb, name)) { clear = false; break; }
+          ob.y += 26;
+          ob.height -= 26;
+        }
+        if (CheckCollisionRecs(lb, ob)) { clear = false; break; }
+      }
+      if (clear) { a.labelAt = at; a.labelAnchor = anchor; break; }
+    }
   } else { // cross over it, check beside it
     a.box = k == "cross" ? Rectangle{T.x, T.y, T.width, T.height}
                          : Rectangle{T.x + T.width + gap, T.y + T.height / 2 - 18, 36, 36};

@@ -266,6 +266,10 @@ Vector2 Engine::blockSize(const Mark &m) {
     size_t n = iv && iv->type == Value::LIST ? iv->list.size() : 0;
     float cw = 58;
     if (iv) for (auto &s : iv->list) cw = std::max(cw, measure(s, 24).x + 26);
+    if (int cols = arrayCols(m); cols < (int)n) { // a grid: no index row, no pointer room (pointers take a free side)
+      int rows = (int)((n + cols - 1) / cols);
+      return {cols * cw, head + rows * kCellH};
+    }
     // room underneath for the pointer labels aimed at its cells (at=a[k]), stacked if several share one
     std::map<std::string, int> per;
     int depth = 0;
@@ -291,12 +295,42 @@ Vector2 Engine::blockSize(const Mark &m) {
   return {0, 0};
 }
 
+int Engine::arrayCols(const Mark &m) {
+  const Value *iv = findProp(m.props, "items");
+  int n = iv && iv->type == Value::LIST ? std::max<int>(1, (int)iv->list.size()) : 1;
+  const Value *cv = findProp(m.props, "cols");
+  return cv && cv->isNumeric() && num(*cv) >= 1 ? std::min(n, (int)num(*cv)) : n;
+}
+
+// "a[3]" "a[1:3]" "M[1][2]" "M[1][:]" "M[:][2]" -> the cells, as row-major indices (none if malformed)
+std::vector<int> Engine::cellsOf(const Mark &m, const std::string &ref) {
+  const Value *iv = findProp(m.props, "items");
+  int n = iv && iv->type == Value::LIST ? (int)iv->list.size() : 0, cols = arrayCols(m), rows = (n + cols - 1) / cols;
+  std::vector<std::pair<int, int>> spans; // each bracket: [lo, hi]
+  for (size_t b = ref.find('['); b != std::string::npos; b = ref.find('[', b + 1)) {
+    size_t e = ref.find(']', b);
+    if (e == std::string::npos) return {};
+    std::string s = ref.substr(b + 1, e - b - 1);
+    size_t c = s.find(':');
+    int lim = spans.empty() && ref.find('[', e) != std::string::npos ? rows : spans.empty() ? n : cols;
+    if (c == std::string::npos) spans.push_back({std::atoi(s.c_str()), std::atoi(s.c_str())});
+    else spans.push_back({c == 0 ? 0 : std::atoi(s.c_str()), c + 1 == s.size() ? lim - 1 : std::atoi(s.c_str() + c + 1)});
+  }
+  std::vector<int> out;
+  if (spans.size() == 1)
+    for (int k = spans[0].first; k <= spans[0].second && k < n; k++) out.push_back(k);
+  else if (spans.size() == 2)
+    for (int r = spans[0].first; r <= spans[0].second && r < rows; r++)
+      for (int c = spans[1].first; c <= spans[1].second && c < cols; c++)
+        if (r * cols + c < n) out.push_back(r * cols + c);
+  return out;
+}
+
 Rectangle Engine::cellRect(const Mark &m, int k) {
   Vector2 sz = blockSize(m);
-  const Value *iv = findProp(m.props, "items");
-  size_t n = iv && iv->type == Value::LIST ? std::max<size_t>(1, iv->list.size()) : 1;
-  float cw = sz.x / n, head = findProp(m.props, "label") ? 26.f : 0.f;
-  return {m.pos.x - sz.x / 2 + k * cw, m.pos.y - sz.y / 2 + head, cw, kCellH};
+  int cols = arrayCols(m);
+  float cw = sz.x / cols, head = findProp(m.props, "label") ? 26.f : 0.f;
+  return {m.pos.x - sz.x / 2 + (k % cols) * cw, m.pos.y - sz.y / 2 + head + (k / cols) * kCellH, cw, kCellH};
   // (the pointer room, if any, is below the cells: cells stay at the top of the block)
 }
 
@@ -304,14 +338,15 @@ bool Engine::anchorBox(const std::string &ref, Rectangle &out) {
   int cell;
   Mark *t = mark(baseId(ref, &cell));
   if (!t || !t->positioned) return false;
-  if (cell >= 0 && effectiveKind(*t) == "array") {
-    out = cellRect(*t, cell);
-    if (size_t c = ref.find(':'); c != std::string::npos) { // a span: a[1:3] covers cells 1 to 3
-      int last = std::atoi(ref.c_str() + c + 1);
-      for (int k = cell + 1; k <= last && k < cell + 64; k++) {
-        Rectangle r = cellRect(*t, k);
-        out.width = r.x + r.width - out.x;
-      }
+  if (ref.find('[') != std::string::npos && effectiveKind(*t) == "array") { // cells: their union
+    std::vector<int> cells = cellsOf(*t, ref);
+    if (cells.empty()) return false;
+    out = cellRect(*t, cells[0]);
+    for (int k : cells) {
+      Rectangle r = cellRect(*t, k);
+      float x1 = std::max(out.x + out.width, r.x + r.width), y1 = std::max(out.y + out.height, r.y + r.height);
+      out.x = std::min(out.x, r.x); out.y = std::min(out.y, r.y);
+      out.width = x1 - out.x; out.height = y1 - out.y;
     }
   } else {
     out = bodyBounds(*t);
@@ -589,7 +624,9 @@ void Engine::layout(float dt) {
     if (!at || at->type != Value::STR || !anchorBox(at->str, box)) continue;
     int cell;
     Mark *target = mark(baseId(at->str, &cell));
-    bool arrayCell = target && effectiveKind(*target) == "array";
+    const Value *items = target ? findProp(target->props, "items") : nullptr;
+    bool arrayCell = target && effectiveKind(*target) == "array" && // a row of cells: pointers go under (a grid: a free side)
+                     (!items || items->type != Value::LIST || arrayCols(*target) >= (int)items->list.size());
     if (target && target->positioned && !arrayCell) { box.x += target->tpos.x - target->pos.x; box.y += target->tpos.y - target->pos.y; }
     int n = placedAt[at->str]++, cnt = total[at->str];
     float w = 0;

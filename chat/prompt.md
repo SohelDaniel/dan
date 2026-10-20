@@ -115,6 +115,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 | geometry, shapes, angles, proportion, area | `plane` + `polygon`/`circle`/`angle` |
 | vectors, linear algebra | `plane` + `vector`s (tip to tail, components); a matrix as a `grid` whose `m=` morphs, so the whole plane moves |
 | algorithms, data structures, code | `array` (re-mark `items=` to swap/shift: values travel), pointer labels `at=a[k]`, `code` with a moving `line=`, `table` for traces |
+| matrices, grids, dynamic programming, boards | `array cols=…` (a grid); `M[r][c]`, rows `M[r][:]`, columns `M[:][c]` to `enclose`, `focus`, `indicate`, colour (`colors=`) |
 | processes, cause and effect, systems | boxes + `link` arrows (graph): the links make the columns |
 | comparing two processes, models, architectures | two `group`s of boxes with `link`s (two lanes); matching stages line up, a shared input feeds both |
 | one thing seen two ways (a network and its loss curve, before and after, the data and its chart) | two views: `schema net graph label="…"` then its marks, `schema loss axes …` then its marks; they sit side by side |

@@ -340,10 +340,12 @@ void Engine::drawBlock(const Mark &m) {
   if (k == "array") {
     const Value *iv = findProp(m.props, "items");
     if (!iv || iv->type != Value::LIST) return;
-    int focusCell = -1;
-    if (!focus_.empty() && baseId(focus_, &focusCell) == m.id) {} else focusCell = -1;
+    std::set<int> lit; // focus a[3], a[1:3], M[1][:]: those cells stay lit, the rest dim
+    if (!focus_.empty() && baseId(focus_) == m.id && focus_.find('[') != std::string::npos)
+      for (int k : cellsOf(m, focus_)) lit.insert(k);
+    auto dimmed = [&](size_t i) { return lit.empty() || lit.count((int)i) ? 1.f : 0.3f; };
     const Value *ix = findProp(m.props, "index");
-    bool showIndex = !(ix && ix->num == 0);
+    bool showIndex = !(ix && ix->num == 0) && arrayCols(m) >= (int)iv->list.size(); // a grid has no index row
     // mid-morph (a swap, a shift): each value travels from its old cell on a little arc
     std::vector<int> from(iv->list.size(), -1);
     float bt = 1;
@@ -362,7 +364,7 @@ void Engine::drawBlock(const Mark &m) {
     for (size_t i = 0; i < iv->list.size(); i++) {
       Rectangle cell = cellRect(m, (int)i);
       cell.y += (1 - e) * 10;
-      float ca = a * (focusCell < 0 || focusCell == (int)i ? 1.f : 0.3f);
+      float ca = a * dimmed(i);
       Color cc = c; // colors=[teal,-,teal,…]: cells that belong together share a colour
       bool tinted = false;
       if (const Value *cl = findProp(m.props, "colors"); cl && cl->type == Value::LIST && i < cl->list.size())
@@ -374,7 +376,7 @@ void Engine::drawBlock(const Mark &m) {
     for (size_t j = 0; j < iv->list.size(); j++) {
       Rectangle cj = cellRect(m, (int)j);
       Vector2 to{cj.x + cj.width / 2, cj.y + (1 - e) * 10 + cj.height / 2}, p = to;
-      float va = a * (focusCell < 0 || focusCell == (int)j ? 1.f : 0.3f);
+      float va = a * dimmed(j);
       if (bt < 1 && from[j] >= 0 && from[j] != (int)j) {
         Rectangle ci = cellRect(m, from[j]);
         Vector2 fr{ci.x + ci.width / 2, to.y};

@@ -119,6 +119,12 @@
   "final": 100,
   "maxOverlaps": 0
  },
+ "scripts/grid.txt": {
+  "mean": 99.4,
+  "worst": 88.8,
+  "final": 100,
+  "maxOverlaps": 2
+ },
  "scripts/hide.txt": {
   "mean": 100,
   "worst": 100,
