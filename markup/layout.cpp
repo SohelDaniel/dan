@@ -533,6 +533,7 @@ void Engine::layout(float dt) {
     if (total > 0 && !alone) { stage.y += total + 6; stage.height -= total + 6; }
   }
 
+  if (s != "graph" || body.empty()) linkRoute_.clear();
   if (s == "free") layoutFree(stage, body);
   else if (s == "graph") layoutGraph(stage, body);
   else if (s == "numberline") layoutNumberline(stage);
@@ -632,6 +633,17 @@ void Engine::layout(float dt) {
     if (!m.placed || m.direct) { m.pos = m.tpos; m.placed = true; }
     else m.pos = smoothApproach(m.pos, m.tpos, dt, 9);
   }
+  // a routed link's bends move with its ends; a new bend unfolds from the straight line between them
+  for (auto &[lid, r] : linkRoute_) {
+    const Link &l = links_[lid];
+    Mark *a = mark(l.a), *b = mark(l.b);
+    if (r.via.size() != r.viaT.size()) {
+      r.via = r.viaT;
+      if (a && b && !opt_.instant)
+        for (size_t i = 0; i < r.via.size(); i++) r.via[i] = lerp(a->pos, b->pos, (i + 1.f) / (r.via.size() + 1));
+    }
+    for (size_t i = 0; i < r.via.size(); i++) r.via[i] = opt_.instant ? r.viaT[i] : smoothApproach(r.via[i], r.viaT[i], dt, 9);
+  }
   for (auto &[id, m] : marks_) if (m.culled) m.positioned = false; // out of the camera's view: not drawn, no labels
   if (opt_.newPlacer) placeAllLabels(opt_.instant ? 1.f : dt);
 }
@@ -649,12 +661,6 @@ void Engine::layoutFree(Rectangle area, const std::vector<std::string> &ids) {
   struct Item { std::string id; bool group = false; std::vector<Item> kids; float w = 0; };
   const float gap = 26, pad = 18;
 
-  std::function<std::string(const std::string &)> topGroup = [&](const std::string &id) {
-    std::string g = groupOf(id), last;
-    int guard = 0;
-    while (!g.empty() && guard++ < 16) { last = g; g = groupOf(g); }
-    return last;
-  };
   auto propOf = [&](const Item &it) -> std::string {
     if (it.group) return "";
     Mark &m = marks_[it.id];
@@ -786,199 +792,65 @@ void Engine::layoutFree(Rectangle area, const std::vector<std::string> &ids) {
 }
 
 // ---------------------------------------------------------------- graph
+// Position from structure (place/flow.hpp): links make columns, declaration order is order within one,
+// top-level groups are lanes. Laid out again only when the structure or a size changes.
 void Engine::layoutGraph(Rectangle area, const std::vector<std::string> &ids) {
   if (ids.empty()) return;
-  std::vector<std::pair<int, int>> edges;
-  std::map<std::string, int> idx;
-  for (size_t i = 0; i < ids.size(); i++) idx[ids[i]] = (int)i;
-  std::string sig;
-  for (auto &id : ids) sig += id + ",";
+  place::FlowInput in;
+  in.area = {area.x, area.y, area.width, area.height};
+  std::map<std::string, int> idx, cats, lanes;
+  for (auto &id : order_) // lanes in the order the groups were declared
+    if (groups_.count(id) && groupOf(id).empty()) lanes.insert({id, (int)lanes.size()});
+  std::string sig = std::to_string((int)area.y) + "x" + std::to_string((int)area.height) + "|";
+  for (auto &id : ids) {
+    Mark &m = marks_[id];
+    Rectangle b = bodyBounds(m);
+    idx[id] = (int)in.id.size();
+    in.id.push_back(id);
+    in.size.push_back({b.width, b.height});
+    in.category.push_back(cats.insert({m.category, (int)cats.size()}).first->second);
+    auto lane = lanes.find(topGroup(id));
+    in.lane.push_back(lane != lanes.end() ? lane->second : -1);
+    sig += id + ":" + std::to_string((int)b.width / 8) + "x" + std::to_string((int)b.height / 8) + "@" + std::to_string(in.lane.back()) + ",";
+  }
+  // a link to a group stands for links to its members (for the columns only: it is drawn to the box)
+  std::function<void(const std::string &, std::vector<int> &)> ends = [&](const std::string &id, std::vector<int> &out) {
+    if (auto it = idx.find(id); it != idx.end()) { out.push_back(it->second); return; }
+    if (auto g = groups_.find(id); g != groups_.end()) for (auto &m : g->second.members) ends(m, out);
+  };
+  std::vector<std::string> edgeLink; // the link each flow edge draws ("" when it stands for a group link)
   for (auto &id : order_) {
     auto it = links_.find(id);
     if (it == links_.end()) continue;
-    if (idx.count(it->second.a) && idx.count(it->second.b)) {
-      edges.push_back({idx[it->second.a], idx[it->second.b]});
-      sig += it->second.a + ">" + it->second.b + ",";
-    }
+    std::vector<int> as, bs;
+    ends(it->second.a, as);
+    ends(it->second.b, bs);
+    bool direct = idx.count(it->second.a) && idx.count(it->second.b);
+    float lw = measure(linkLabel(it->second), 18).x;
+    for (int a : as)
+      for (int b : bs) {
+        in.edges.push_back({a, b, direct ? lw : 0});
+        edgeLink.push_back(direct ? id : "");
+        sig += std::to_string(a) + ">" + std::to_string(b) + ":" + std::to_string((int)lw / 8) + ",";
+      }
   }
-  for (auto &[gid, g] : groups_) { sig += gid + ":"; for (auto &m : g.members) sig += m + ","; }
-  int n = (int)ids.size();
-  std::vector<Vector2> sizes(n);
-  for (int i = 0; i < n; i++) {
-    Rectangle b = bodyBounds(marks_[ids[i]]);
-    sizes[i] = {std::max(b.width, 40.f) + 70, std::max(b.height, 40.f) + 60}; // room for link labels
-  }
-
-  sig += "|" + std::to_string((int)area.y) + "x" + std::to_string((int)area.height);
   if (sig != graphSig_) {
     graphSig_ = sig;
-    std::vector<Vector2> pos(n);
-    // acyclic? -> layered left-to-right (call stacks, org charts, who-owes-whom)
-    std::vector<int> indeg(n, 0), rank(n, 0);
-    std::vector<std::vector<int>> out(n), in(n);
-    for (auto [a, b] : edges) if (a != b) { out[a].push_back(b); in[b].push_back(a); indeg[b]++; }
-    std::vector<int> q, topo;
-    for (int i = 0; i < n; i++) if (!indeg[i]) q.push_back(i);
-    while (!q.empty()) {
-      int v = q.front();
-      q.erase(q.begin());
-      topo.push_back(v);
-      for (int w : out[v]) {
-        rank[w] = std::max(rank[w], rank[v] + 1);
-        if (--indeg[w] == 0) q.push_back(w);
-      }
+    place::FlowOut o = place::layoutFlow(in, flowMemo_);
+    auto drawn = std::move(linkRoute_); // keep the bends where they are drawn now, to ease from
+    linkRoute_.clear();
+    if (o.overflow) warn("layout: the graph doesn't fit the stage; group its parts, or start a new scene");
+    for (size_t i = 0; i < ids.size(); i++) graphPos_[ids[i]] = {o.centre[i].x, o.centre[i].y};
+    for (size_t e = 0; e < in.edges.size(); e++) {
+      if (edgeLink[e].empty()) continue;
+      LinkRoute &r = linkRoute_[edgeLink[e]];
+      if (auto d = drawn.find(edgeLink[e]); d != drawn.end()) r.via = d->second.via;
+      r.viaT.clear();
+      for (auto &v : o.route[e].via) r.viaT.push_back({v.x, v.y});
+      r.portA = o.route[e].portA;
+      r.portB = o.route[e].portB;
+      r.back = o.route[e].back;
     }
-    // Nodes without links yet (parts introduced before they're wired up) still read in a flow:
-    // categories form columns in the order they were declared (input -> hidden -> output), so the
-    // picture doesn't start as a ring and reshuffle when the arrows arrive. A lone node joins the
-    // column of a linked node of its category.
-    std::vector<int> deg(n, 0), catCol(n, 0);
-    for (auto [a, b] : edges) if (a != b) { deg[a]++; deg[b]++; }
-    std::map<std::string, int> cats;
-    for (int i = 0; i < n; i++) {
-      auto [it, fresh] = cats.insert({marks_[ids[i]].category, (int)cats.size()});
-      catCol[i] = it->second;
-    }
-    int K = (int)cats.size();
-    bool acyclic = (int)topo.size() == n;
-    bool flow = acyclic && (!edges.empty() || K > 1 || n <= 6);
-    if (flow) {
-      int maxRank = 0;
-      for (int i = 0; i < n; i++) if (deg[i]) maxRank = std::max(maxRank, rank[i]);
-      for (int i = 0; i < n; i++) {
-        if (deg[i]) continue;
-        int r = -1;
-        for (int j = 0; j < n && r < 0; j++)
-          if (deg[j] && catCol[j] == catCol[i]) r = rank[j];
-        if (r < 0) r = edges.empty() ? (K > 1 ? catCol[i] : i) : std::min(catCol[i], maxRank + 1);
-        rank[i] = r;
-      }
-    }
-    bool dag = flow;
-    if (dag) {
-      int R = *std::max_element(rank.begin(), rank.end()) + 1;
-      std::vector<std::vector<int>> layers(R);
-      for (int v : topo) layers[rank[v]].push_back(v);
-      for (auto &L : layers) std::sort(L.begin(), L.end());
-      std::vector<float> slot(n, 0);
-      for (int pass = 0; pass < 4; pass++) {
-        for (int r = 0; r < R; r++) {
-          for (size_t i = 0; i < layers[r].size(); i++) slot[layers[r][i]] = (float)i;
-          if (r == 0) continue;
-          std::vector<std::pair<float, int>> bc;
-          for (int v : layers[r]) {
-            float s = 0;
-            for (int u : in[v]) s += slot[u];
-            bc.push_back({in[v].empty() ? slot[v] : s / in[v].size(), v});
-          }
-          std::stable_sort(bc.begin(), bc.end());
-          for (size_t i = 0; i < bc.size(); i++) layers[r][i] = bc[i].second;
-        }
-      }
-      for (int r = 0; r < R; r++)
-        for (size_t i = 0; i < layers[r].size(); i++) {
-          int v = layers[r][i];
-          pos[v] = {area.x + area.width * (r + 0.5f) / R,
-                    area.y + 20 + (area.height - 40) * (i + 0.5f) / layers[r].size()};
-        }
-    } else {
-      // force-directed (Fruchterman–Reingold), deterministic start
-      Vector2 c{area.x + area.width / 2, area.y + area.height / 2};
-      for (int i = 0; i < n; i++) {
-        auto it = graphPos_.find(ids[i]);
-        float a = 6.2831853f * i / n - 1.5707963f;
-        pos[i] = it != graphPos_.end() ? it->second : c + Vector2{std::cos(a) * area.width * 0.3f, std::sin(a) * area.height * 0.32f};
-      }
-      if (n > 1) {
-        float kk = std::sqrt(area.width * area.height / n) * 0.8f;
-        // two links between the same pair pull no harder than one
-        std::set<std::pair<int, int>> seen;
-        std::vector<std::pair<int, int>> springs;
-        for (auto [a, b] : edges)
-          if (a != b && seen.insert({std::min(a, b), std::max(a, b)}).second) springs.push_back({a, b});
-        float temp = area.width * 0.08f;
-        for (int iter = 0; iter < 400; iter++) {
-          std::vector<Vector2> d(n, {0, 0});
-          for (int i = 0; i < n; i++)
-            for (int j = i + 1; j < n; j++) {
-              Vector2 dv = pos[i] - pos[j];
-              float L = std::max(1.f, len(dv));
-              Vector2 f = dv * (kk * kk / (L * L));
-              d[i] += f;
-              d[j] += f * -1.f;
-            }
-          for (auto [a, b] : springs) {
-            Vector2 dv = pos[a] - pos[b];
-            float L = std::max(1.f, len(dv));
-            Vector2 f = dv * (L / kk);
-            d[a] += f * -1.f;
-            d[b] += f;
-          }
-          for (auto &[gid, g] : groups_) { // members of a group pull together (part-of)
-            Vector2 gc{0, 0};
-            std::vector<int> mem;
-            for (auto &m : g.members) if (idx.count(m)) { mem.push_back(idx[m]); gc += pos[idx[m]]; }
-            if (mem.size() < 2) continue;
-            gc = gc * (1.f / mem.size());
-            for (int v : mem) d[v] += (gc - pos[v]) * 0.6f;
-          }
-          for (int i = 0; i < n; i++) {
-            d[i] += (c - pos[i]) * 0.02f;
-            float L = len(d[i]);
-            if (L > 0) pos[i] += d[i] * (std::min(L, temp) / L);
-            pos[i].x = std::clamp(pos[i].x, area.x + 80, area.x + area.width - 80);
-            pos[i].y = std::clamp(pos[i].y, area.y + 50, area.y + area.height - 50);
-          }
-          temp *= 0.985f;
-        }
-      } else {
-        pos[0] = c;
-      }
-    }
-    // Zero: unrelated nodes never touch by accident
-    for (int iter = 0; iter < 80; iter++) {
-      bool moved = false;
-      for (int i = 0; i < n; i++)
-        for (int j = i + 1; j < n; j++) {
-          Vector2 dv = pos[j] - pos[i];
-          float ox = (sizes[i].x + sizes[j].x) / 2 - std::fabs(dv.x);
-          float oy = (sizes[i].y + sizes[j].y) / 2 - std::fabs(dv.y);
-          if (ox > 0 && oy > 0) {
-            moved = true;
-            if (ox < oy) { float s = (dv.x >= 0 ? 1 : -1) * ox / 2 + 0.5f; pos[i].x -= s; pos[j].x += s; }
-            else { float s = (dv.y >= 0 ? 1 : -1) * oy / 2 + 0.5f; pos[i].y -= s; pos[j].y += s; }
-          }
-        }
-      if (!moved) break;
-    }
-    if (!dag && n > 1) { // centre the drawing on the stage
-      Vector2 mean{0, 0};
-      for (auto &p : pos) mean += p;
-      mean = mean * (1.f / n);
-      Vector2 shift = Vector2{area.x + area.width / 2, area.y + area.height / 2} - mean;
-      for (auto &p : pos) p += shift;
-    }
-    { // fit: the overlap push can carry nodes off the stage; scale about the centre, then shift inside
-      float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
-      for (int i = 0; i < n; i++) {
-        x0 = std::min(x0, pos[i].x - sizes[i].x / 2); x1 = std::max(x1, pos[i].x + sizes[i].x / 2);
-        y0 = std::min(y0, pos[i].y - sizes[i].y / 2); y1 = std::max(y1, pos[i].y + sizes[i].y / 2);
-      }
-      float sx = (x1 - x0) > area.width ? area.width / (x1 - x0) : 1, sy = (y1 - y0) > area.height ? area.height / (y1 - y0) : 1;
-      float k = std::min(sx, sy);
-      Vector2 c0{(x0 + x1) / 2, (y0 + y1) / 2};
-      if (k < 1) for (auto &p : pos) p = c0 + (p - c0) * k;
-      x0 = 1e9f; y0 = 1e9f; x1 = -1e9f; y1 = -1e9f;
-      for (int i = 0; i < n; i++) {
-        x0 = std::min(x0, pos[i].x - sizes[i].x / 2); x1 = std::max(x1, pos[i].x + sizes[i].x / 2);
-        y0 = std::min(y0, pos[i].y - sizes[i].y / 2); y1 = std::max(y1, pos[i].y + sizes[i].y / 2);
-      }
-      Vector2 d{0, 0};
-      if (x0 < area.x) d.x = area.x - x0; else if (x1 > area.x + area.width) d.x = area.x + area.width - x1;
-      if (y0 < area.y) d.y = area.y - y0; else if (y1 > area.y + area.height) d.y = area.y + area.height - y1;
-      for (auto &p : pos) p += d;
-    }
-    for (int i = 0; i < n; i++) graphPos_[ids[i]] = pos[i];
   }
   for (auto &id : ids) {
     Mark &m = marks_[id];

@@ -449,12 +449,21 @@ Vector2 arcPoint(Vector2 a, Vector2 b, float bulge, float t) {
 void arcArrow(Vector2 a, Vector2 b, float bulge, float thick, Color c, float frac, bool head) {
   const int N = 48;
   std::vector<Vector2> pts;
-  int last = std::max(1, (int)(N * std::clamp(frac, 0.f, 1.f)));
-  for (int i = 0; i <= last; i++) pts.push_back(arcPoint(a, b, bulge, (float)i / N));
+  for (int i = 0; i <= N; i++) pts.push_back(arcPoint(a, b, bulge, (float)i / N));
+  pathArrow(pts, thick, c, frac, head);
+}
+
+void pathArrow(std::vector<Vector2> pts, float thick, Color c, float frac, bool head) {
+  if (pts.size() == 2) { // a straight line: sampled, so it can grow in
+    Vector2 a = pts[0], b = pts[1];
+    pts.clear();
+    for (int i = 0; i <= 24; i++) pts.push_back(lerp(a, b, i / 24.f));
+  }
   if (pts.size() < 2) return;
+  pts.resize(std::max<size_t>(2, (size_t)((pts.size() - 1) * std::clamp(frac, 0.f, 1.f)) + 1));
   if (head && frac > 0.98f) {
     Vector2 tip = pts.back();
-    Vector2 d = norm(tip - pts[pts.size() - 4]);
+    Vector2 d = norm(tip - pts[pts.size() >= 4 ? pts.size() - 4 : 0]);
     float hl = 14;
     while (pts.size() > 2 && len(pts.back() - tip) < hl * 0.8f) pts.pop_back();
     stroke(pts, thick, c);
@@ -462,6 +471,19 @@ void arcArrow(Vector2 a, Vector2 b, float bulge, float thick, Color c, float fra
     tri(tip, base + n * 7.f, base - n * 7.f, c);
   } else {
     stroke(pts, thick, c);
+  }
+}
+
+void dashedPath(const std::vector<Vector2> &pts, float thick, Color c, float frac, float dash, float gap) {
+  float total = 0;
+  for (size_t i = 1; i < pts.size(); i++) total += len(pts[i] - pts[i - 1]);
+  float end = total * std::clamp(frac, 0.f, 1.f), at = 0; // distance along the path
+  for (size_t i = 1; i < pts.size() && at < end; i++) {
+    Vector2 a = pts[i - 1], b = pts[i];
+    float L = len(b - a), s0 = at;
+    for (float s = std::ceil(s0 / (dash + gap)) * (dash + gap); s < s0 + L && s < end; s += dash + gap) // dashes starting here
+      DrawLineEx(lerp(a, b, (s - s0) / L), lerp(a, b, std::min(1.f, (std::min(s + dash, end) - s0) / L)), thick, c);
+    at += L;
   }
 }
 

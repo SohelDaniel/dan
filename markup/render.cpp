@@ -609,19 +609,8 @@ void Engine::drawLink(const Link &l) {
   float frac = easeOut(std::clamp(l.appear * 1.2f, 0.f, 1.f));
   bool arrowHead = l.kind == "arrow";
   bool dashedK = l.kind == "similar" || l.kind == "equals";
-  if (g.overBars || std::fabs(g.bend) > 0.5f) { // an arc: over baseline bars, or a bent link
-    if (dashedK) {
-      for (int i = 0; i < 24; i += 2)
-        if (i / 24.f < frac) DrawLineEx(arcPoint(g.pa, g.pb, g.bend, i / 24.f), arcPoint(g.pa, g.pb, g.bend, (i + 1) / 24.f), 2.5f, c);
-    } else {
-      arcArrow(g.pa, g.pb, g.bend, 3, c, frac, arrowHead);
-    }
-  } else {
-    Vector2 end = lerp(g.pa, g.pb, frac);
-    if (dashedK) dashed(g.pa, end, 2.5f, c);
-    else if (arrowHead && frac > 0.98f) arrow(g.pa, g.pb, 3, c, 16);
-    else DrawLineEx(g.pa, end, 3, c);
-  }
+  if (dashedK) dashedPath(g.line, 2.5f, c, frac);
+  else pathArrow(g.line, 3, c, frac, arrowHead);
   if (!g.label.empty() && frac > 0.6f) { // a coloured link names itself in its colour
     Color tc = col::fg;
     if (auto cv = findProp(l.props, "color"); cv && cv->type == Value::STR) colorByName(cv->str, tc);

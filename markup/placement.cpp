@@ -534,6 +534,28 @@ LinkGeom Engine::linkGeometry(const Link &l, bool legacy) {
   return g;
 }
 
+std::string Engine::linkLabel(const Link &l) {
+  std::string t;
+  // label=…, else the properties
+  if (auto v = findProp(l.props, "label"); v && v->type == Value::STR) {
+    t = v->str;
+    // a named value: label="w₁₁" w=0.5 reads "w₁₁ = 0.5", and the number follows a morph
+    // (a label that already says "= …" is complete)
+    if (t.find('=') == std::string::npos)
+      for (auto &p : l.props)
+        if (p.key != "label" && p.key != "color" && p.key != "bend" && p.key != "opacity" && p.val.isNumeric()) { t += " = " + fmtNum(num(p.val)); break; }
+  } else
+    for (auto &p : l.props) {
+      if (p.key == "color" || p.key == "opacity" || p.key == "bend") continue; // style, not content
+      if (!t.empty()) t += "  ";
+      if (p.val.type == Value::STR) t += p.val.str;
+      else t += p.key + " " + (p.val.isNumeric() ? fmtNum(num(p.val)) : p.val.markup());
+    }
+  if (l.kind == "similar") t = t.empty() ? "≈" : "≈ " + t;
+  if (l.kind == "equals") t = t.empty() ? "=" : "= " + t;
+  return t;
+}
+
 LinkGeom Engine::linkGeometryAt(const Link &l) {
   LinkGeom g;
   Rectangle ra, rb;
@@ -547,23 +569,7 @@ LinkGeom Engine::linkGeometryAt(const Link &l) {
   };
   if (!boundsOf(l.a, ma, ra) || !boundsOf(l.b, mb, rb)) return g;
   g.ok = true;
-  // label text: label=…, else the properties
-  if (auto v = findProp(l.props, "label"); v && v->type == Value::STR) {
-    g.label = v->str;
-    // a named value: label="w₁₁" w=0.5 reads "w₁₁ = 0.5", and the number follows a morph
-    // (a label that already says "= …" is complete)
-    if (g.label.find('=') == std::string::npos)
-    for (auto &p : l.props)
-      if (p.key != "label" && p.key != "color" && p.key != "bend" && p.key != "opacity" && p.val.isNumeric()) { g.label += " = " + fmtNum(num(p.val)); break; }
-  } else
-    for (auto &p : l.props) {
-      if (p.key == "color" || p.key == "opacity" || p.key == "bend") continue; // style, not content
-      if (!g.label.empty()) g.label += "  ";
-      if (p.val.type == Value::STR) g.label += p.val.str;
-      else g.label += p.key + " " + (p.val.isNumeric() ? fmtNum(num(p.val)) : p.val.markup());
-    }
-  if (l.kind == "similar") g.label = g.label.empty() ? "≈" : "≈ " + g.label;
-  if (l.kind == "equals") g.label = g.label.empty() ? "=" : "= " + g.label;
+  g.label = linkLabel(l);
 
   g.overBars = ma && mb && ma->anchorBottom && mb->anchorBottom && effectiveKind(*ma) == "bar" && effectiveKind(*mb) == "bar";
   if (g.overBars) {
@@ -574,6 +580,18 @@ LinkGeom Engine::linkGeometryAt(const Link &l) {
     g.pb = {rb.x + rb.width / 2, y};
     g.bend = (g.pb.x >= g.pa.x ? 1 : -1) * std::clamp(std::fabs(g.pb.x - g.pa.x) * 0.4f, 40.f, 120.f);
     g.mid = arcPoint(g.pa, g.pb, g.bend, 0.5f) - Vector2{0, 16};
+  } else if (auto rt = linkRoute_.find(l.id); rt != linkRoute_.end() && !rt->second.back && rb.x > ra.x + ra.width) {
+    // laid out by the flow: from the source's right side, through the gaps, into the target's left side
+    const LinkRoute &r = rt->second;
+    std::vector<place::Vec> pts{{ra.x + ra.width + 6, ra.y + ra.height / 2 + r.portA}};
+    for (auto &v : r.via) pts.push_back({v.x, v.y});
+    pts.push_back({rb.x - 6, rb.y + rb.height / 2 + r.portB});
+    for (auto &q : place::smoothRoute(pts)) g.line.push_back({q.x, q.y});
+    g.pa = g.line.front();
+    g.pb = g.line.back();
+    g.labelT1 = 1.f / (pts.size() - 1); // its label sits in the first gap, whose width was made for it
+    g.mid = g.line[g.line.size() / (2 * (pts.size() - 1))];
+    return g;
   } else {
     Vector2 ca{ra.x + ra.width / 2, ra.y + ra.height / 2}, cb{rb.x + rb.width / 2, rb.y + rb.height / 2};
     Vector2 pa = rectEdgePoint(ra, cb), pb = rectEdgePoint(rb, ca);
@@ -587,6 +605,9 @@ LinkGeom Engine::linkGeometryAt(const Link &l) {
     else
       for (auto &[oid, o] : links_)
         if (o.a == l.b && o.b == l.a && oid != l.id) { g.bend = 34; break; }
+    // against the flow (a cycle): an arc clear of the row it spans
+    if (auto rt = linkRoute_.find(l.id); rt != linkRoute_.end() && rt->second.back && !findProp(l.props, "bend"))
+      g.bend = std::max(std::max(40.f, g.bend), 0.3f * std::fabs(cb.x - ca.x));
     g.mid = std::fabs(g.bend) > 0.5f ? arcPoint(g.pa, g.pb, g.bend, 0.5f) : lerp(g.pa, g.pb, 0.5f);
   }
   if (std::fabs(g.bend) > 0.5f)
@@ -740,6 +761,7 @@ void Engine::placeAllLabels(float dt) {
     Vector2 sz = measure(g.label, 18);
     PendingLink pl{id, {sz.x + 12, sz.y + 6}, {g.mid.x, g.mid.y}, {}};
     auto at = [&](float t) {
+      t = g.labelT0 + t * (g.labelT1 - g.labelT0);
       if (g.line.size() < 2) return Vector2{g.mid.x, g.mid.y};
       float f = t * (g.line.size() - 1);
       size_t i0 = std::min((size_t)f, g.line.size() - 2);

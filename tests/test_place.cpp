@@ -186,3 +186,143 @@ TEST_CASE("labels: avoid a reserved zone and other things; keep a previous side 
 }
 
 // ---------------------------------------------------------------- bodies: relations, regions, stability
+
+#include "../markup/place/flow.hpp"
+
+// a flow input from names, edges ("a>b") and optional lanes; every box 100 x 50
+static FlowInput flowOf(std::vector<std::string> ids, std::vector<std::string> edges, std::vector<int> lanes = {}) {
+  FlowInput in;
+  in.area = {40, 66, 1200, 494};
+  in.id = ids;
+  for (size_t i = 0; i < ids.size(); i++) {
+    in.size.push_back({100, 50});
+    in.lane.push_back(lanes.empty() ? -1 : lanes[i]);
+    in.category.push_back(0);
+  }
+  auto at = [&](const std::string &s) { return (int)(std::find(ids.begin(), ids.end(), s) - ids.begin()); };
+  for (auto &e : edges) in.edges.push_back({at(e.substr(0, e.find('>'))), at(e.substr(e.find('>') + 1)), 0});
+  return in;
+}
+static Rect boxOf(const FlowInput &in, const FlowOut &o, int i) { return Rect::around(o.centre[i], in.size[i]); }
+// every link drawn as it will be: from the source's right side through its waypoints to the target's left side
+static std::vector<Vec> drawn(const FlowInput &in, const FlowOut &o, size_t e) {
+  Rect a = boxOf(in, o, in.edges[e].a), b = boxOf(in, o, in.edges[e].b);
+  std::vector<Vec> pts{{a.right(), a.center().y + o.route[e].portA}};
+  pts.insert(pts.end(), o.route[e].via.begin(), o.route[e].via.end());
+  pts.push_back({b.x, b.center().y + o.route[e].portB});
+  return smoothRoute(pts);
+}
+
+TEST_CASE("flow: a chain reads left to right on one line") {
+  auto in = flowOf({"a", "b", "c"}, {"a>b", "b>c"});
+  FlowMemo memo;
+  auto o = layoutFlow(in, memo);
+  CHECK(o.rank == std::vector<int>{0, 1, 2});
+  CHECK(o.centre[0].x < o.centre[1].x);
+  CHECK(o.centre[1].x < o.centre[2].x);
+  CHECK(o.centre[0].y == doctest::Approx(o.centre[1].y).epsilon(0.002));
+  CHECK(o.centre[1].y == doctest::Approx(o.centre[2].y).epsilon(0.002));
+  // centred on the stage
+  float cx = (boxOf(in, o, 0).x + boxOf(in, o, 2).right()) / 2;
+  CHECK(cx == doctest::Approx(40 + 600).epsilon(0.002));
+  CHECK(o.centre[1].y == doctest::Approx(66 + 247).epsilon(0.002));
+}
+
+TEST_CASE("flow: a cycle (backprop's gradients) runs back as arcs; the forward pass decides the columns") {
+  auto in = flowOf({"x", "w", "y", "L"}, {"x>y", "w>y", "y>L", "L>y", "y>w"});
+  FlowMemo memo;
+  auto o = layoutFlow(in, memo);
+  CHECK(o.rank[0] == 0);
+  CHECK(o.rank[2] == 1);
+  CHECK(o.rank[3] == 2);
+  CHECK(o.route[3].back);
+  CHECK(o.route[4].back);
+  CHECK(!o.route[0].back);
+}
+
+TEST_CASE("flow: random graphs: no boxes overlap and no link runs through a box") {
+  for (uint64_t seed = 1; seed <= 40; seed++) {
+    Rng rng(seed);
+    int n = 5 + rng.below(14);
+    std::vector<std::string> ids;
+    for (int i = 0; i < n; i++) ids.push_back("n" + std::to_string(i));
+    std::vector<std::string> edges;
+    for (int k = 0; k < n + rng.below(n); k++) {
+      int a = rng.below(n), b = rng.below(n);
+      if (a < b) edges.push_back(ids[a] + ">" + ids[b]); // acyclic, so every link is routed
+    }
+    auto in = flowOf(ids, edges);
+    for (auto &s : in.size) s = {60 + rng.unit() * 60, 36 + rng.unit() * 20};
+    FlowMemo memo;
+    auto o = layoutFlow(in, memo);
+    if (o.overflow) continue; // too big for the stage: flagged, not judged
+    for (int i = 0; i < n; i++)
+      for (int j = i + 1; j < n; j++) CHECK_MESSAGE(!overlaps(boxOf(in, o, i), boxOf(in, o, j)), "seed " << seed);
+    for (size_t e = 0; e < in.edges.size(); e++) {
+      auto line = drawn(in, o, e);
+      for (int i = 0; i < n; i++) {
+        if (i == in.edges[e].a || i == in.edges[e].b) continue;
+        for (size_t k = 1; k < line.size(); k++)
+          CHECK_MESSAGE(!hits({line[k - 1], line[k]}, inflate(boxOf(in, o, i), -3)), "seed " << seed << " edge " << e);
+      }
+    }
+  }
+}
+
+TEST_CASE("flow: lanes keep their members together and their stages line up") {
+  // two pipelines and a shared source: the dense net on top, the transformer below
+  auto in = flowOf({"img", "px", "hid", "out", "p1", "p2", "p3"}, {"img>px", "px>hid", "hid>out", "img>p1", "p1>p2", "p1>p3"},
+                   {-1, 0, 0, 0, 1, 1, 1});
+  FlowMemo memo;
+  auto o = layoutFlow(in, memo);
+  CHECK(o.centre[1].x == o.centre[4].x); // pixels and patch 1: the same stage
+  CHECK(o.centre[2].x == o.centre[5].x);
+  float bottomDense = 0, topTf = 1e9f;
+  for (int i : {1, 2, 3}) bottomDense = std::max(bottomDense, boxOf(in, o, i).bottom());
+  for (int i : {4, 5, 6}) topTf = std::min(topTf, boxOf(in, o, i).y);
+  CHECK(topTf - bottomDense >= 52); // room for the second lane's box and name
+  // the fan from patch 1 leaves from distinct points, in the order of its targets
+  CHECK(o.route[4].portA != o.route[5].portA);
+  CHECK((o.route[4].portA < o.route[5].portA) == (o.centre[5].y < o.centre[6].y));
+}
+
+TEST_CASE("flow: streaming: a newcomer is inserted, the things on stage keep their order; same input, same output") {
+  auto in = flowOf({"a", "b", "c", "d"}, {"a>b", "a>c", "a>d"});
+  FlowMemo memo;
+  auto o1 = layoutFlow(in, memo);
+  auto in2 = flowOf({"a", "b", "c", "d", "e"}, {"a>b", "a>c", "a>d", "a>e"});
+  auto o2 = layoutFlow(in2, memo);
+  CHECK(o2.centre[1].y < o2.centre[2].y);
+  CHECK(o2.centre[2].y < o2.centre[3].y);
+  CHECK(o1.centre[1].y < o1.centre[2].y);
+  FlowMemo m1, m2;
+  auto p1 = layoutFlow(in2, m1), p2 = layoutFlow(in2, m2);
+  for (size_t i = 0; i < p1.centre.size(); i++) CHECK(p1.centre[i] == p2.centre[i]);
+}
+
+TEST_CASE("flow: model order: without links, one category keeps declaration order; categories form columns") {
+  auto in = flowOf({"a", "b", "c"}, {});
+  FlowMemo memo;
+  auto o = layoutFlow(in, memo);
+  CHECK(o.centre[0].x < o.centre[1].x);
+  CHECK(o.centre[1].x < o.centre[2].x);
+  in.category = {0, 1, 1};
+  FlowMemo m2;
+  auto o2 = layoutFlow(in, m2);
+  CHECK(o2.rank == std::vector<int>{0, 1, 1});
+  CHECK(o2.centre[1].y < o2.centre[2].y);
+}
+
+TEST_CASE("flow: a long label widens its gap; a source sits next to what it feeds") {
+  auto in = flowOf({"a", "b", "c"}, {"a>b", "b>c"});
+  in.area.w = 700; // tight, so little slack is shared out
+  in.edges[0].labelW = 200;
+  FlowMemo memo;
+  auto o = layoutFlow(in, memo);
+  float g0 = boxOf(in, o, 1).x - boxOf(in, o, 0).right(), g1 = boxOf(in, o, 2).x - boxOf(in, o, 1).right();
+  CHECK(g0 >= 240 - 0.5f);
+  CHECK(g0 > g1);
+  auto bias = flowOf({"x", "h", "o", "b"}, {"x>h", "h>o", "b>o"});
+  FlowMemo m2;
+  CHECK(layoutFlow(bias, m2).rank[3] == 1);
+}

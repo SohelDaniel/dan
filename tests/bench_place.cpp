@@ -1,4 +1,5 @@
-// Placement timing budget: 60 labels among 60 things and 20 lines.   make bench
+// Placement timing budget: 60 labels among 60 things and 20 lines; a 30-thing graph.   make bench
+#include "../markup/place/flow.hpp"
 #include "../markup/place/place.hpp"
 #include "../markup/place/rng.hpp"
 #include <algorithm>
@@ -34,10 +35,32 @@ int main() {
     auto t1 = Clock::now();
     labels.push_back(ms(t0, t1));
   }
+  std::vector<double> flows;
+  for (int run = 0; run < 60; run++) { // the graph schema: 30 things, 40 links
+    Rng rng(2000 + run);
+    FlowInput in;
+    in.area = {40, 66, 1200, 494};
+    for (int i = 0; i < 30; i++) {
+      in.id.push_back("n" + std::to_string(i));
+      in.size.push_back({60 + rng.unit() * 60, 36 + rng.unit() * 20});
+      in.lane.push_back(i % 3 == 0 ? -1 : i % 2);
+      in.category.push_back(0);
+    }
+    for (int k = 0; k < 40; k++) { // a network: five columns of six, links mostly to the next column
+      int a = rng.below(24), b = (a / 6 + 1 + (rng.below(4) == 0)) * 6 + rng.below(6);
+      if (b < 30) in.edges.push_back({a, b, 40});
+    }
+    FlowMemo memo;
+    auto t0 = Clock::now();
+    layoutFlow(in, memo);
+    flows.push_back(ms(t0, Clock::now()));
+  }
+  double f50 = pct(flows, 0.5), f95 = pct(flows, 0.95);
+  std::printf("flow (30 things, ~40 links):    p50 %.2f ms  p95 %.2f ms   budget 2 ms\n", f50, f95);
   double l50 = pct(labels, 0.5), l95 = pct(labels, 0.95);
   std::printf("labels (60 labels, 20 lines):    p50 %.2f ms  p95 %.2f ms   budget 1 ms\n", l50, l95);
   // the target is 1 ms; the pass/fail line allows 3x for timing noise on a busy machine
-  bool ok = l95 < 3;
-  std::printf("%s\n", ok ? (l95 < 1 ? "ok: within target" : "ok: within 3x slack (over target)") : "OVER BUDGET");
+  bool ok = l95 < 3 && f95 < 6;
+  std::printf("%s\n", ok ? (l95 < 1 && f95 < 2 ? "ok: within target" : "ok: within 3x slack (over target)") : "OVER BUDGET");
   return ok ? 0 : 1;
 }

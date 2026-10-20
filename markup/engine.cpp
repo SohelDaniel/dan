@@ -253,6 +253,8 @@ void Engine::reset() {
   barScale_.clear();
   graphSig_.clear();
   graphPos_.clear();
+  flowMemo_ = {};
+  linkRoute_.clear();
   cam_ = Camera{};
   hist_.clear();
   bornAt_.clear();
@@ -406,6 +408,12 @@ std::string Engine::effectiveKind(const Mark &m) const {
   return hasMag ? "bar" : "dot";
 }
 
+std::string Engine::topGroup(const std::string &id) const {
+  std::string g = groupOf(id), last;
+  for (int guard = 0; !g.empty() && guard < 16; guard++) { last = g; g = groupOf(g); }
+  return last;
+}
+
 std::string Engine::groupOf(const std::string &id) const {
   for (auto &g : order_) {
     auto it = groups_.find(g);
@@ -548,6 +556,8 @@ void Engine::clearStage() {
   barScale_.clear();
   graphSig_.clear();
   graphPos_.clear();
+  flowMemo_ = {};
+  linkRoute_.clear();
   rangeSig_.clear();
   rangesInit_ = false;
   cam_ = Camera{};

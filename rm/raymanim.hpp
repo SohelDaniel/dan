@@ -93,6 +93,8 @@ void fillPolygon(const std::vector<Vector2> &pts, Color c); // concave ok (ear c
 void tri(Vector2 a, Vector2 b, Vector2 c, Color col);
 void arrow(Vector2 a, Vector2 b, float thick, Color c, float head = 14);
 void arcArrow(Vector2 a, Vector2 b, float bulge, float thick, Color c, float frac = 1, bool head = true);
+void pathArrow(std::vector<Vector2> pts, float thick, Color c, float frac = 1, bool head = true); // a polyline, drawn up to frac
+void dashedPath(const std::vector<Vector2> &pts, float thick, Color c, float frac = 1, float dash = 9, float gap = 7);
 Vector2 arcPoint(Vector2 a, Vector2 b, float bulge, float t);
 void dashed(Vector2 a, Vector2 b, float thick, Color c, float dash = 9, float gap = 7);
 void roundedBox(Rectangle r, float radius, float thick, Color strokeC, Color fillC);

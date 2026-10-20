@@ -15,6 +15,7 @@
 #include "script.hpp"
 #include "tex.hpp"
 #include "place/check.hpp"
+#include "place/flow.hpp"
 #include "place/spring.hpp"
 #include "viz/viz.hpp"
 #include <functional>
@@ -96,6 +97,7 @@ struct LinkGeom {
   bool ok = false, overBars = false;
   Vector2 pa{0, 0}, pb{0, 0};
   float bend = 0;                                    // bulge for arcs (0: straight)
+  float labelT0 = 0, labelT1 = 1;                    // the stretch of line its label may sit on
   std::string label;
   Vector2 mid{0, 0};                                 // where the label goes
   std::vector<Vector2> line;                         // the drawn path, sampled (for checks)
@@ -183,6 +185,7 @@ public:
   std::vector<TextLabel> markLabelsAt(const Mark &m); // the fixed offsets (what the old layout did)
   LinkGeom linkGeometry(const Link &l, bool legacy = false);
   LinkGeom linkGeometryAt(const Link &l);
+  std::string linkLabel(const Link &l);   // the text on a link: its label (with its value), else its properties
   std::vector<Rectangle> furniture();   // tick numbers and axis titles (placement.cpp)
   const Value *attachment(const Mark &m) const; // on= / in= / over=: touching a thing on purpose
   // the new placer (--placer new): every movable label placed together, each frame, with hysteresis
@@ -232,6 +235,7 @@ private:
   std::string effectiveKind(const Mark &m) const;
   bool related(const std::string &a, const std::string &b);
   std::string groupOf(const std::string &id) const;
+  std::string topGroup(const std::string &id) const; // the outermost group around it ("" if none)
 
   // ---- runtime
   void analyze(bool fresh);                 // prescan + static lint over the whole script
@@ -373,6 +377,13 @@ private:
   std::map<std::string, float> barScale_; // eased px/unit per property
   std::string graphSig_;
   std::map<std::string, Vector2> graphPos_;
+  place::FlowMemo flowMemo_;              // each thing's column and height last time: newcomers are inserted
+  struct LinkRoute {
+    std::vector<Vector2> via, viaT;       // waypoints through the gaps: drawn (eased) and target
+    float portA = 0, portB = 0;           // where it leaves and enters, along the sides
+    bool back = false;                    // against the flow: an arc
+  };
+  std::map<std::string, LinkRoute> linkRoute_; // links laid out by the flow (graph schema)
 
   // voice
   std::unique_ptr<Tts> tts_;
