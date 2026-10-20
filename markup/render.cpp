@@ -830,7 +830,11 @@ void Engine::drawFurniture() {
 void Engine::draw() {
   ClearBackground(col::bg);
   std::string s = schemaNow();
-  if (!title_.empty()) text(title_, {24, 14}, 24, col::muted, 0, 0);
+  if (!title_.empty()) { // a headline (62 px) on the empty stage, then the corner (24 px)
+    float k = 1 - std::pow(1 - headline_, 3.f); // leaves at once, before what arrived has faded in
+    text(title_, lerp(Vector2{(float)W / 2, (float)H * 0.42f}, Vector2{24, 14}, k), 62 + (24 - 62) * k,
+         lerpColor(col::fg, col::muted, k), 0.5f * (1 - k), 0.5f * (1 - k));
+  }
   // the stage, scaled when the scene outgrew it; title, subtitles and hints stay at screen size
   Rectangle S = stageRect();
   Vector2 c{S.x + S.width / 2, S.y + S.height / 2}; // the stage's centre is the same at every scale

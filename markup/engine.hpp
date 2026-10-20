@@ -358,6 +358,8 @@ private:
   SayRun say_;
   std::string focus_;
   std::string schema_ = "auto", autoSchema_ = "free", title_;
+  float headline_ = 1; // 0: a new scene's name, large in the centre of an empty stage; 1: in the corner
+  bool stageEmpty();
   std::vector<std::string> autoSchemas_; // one per scene
   size_t sceneIdx_ = 0;
   float stageFade_ = 1;                   // scene transitions

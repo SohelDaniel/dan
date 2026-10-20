@@ -793,7 +793,7 @@ void Engine::execLine(const Line &ln) {
     rangesInit_ = false;
     caption("schema " + ln.kind + " -> its own layout rules decide position");
     break;
-  case Verb::TITLE: title_ = ln.id; break;
+  case Verb::TITLE: title_ = ln.id; headline_ = stageEmpty() ? 0 : 1; break;
   case Verb::CAMERA: doCamera(ln); break;
   case Verb::SCENE: {
     Active a;
@@ -1219,7 +1219,7 @@ void Engine::tickActives(float dt) {
         std::string t = a.prop;
         actives_.erase(actives_.begin() + (long)i);
         clearStage();
-        if (!t.empty()) title_ = t;
+        if (!t.empty()) { title_ = t; headline_ = 0; }
         stageFade_ = 1;
         continue;
       }
@@ -1287,6 +1287,11 @@ bool Engine::finished() const {
   return cursor_ >= script_.steps.size() && actives_.empty() && !say_.active && !waitingPause_;
 }
 
+bool Engine::stageEmpty() {
+  for (auto &[id, m] : marks_) if (alphaOf(m) > 0.05f) return false;
+  return true;
+}
+
 void Engine::update(float dt) {
   if (paused_) return;
   clock_ += dt;
@@ -1299,6 +1304,8 @@ void Engine::update(float dt) {
   tickSay(dt);
   tickActives(dt);
   captionT_ += dt;
+  // the name heads the empty stage; when the first thing arrives it goes to the corner (0.6 s)
+  if (headline_ < 1 && (opt_.instant || !stageEmpty())) headline_ = opt_.instant ? 1 : std::min(1.f, headline_ + dt / 0.6f);
 
   // entrance + focus easing
   auto lit = [&](const Obj &o) -> float {
