@@ -232,6 +232,26 @@ an engine audit and research (3b1b's code, Mayer, Ainsworth, Cheng, Tversky, Cod
 - Broad eval (judge, 1-5): picture 3.34 -> 3.64, layout 3.41 -> 3.52, fit 3.91 -> 4.05; cards 28/44 -> 0/44.
   Binding (numbers spoken but not shown) stays the weakest at ~3.1: the next prompt/lint target.
 
+## 8d. 2026-10-20 (night): the 2D must-do list
+
+Each committed, regressions (test, check, append, golden) green after each:
+- 3b1b's measured habits (`docs/3b1b-habits.md`): 1 s entrances staggered 0.15 s; a clutter note above 8 things;
+  a scene's name opens as a 62 px headline on the empty stage and goes to the corner when content arrives.
+  Axis numbers were already 15-16 px; boxes already rise 10 px; formulas write glyph by glyph (no further rise-in).
+- Annotations try their placements and keep the one sitting on the least; a group encloses its return arcs; link
+  labels may sit on their own link, keep off group outlines and out of groups that don't hold both ends.
+- Cue pre-flight: an `@score` line whose sentence never speaks `|score|` glues to the word it names ("scores").
+  First parser unit tests: `tests/test_script.cpp`.
+- Claude sees its frame: verified in a real session (the second message carries `frame: true` and the image).
+- Server: the after-turn check and readback run in the background (no `spawnSync`). Frames cost 0.1-2 ms, so the
+  engine needs no speed work yet.
+- `set=learner` params get a slider under the stage (`markup/controls.cpp`); a drag reports `@ev set k v`, the
+  server folds it into the stage text and sends `<learner_set>`. Simulated drags verified; a real mouse drag on a
+  Retina window has not been tried yet.
+
+Still open on the list: latency (~9 s to the first drawing), engine unit tests and long functions, then 3D, then the
+taste scorer (3b1b priors, an AI judge, a few clicks from the user).
+
 ## 9. Known loose ends
 
 - Voice: the user hasn't picked a voice from the samples (Brian is the default).
