@@ -1,7 +1,0 @@
-# readback t=27.8s
-title "On a graph"
-schema axes x=[0,6] y=[0,40]
-mark curve path fn={0.5*2*x^2} label=E(v)
-mark tag tex tex="E = v^2" x=4.2 y=30 size=30
-# since: morph ke.tex "E_k = \frac{1}{2}\textcolor{mass}{m}\textcolor{speed}{v}^2" -> "E_k = \frac{1}{2}\textcolor{mass}{m}\textcolor{speed}{v}^2 = \val{0.5*mass*speed^2}\,\text{J}" done; morph speed.v 3 -> 6 done; scene change
-

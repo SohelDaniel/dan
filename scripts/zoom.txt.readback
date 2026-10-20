@@ -1,8 +1,0 @@
-# readback t=15.6s
-title "Zoom in until it's straight"
-schema axes x=[-1,4] y=[-1,9] xlabel=x ylabel=y
-mark f path fn={x^2} label="y = x²"
-mark p dot x=1 y=1 label="(1, 1)"
-mark t line x1=0.95 y1=0.9 x2=1.05 y2=1.1 label="slope 2"
-# since: camera zoom=6 on=f x=1 done; camera zoom=60 on=f x=1 done; camera back to the whole scene done
-

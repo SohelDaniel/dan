@@ -1,9 +1,0 @@
-# readback t=23.3s
-title "Gradient descent"
-schema plane x=[-3,3] y=[-2,2]
-mark L heat fn={x^2 + 6*y^2}
-mark C contour fn={x^2 + 6*y^2} levels=log
-mark p dot x=-0.577 y=-0.077 trail=all label=you
-camera zoom=2 on=p
-# since: mark p.x -2.6 -> -1.92 done; mark p.y 1.4 -> -0.78 done; mark p.x -1.92 -> -1.42 done; mark p.y -0.78 -> 0.44 done; mark p.x -1.42 -> -1.05 done; mark p.y 0.44 -> -0.25 done; camera zoom=2 on=p done; mark p.x -1.05 -> -0.78 done; mark p.y -0.25 -> 0.14 done; mark p.x -0.78 -> -0.58 done; mark p.y 0.14 -> -0.077 done
-
