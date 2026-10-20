@@ -2,8 +2,8 @@
 // diagrams; the unit square of conditional probability; the area model of multiplication).
 //   mark pop area parts=[1,999] labels=[sick,healthy] colors=[red,-] label="1000 people"
 //   mark pop area parts=[1,999] by=[[1,0],[10,989]] bylabels=[…] bycolors=[…]   each strip split again
-// Strips run across (pop[i]); by= splits each one top to bottom (pop[i][j]). Lists morph, so the
-// split glides. A part too thin to see still gets a sliver.
+// Strips run across (pop[i]); by= splits each one top to bottom (pop[i][j]). A change to parts= glides;
+// a part too thin to see still gets a sliver.
 #include "engine.hpp"
 #include <numeric>
 
@@ -11,6 +11,20 @@ namespace mk {
 using namespace rm;
 
 static const float kAreaW = 520, kAreaH = 210;
+
+static std::vector<double> numbers(const Value *v);
+// parts=, eased while a morph or re-mark changes it (same length: number by number), so the split glides
+static std::vector<double> easedParts(const Mark &m) {
+  std::vector<double> now = numbers(findProp(m.props, "parts"));
+  auto it = m.strBlend.find("parts");
+  if (it == m.strBlend.end() || it->second.second >= 1) return now;
+  Value old = Value::parse(it->second.first);
+  std::vector<double> was = numbers(&old);
+  if (was.size() != now.size()) return now;
+  float t = rate::smooth(it->second.second);
+  for (size_t i = 0; i < now.size(); i++) now[i] = was[i] + (now[i] - was[i]) * t;
+  return now;
+}
 
 static std::vector<double> numbers(const Value *v) {
   std::vector<double> out;
@@ -37,9 +51,11 @@ static std::vector<float> cuts(const std::vector<double> &parts, float length, f
 Vector2 Engine::areaSize(const Mark &m) {
   bool below = false; // strip names that don't fit inside go under the strip
   const Value *lv = findProp(m.props, "labels");
-  auto w = cuts(numbers(findProp(m.props, "parts")), kAreaW, 6);
+  auto w = cuts(easedParts(m), kAreaW, 6);
+  const Value *by = findProp(m.props, "by");
   if (lv && lv->type == Value::LIST)
-    for (size_t i = 0; i < lv->list.size() && i < w.size(); i++) below |= measure(lv->list[i], 18).x + 10 > w[i];
+    for (size_t i = 0; i < lv->list.size() && i < w.size(); i++) // a split strip's name always goes under it
+      below |= measure(lv->list[i], 18).x + 10 > w[i] || (by && by->type == Value::LIST && i < by->list.size());
   return {kAreaW, (findProp(m.props, "label") ? 26.f : 0.f) + kAreaH + (below ? 28.f : 0.f)};
 }
 
@@ -47,7 +63,7 @@ Vector2 Engine::areaSize(const Mark &m) {
 Rectangle Engine::areaCell(const Mark &m, int i, int j) {
   Vector2 sz = areaSize(m);
   float x = m.pos.x - sz.x / 2, y = m.pos.y - sz.y / 2 + (findProp(m.props, "label") ? 26.f : 0.f);
-  auto w = cuts(numbers(findProp(m.props, "parts")), kAreaW, 6);
+  auto w = cuts(easedParts(m), kAreaW, 6);
   if (i < 0 || i >= (int)w.size()) return {0, 0, 0, 0};
   for (int k = 0; k < i; k++) x += w[k];
   Rectangle strip{x, y, w[i], kAreaH};
@@ -91,7 +107,7 @@ void Engine::drawArea(const Mark &m, float a) {
     return fi == i && (fj < 0 || fj == j);
   };
   const Value *by = findProp(m.props, "by");
-  size_t n = numbers(findProp(m.props, "parts")).size(), sub = 0;
+  size_t n = easedParts(m).size(), sub = 0;
   for (size_t i = 0; i < n; i++) {
     Rectangle s = areaCell(m, (int)i, -1);
     std::vector<double> parts;

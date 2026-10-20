@@ -64,7 +64,10 @@ Value Value::parse(const std::string &tokIn, std::string *err) {
     v.type = LIST;
     std::string inner = tok.substr(1, tok.size() - 2), cur;
     int depth = 0;
+    char quote = 0; // a comma inside quotes is text: "1,000"
     for (char c : inner) {
+      if (quote) { if (c == quote) quote = 0; cur += c; continue; }
+      if (c == '"' || c == '\'') quote = c;
       if (c == '{' || c == '(' || c == '[') depth++; // nested lists stay whole: by=[[1,0],[10,989]]
       if (c == '}' || c == ')' || c == ']') depth--;
       if (c == ',' && depth == 0) { if (!trim(cur).empty()) v.list.push_back(stripQuotes(trim(cur))); cur.clear(); }
@@ -102,7 +105,10 @@ std::string Value::markup() const {
   case EXPR: return "{" + str + "}";
   case LIST: {
     std::string s = "[";
-    for (size_t i = 0; i < list.size(); i++) s += (i ? "," : "") + list[i];
+    for (size_t i = 0; i < list.size(); i++) { // an item with a comma in it is quoted, so it reads back whole
+      bool nested = !list[i].empty() && list[i].front() == '[';
+      s += (i ? "," : "") + (list[i].find(',') != std::string::npos && !nested ? "\"" + list[i] + "\"" : list[i]);
+    }
     return s + "]";
   }
   }

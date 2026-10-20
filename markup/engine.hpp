@@ -75,8 +75,6 @@ struct Mark : Obj {
   std::string view;          // the named view it belongs to ("" with a single schema)
   std::string texPrev;       // formulas: what it was before its last change, and when that change settled
   float texSettledAt = -1e9f; //   (what the change brought in stays lit for a moment)
-  std::set<size_t> texFresh; // formulas: the glyphs its last change brought in (they light up for a moment)
-  float texFreshUntil = 0;
   Vector2 pos{0, 0}, tpos{0, 0};
   bool placed = false;    // has had a first layout (so it doesn't fly in from 0,0)
   bool anchorBottom = false; // pos is bottom-centre (free layout) instead of centre
@@ -394,6 +392,7 @@ private:
   rm::Axes axes_;
   rm::NumberLine nl_;
   std::map<std::string, float> barScale_; // eased px/unit per property
+  std::set<std::string> barEased_;        // the scales eased this frame (each once)
   std::map<std::string, std::string> graphSig_; // per view ("" for the scene's one graph)
   std::map<std::string, Vector2> graphPos_;
   // views: named schemas sharing the stage (schema net graph / schema loss axes …), in declaration order.
@@ -408,7 +407,7 @@ private:
   void layoutSequence(Rectangle area, const std::vector<std::string> &ids);
   std::map<std::string, float> seqRow_;   // message (link id) -> its row's y
   float seqBottom_ = 0;                   // where the lifelines end
-  place::FlowMemo flowMemo_;              // each thing's column and height last time: newcomers are inserted
+  std::map<std::string, place::FlowMemo> flowMemo_; // per view: each thing's column and place last time (newcomers are inserted)
   struct LinkRoute {
     std::vector<Vector2> via, viaT;       // waypoints through the gaps: drawn (eased) and target
     float portA = 0, portB = 0;           // where it leaves and enters, along the sides
@@ -452,7 +451,7 @@ private:
   float zoom_ = 1, zoomT_ = 1;          // drawn and target scale; only shrinks within a scene
   Rectangle stageRect() const;           // the stage in layout coordinates (the screen's at zoom 1)
   Rectangle toStage(Rectangle screen) const; // a screen rectangle (a reserved zone) in layout coordinates
-  void fitStage(float dt);
+  void fitStage(float dt);              // after layout: shrink if what's laid out outgrew the stage
   // annotations (annotate.cpp): where one goes is derived from what it is about
   struct Annotation {
     bool ok = false;
@@ -467,6 +466,7 @@ private:
   bool annotationTarget(const Mark &m, Rectangle &out);
   bool texPartBox(const Mark &m, const std::string &part, Rectangle &out);
   void layoutAnnotations();
+  std::vector<std::pair<std::string, Rectangle>> screenZones();
   // the area diagram (area.cpp): parts of a whole as proportional strips, each optionally split again
   Vector2 areaSize(const Mark &m);
   Rectangle areaCell(const Mark &m, int i, int j);
@@ -475,7 +475,7 @@ private:
   std::vector<Vector2> shapeOutline(const Mark &m); // a rect, circle, polygon or angle as its outline
   float annotationRoom(const Mark &block);
   void drawAnnotation(const Mark &m);
-  Vector2 infoOrigin();                  // where labels with no place of their own stack: below the band, or in the plot's corner               // after layout: shrink if what's laid out outgrew the stage
+  Vector2 infoOrigin();                  // where labels with no place of their own stack: below the band, or in the plot's corner
   float bandH_ = -1;                // the block band's height, eased (-1: not laid out yet)
   bool blockRows_ = false;         // this scene's blocks flow in rows (once chosen, kept: no mid-scene reshuffle)
   std::map<std::string, float> crossedSince_; // label key -> when a line started crossing it

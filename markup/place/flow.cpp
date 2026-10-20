@@ -339,13 +339,17 @@ void routeEdges(const Work &w, const FlowInput &in, const std::vector<float> &x,
 
 } // namespace
 
-// a hierarchy: every thing has at most one parent, something branches, and no lanes
-static bool isTree(const FlowInput &in, const std::vector<std::pair<int, int>> &flow) {
+// a hierarchy: every thing has at most one parent, no lanes, and branching is what it does (two thirds of the
+// things with children have several: a call tree, a probability tree; a pipeline that forks once is a flow).
+// Once a tree, it stays one while every thing still has one parent, so it doesn't flip as links stream in.
+static bool isTree(const FlowInput &in, const std::vector<std::pair<int, int>> &flow, bool was) {
   if (flow.empty() || std::any_of(in.lane.begin(), in.lane.end(), [](int l) { return l >= 0; })) return false;
   std::vector<int> parents(in.id.size(), 0), kids(in.id.size(), 0);
   for (auto [u, v] : flow) { parents[v]++; kids[u]++; }
   if (std::any_of(parents.begin(), parents.end(), [](int p) { return p > 1; })) return false;
-  return std::any_of(kids.begin(), kids.end(), [](int k) { return k > 1; });
+  int inner = 0, branching = 0;
+  for (int k : kids) { inner += k > 0; branching += k > 1; }
+  return branching > 0 && (was || 3 * branching >= 2 * inner);
 }
 
 FlowOut layoutFlow(const FlowInput &given, FlowMemo &memo) {
@@ -359,7 +363,7 @@ FlowOut layoutFlow(const FlowInput &given, FlowMemo &memo) {
     if (a != b) flow.push_back(back[e] ? std::pair{b, a} : std::pair{a, b});
   }
   // a tree is laid out with the axes swapped (the same algorithm, columns become rows), then swapped back
-  out.down = isTree(given, flow);
+  out.down = isTree(given, flow, memo.down);
   if (memo.down != out.down) { memo.slot.clear(); memo.down = out.down; }
   FlowInput in = given;
   if (out.down) {

@@ -42,6 +42,15 @@ std::vector<Vector2> Engine::shapeOutline(const Mark &m) {
   return pts;
 }
 
+// the screen's reserved areas (title, key hints, subtitles while the voice speaks), in layout coordinates
+std::vector<std::pair<std::string, Rectangle>> Engine::screenZones() {
+  std::vector<std::pair<std::string, Rectangle>> z;
+  if (!title_.empty()) z.push_back({"title", toStage({24, 10, measure(title_, 24).x + 4, 32})});
+  z.push_back({"key hints", toStage({(float)W - 380, 4, 376, 24})});
+  if (say_.active || say_.lingering > 0) z.push_back({"subtitle", toStage({120, 586, 1040, 100})});
+  return z;
+}
+
 place::Picture Engine::picture() {
   place::Picture p;
   std::map<std::string, int> idx; // mark id -> ink
@@ -221,9 +230,13 @@ place::Picture Engine::picture() {
   }
   for (const Rectangle &f : furniture()) p.add({place::Ink::Furniture, "axes", "the axis numbers", toRect(f)});
   // reserved screen zones
-  // reserved screen zones, in layout coordinates (the stage may be zoomed out)
-  if (!title_.empty()) p.add({place::Ink::Zone, "title", "title", toRect(toStage({24, 10, measure(title_, 24).x + 4, 32}))});
-  if (say_.active || say_.lingering > 0) p.add({place::Ink::Zone, "subtitle", "subtitle", toRect(toStage({120, 586, 1040, 100}))});
+  for (auto &[name, r] : screenZones()) p.add({place::Ink::Zone, name, name, toRect(r)});
+  if (!seqRow_.empty()) // a conversation's lifelines are ink too
+    for (auto &id : order_)
+      if (Mark *m = mark(id); m && m->positioned && effectiveKind(*m) == "box" && schemaOf(*m) == "sequence") {
+        Rectangle b = bodyBounds(*m);
+        lineInk(id + "~life", "the lifeline of '" + id + "'", {{m->pos.x, b.y + b.height}, {m->pos.x, seqBottom_}}, idx.count(id) ? idx[id] : -1, -1);
+      }
   p.canvas = toRect(toStage({0, 0, (float)W, (float)H}));
   p.stage = toRect(stageRect());
   return p;
@@ -396,7 +409,7 @@ std::vector<TextLabel> Engine::markLabelsAt(const Mark &m) {
     } else if (s == "timeline") { // in time order: alternate above / below, every other pair further out
       int rank = 0;
       for (auto &[oid, o] : marks_)
-        if (&o != &m && o.positioned && effectiveKind(o) == "dot" && (o.pos.x < m.pos.x || (o.pos.x == m.pos.x && o.order < m.order))) rank++;
+        if (&o != &m && o.positioned && inDataView(o) && effectiveKind(o) == "dot" && (o.tpos.x < m.tpos.x || (o.tpos.x == m.tpos.x && o.order < m.order))) rank++;
       int i = rank % 2;
       float reach = rank % 4 < 2 ? 64.f : 112.f;
       Vector2 lp{ctr.x, ctr.y + (i ? reach : -reach)};
@@ -865,9 +878,7 @@ void Engine::placeAllLabels(float dt) {
   // axis furniture: tick numbers along the axes and the axis titles
   for (const Rectangle &f : furniture()) world.obstacles.push_back(R(f));
   // reserved screen areas
-  if (!title_.empty()) world.zones.push_back(R(toStage({24, 10, measure(title_, 24).x + 4, 32})));
-  world.zones.push_back(R(toStage({(float)W - 380, 4, 376, 24}))); // key hints
-  if (say_.active || say_.lingering > 0) world.zones.push_back(R(toStage({120, 586, 1040, 100})));
+  for (auto &[name, r] : screenZones()) world.zones.push_back(R(r));
 
   std::vector<place::LabelReq> reqs;
   for (auto &p : pending) {

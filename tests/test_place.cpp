@@ -375,4 +375,6 @@ TEST_CASE("flow: a hierarchy reads top-down; a chain, or a thing with two parent
   CHECK(tree.centre[1].y == tree.centre[2].y);
   CHECK(!layoutFlow(flowOf({"a", "b", "c"}, {"a>b", "b>c"}), m2).down);
   CHECK(!layoutFlow(flowOf({"x1", "x2", "h"}, {"x1>h", "x2>h"}), m3).down);
+  FlowMemo m4; // two pipelines from one source: it forks once, but it is a flow
+  CHECK(!layoutFlow(flowOf({"img", "px", "hid", "out", "p1", "p2"}, {"img>px", "px>hid", "hid>out", "img>p1", "p1>p2"}), m4).down);
 }

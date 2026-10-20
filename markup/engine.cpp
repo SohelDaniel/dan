@@ -146,6 +146,16 @@ void Engine::analyze(bool fresh) {
       if (ln.kind == "path" || ln.kind == "region") hasAxes = hasFn = true;
       if (isWorldKind(ln.kind)) hasWorld = true;
       if (ln.kind == "box") hasBox = true;
+      for (auto &p : ln.props) // [1,000, 2,500]: a thousands comma splits a number in two
+        if (p.val.type == Value::LIST)
+          for (size_t i = 1; i < p.val.list.size(); i++) {
+            const std::string &a = p.val.list[i - 1], &b = p.val.list[i];
+            if (b.size() == 3 && std::all_of(b.begin(), b.end(), ::isdigit) && !a.empty() && std::all_of(a.begin(), a.end(), ::isdigit) && a.size() <= 3) {
+              warn("list: line " + std::to_string(ln.lineNo) + ": " + ln.id + "." + p.key + " has '" + a + "' then '" + b +
+                   "': a comma splits a number; write " + a + b + " or quote it (\"" + a + "," + b + "\")");
+              break;
+            }
+          }
       if (const Value *of = findProp(ln.props, "of"); of && isAnnotationKind(ln.kind))
         for (auto &ref : of->type == Value::LIST ? of->list : std::vector<std::string>{of->str})
           if (size_t b = ref.find('['); b != std::string::npos) parts.insert(ref.substr(b + 1, ref.find(']') - b - 1));
@@ -270,7 +280,7 @@ void Engine::reset() {
   barScale_.clear();
   graphSig_.clear();
   graphPos_.clear();
-  flowMemo_ = {};
+  flowMemo_.clear();
   bandH_ = -1;
   zoom_ = zoomT_ = 1;
   linkRoute_.clear();
@@ -465,7 +475,7 @@ std::vector<std::string> Engine::boxNameLines(const Mark &m) { return wrap(displ
 
 std::vector<std::pair<std::string, std::string>> Engine::boxRows(const Mark &m) {
   static const std::set<std::string> notContent = {"label", "name", "color", "unit", "shape", "ease", "style", "cmap",
-                                                   "tex", "text", "fn", "of", "note", "title"};
+                                                   "tex", "text", "fn", "of", "note", "title", "side"};
   std::vector<std::pair<std::string, std::string>> rows;
   for (auto &p : m.props) {
     if (notContent.count(p.key) || isPlacementKey(p.key) || (kPositional.count(p.key) && p.key != "m")) continue;
@@ -594,7 +604,7 @@ void Engine::clearStage() {
   barScale_.clear();
   graphSig_.clear();
   graphPos_.clear();
-  flowMemo_ = {};
+  flowMemo_.clear();
   bandH_ = -1;
   zoom_ = zoomT_ = 1;
   linkRoute_.clear();
@@ -602,8 +612,6 @@ void Engine::clearStage() {
   rangesInit_ = false;
   cam_ = Camera{};
   blockRows_ = false;
-  bandH_ = -1;
-  zoom_ = zoomT_ = 1;
   pointerSide_.clear();
   crossedSince_.clear();
   clearFieldCaches();

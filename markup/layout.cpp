@@ -3,7 +3,9 @@
 //   numberline  one magnitude -> x
 //   axes        two magnitudes -> x, y (functions, regions, lines, points)
 //   timeline    order in time -> x
-//   graph       things + connections, no axes (layered if acyclic, force-directed otherwise)
+//   graph       things + connections, no axes: a layered flow (place/flow), trees top-down
+//   sequence    parties across the top, messages down in order
+// Named schemas are views, sharing the stage (layoutViews).
 #include "engine.hpp"
 #include <algorithm>
 #include <cmath>
@@ -18,9 +20,8 @@ static const Rectangle kStage{40, 66, 1200, 494};
 std::string Engine::schemaNow() const { return schema_ != "auto" ? schema_ : autoSchema_; }
 bool Engine::inDataView(const Mark &m) const { return views_.empty() || schemaOf(m) == schemaNow(); }
 std::string Engine::schemaOf(const Mark &m) const {
-  if (!m.view.empty())
-    for (auto &v : views_) if (v.id == m.view) return v.schema;
-  return schemaNow();
+  for (auto &v : views_) if (v.id == m.view) return v.schema;
+  return views_.empty() ? schemaNow() : views_[0].schema; // marks from before the first view belong to it
 }
 
 static bool listRange(const Value *v, float &lo, float &hi) {
@@ -585,6 +586,7 @@ void Engine::layout(float dt) {
   }
 
   seqRow_.clear(); // a sequence schema fills it this frame
+  barEased_.clear();
   if (!views_.empty()) layoutViews(stage, body);
   else {
     if (s != "graph" || body.empty()) linkRoute_.clear();
@@ -743,10 +745,12 @@ void Engine::layoutSequence(Rectangle area, const std::vector<std::string> &ids)
   if (ids.empty()) return;
   float top = area.y + 10, boxH = 0;
   for (auto &id : ids) boxH = std::max(boxH, bodyBounds(marks_[id]).height);
-  float step = area.width / ids.size();
+  float widest = 0;
+  for (auto &id : ids) widest = std::max(widest, bodyBounds(marks_[id]).width);
+  float step = std::max(area.width / ids.size(), widest + 24); // wider than the stage: fitStage
   for (size_t i = 0; i < ids.size(); i++) {
     Mark &m = marks_[ids[i]];
-    m.tpos = {area.x + step * (i + 0.5f), top + boxH / 2};
+    m.tpos = {area.x + area.width / 2 + step * (i - (ids.size() - 1) / 2.f), top + boxH / 2};
     m.positioned = true;
   }
   std::set<std::string> in(ids.begin(), ids.end());
@@ -769,7 +773,11 @@ Rectangle Engine::stageRect() const { return toStage(kStage); }
 // The extent of what was laid out this frame (where things are going, not where they are drawn yet);
 // if it outgrew the stage, the target scale drops so it fits. Axes and planes always fit their area.
 void Engine::fitStage(float dt) {
-  if (isAxes(schemaNow())) { zoom_ = zoomT_ = 1; return; }
+  if (isAxes(schemaNow())) { // a plot always fits its area: back to full size
+    zoomT_ = 1;
+    zoom_ = opt_.instant ? 1 : smoothApproach(zoom_, 1.f, dt, 6);
+    return;
+  }
   float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
   auto add = [&](Rectangle b) {
     x0 = std::min(x0, b.x); y0 = std::min(y0, b.y);
@@ -784,7 +792,18 @@ void Engine::fitStage(float dt) {
     b.y += m.tpos.y - m.pos.y;
     if (b.width > 0) add(b);
   }
-  for (auto &[gid, g] : groups_) if (Rectangle b = groupBounds(g); b.width > 0) add(b);
+  for (auto &[gid, g] : groups_) { // a group's box around where its members are going (14 px around, 24 px name)
+    float gx0 = 1e9f, gy0 = 1e9f, gx1 = -1e9f, gy1 = -1e9f;
+    for (auto &mid : g.members)
+      if (Mark *mm = mark(mid); mm && mm->positioned) {
+        Rectangle b = bodyBounds(*mm);
+        b.x += mm->tpos.x - mm->pos.x;
+        b.y += mm->tpos.y - mm->pos.y;
+        gx0 = std::min(gx0, b.x); gy0 = std::min(gy0, b.y);
+        gx1 = std::max(gx1, b.x + b.width); gy1 = std::max(gy1, b.y + b.height);
+      }
+    if (gx0 <= gx1) add({gx0 - 14, gy0 - 38, gx1 - gx0 + 28, gy1 - gy0 + 52});
+  }
   if (!seqRow_.empty() && x0 <= x1) add({x0, y0, x1 - x0, seqBottom_ - y0}); // a conversation's messages
   if (x0 > x1) return;
   Rectangle S = stageRect();
@@ -904,7 +923,6 @@ void Engine::layoutFree(Rectangle area, const std::vector<std::string> &ids) {
   if (squeeze < 0.6f) warn("layout: " + std::to_string(ids.size()) + " things crowd one row; group them, or use a table/array");
   float x = area.x + area.width / 2 - total * squeeze / 2;
 
-  std::set<std::string> eased;
   std::function<void(const Item &, float)> assign = [&](const Item &it, float x0) {
     if (!it.group) {
       Mark &m = marks_[it.id];
@@ -918,7 +936,7 @@ void Engine::layoutFree(Rectangle area, const std::vector<std::string> &ids) {
         float target = (float)std::min(up > 0 ? avail * (1 - negFrac) / up : 1e9, down > 0 ? avail * negFrac / down : 1e9);
         auto bs = barScale_.find(mp);
         if (bs == barScale_.end()) bs = barScale_.emplace(mp, target).first;
-        else if (eased.insert(mp).second) // once per scale per frame, at the same rate as everything else
+        else if (barEased_.insert(mp).second) // once per scale per frame, at the same rate as everything else
           bs->second = opt_.instant ? target : smoothApproach(bs->second, target, lastDt_, 9);
         m.barScale = bs->second;
       }
@@ -984,7 +1002,7 @@ void Engine::layoutGraph(Rectangle area, const std::vector<std::string> &ids, co
   }
   if (sig != graphSig_[view]) {
     graphSig_[view] = sig;
-    place::FlowOut o = place::layoutFlow(in, flowMemo_);
+    place::FlowOut o = place::layoutFlow(in, flowMemo_[view]);
     std::map<std::string, LinkRoute> drawn; // this graph's links: keep their bends where they are drawn now
     for (auto &id : order_)
       if (auto l = links_.find(id); l != links_.end() && idx.count(l->second.a) && idx.count(l->second.b))
@@ -1046,10 +1064,10 @@ void Engine::layoutNumberline(Rectangle area) {
     int tallest = 1;
     for (auto &[b, c] : perBin) tallest = std::max(tallest, c);
     float binW = std::fabs(nl_.toScreen((float)bin).x - nl_.toScreen(0).x);
-    binR_ = std::clamp(std::min((lineY - area.y - 30) / (tallest * 2.4f), binW / 2 - 2), 2.5f, 10.f);
+    binR_ = std::clamp(std::min((lineY - area.y - 30) / (tallest * 2.8f), binW / 2 - 2), 2.5f, 10.f); // a level is 2.8 r
   }
   // equal values stack upward instead of hiding each other
-  std::stable_sort(pts.begin(), pts.end());
+  std::stable_sort(pts.begin(), pts.end(), [](auto &a, auto &b) { return a.first < b.first; }); // ties keep declaration order
   std::vector<std::pair<float, int>> placed;
   for (auto &[x, id] : pts) {
     Mark &m = marks_[id];
@@ -1058,7 +1076,7 @@ void Engine::layoutNumberline(Rectangle area) {
     for (bool clash = true; clash;) {
       clash = false;
       for (auto &[px, pl] : placed)
-        if (pl == level && std::fabs(px - x) < 2 * r + 4) { clash = true; level++; break; }
+        if (pl == level && std::fabs(px - x) < (bin > 0 ? 0.5f : 2 * r + 4)) { clash = true; level++; break; } // binned: same bin only
     }
     placed.push_back({x, level});
     m.tpos.y = lineY - r - 2 - level * (bin > 0 ? 2 * r + 0.8f * r : 2 * r + 6) + (bin > 0 ? 0 : r + 2);
@@ -1067,6 +1085,7 @@ void Engine::layoutNumberline(Rectangle area) {
   std::vector<Rectangle> labels;
   for (auto &[x, id] : pts) {
     Mark &m = marks_[id];
+    if (bin > 0 && !findProp(m.props, "label")) continue; // a sample's name isn't drawn, so it takes no room
     float w = measure(displayName(m), 17).x + 8, r = dotRadius(m);
     float base = m.tpos.y - r - 8 - 18;
     float lift = 0;
