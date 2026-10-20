@@ -16,6 +16,13 @@ float Engine::opacityOf(const Obj &o) {
   double x = num(*v);
   return std::isfinite(x) ? std::clamp((float)x, 0.f, 1.f) : 1.f;
 }
+bool Engine::ghost(const Obj &o) {
+  if (opacityOf(o) < 0.3f) return true;
+  if (auto l = links_.find(o.id); l != links_.end() && &l->second == &o) // a link fades with what it connects
+    for (auto *m : {mark(l->second.a), mark(l->second.b)}) if (m && opacityOf(*m) < 0.3f) return true;
+  return false;
+}
+
 float Engine::alphaOf(const Obj &o) {
   return easeOut(std::clamp(o.appear, 0.f, 1.f)) * o.lit * stageFade_ * opacityOf(o);
 }

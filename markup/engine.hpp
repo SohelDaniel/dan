@@ -310,6 +310,7 @@ private:
   void drawHud();
   void drawInfo();
   float alphaOf(const Obj &o);
+  bool ghost(const Obj &o);  // hidden (faded to a ghost): still drawn faintly, but it takes no room
   std::string valueText(const Mark &m, const std::string &key);
   std::string displayName(const Obj &o) const;
   std::string inkName(const Mark &m);

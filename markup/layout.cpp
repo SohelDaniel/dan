@@ -490,7 +490,7 @@ void Engine::layout(float dt) {
       Mark *m = mark(id);
       if (!m || !isBlockKind(effectiveKind(*m)) || attachment(*m)) continue;
       if (isAxes(s) && findProp(m->props, "x") && findProp(m->props, "y")) continue;
-      if (opacityOf(*m) < 0.3f && m->placed) continue; // hidden: a ghost keeps its spot but takes no room
+      if (ghost(*m) && m->placed) continue; // hidden: a ghost keeps its spot but takes no room
       blocks.push_back(m);
       total += bodyBounds(*m).height + 14;
     }
@@ -599,7 +599,7 @@ void Engine::layout(float dt) {
       if (r.x < kStage.x || r.y < kStage.y - 20 || r.x + r.width > kStage.x + kStage.width || r.y + r.height > 586) bad += 1000;
       for (auto &oid : order_) {
         Mark *o = mark(oid);
-        if (!o || o == m || !o->positioned || alphaOf(*o) < 0.2f) continue;
+        if (!o || o == m || !o->positioned || ghost(*o)) continue;
         std::string ok = effectiveKind(*o);
         if (ok == "param" || isFieldKind(ok) || isCurveKind(ok)) continue;
         if (findProp(o->props, "at")) continue; // other pointers: counted below, where they really are
@@ -607,7 +607,7 @@ void Engine::layout(float dt) {
       }
       for (auto &t : takenPointers) if (CheckCollisionRecs(r, t)) bad += 400;
       for (auto &[lid, l] : links_) {
-        if (alphaOf(l) < 0.2f) continue;
+        if (ghost(l)) continue;
         LinkGeom g = linkGeometry(l);
         Vector2 hit; // raylib writes the crossing point unconditionally
         for (size_t i = 1; i < g.line.size(); i++)

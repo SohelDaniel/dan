@@ -37,6 +37,28 @@ static bool intended(const Picture &p, int i, int j) {
   return false;
 }
 
+// how long two polylines run on top of each other: nearly parallel pieces within 2.5 px
+static float sharedLength(const std::vector<Vec> &a, const std::vector<Vec> &b) {
+  float shared = 0;
+  for (size_t i = 1; i < a.size(); i++) {
+    Vec p = a[i - 1], d = a[i] - p;
+    float L = length(d);
+    if (L < 0.5f) continue;
+    Vec u = d * (1 / L), nrm{-u.y, u.x};
+    for (size_t j = 1; j < b.size(); j++) {
+      Vec q0 = b[j - 1] - p, q1 = b[j] - p;
+      float e = length(q1 - q0);
+      if (e < 0.5f) continue;
+      float dot = ((q1.x - q0.x) * u.x + (q1.y - q0.y) * u.y) / e;
+      if (std::fabs(dot) < 0.9986f) continue; // more than 3 degrees apart
+      if (std::fabs(q0.x * nrm.x + q0.y * nrm.y) > 2.5f || std::fabs(q1.x * nrm.x + q1.y * nrm.y) > 2.5f) continue;
+      float t0 = q0.x * u.x + q0.y * u.y, t1 = q1.x * u.x + q1.y * u.y;
+      shared += std::max(0.f, std::min(L, std::max(t0, t1)) - std::max(0.f, std::min(t0, t1)));
+    }
+  }
+  return shared;
+}
+
 Report check(const Picture &p) {
   Report r;
   Grid grid(p.canvas, 25);
@@ -64,6 +86,12 @@ Report check(const Picture &p) {
       if (j <= i) continue;
       const Ink &b = p.ink[j];
       if (b.box.empty() && b.kind != Ink::Link) continue;
+      // two links on one track can't be told apart: which arrow carries which label?
+      if (a.kind == Ink::Link && b.kind == Ink::Link) { // (relations only: a tangent lies on its curve by design)
+        bool relations = a.owner >= 0 && a.other >= 0 && b.owner >= 0 && b.other >= 0;
+        if (relations && sharedLength(a.line, b.line) > 24) { r.diags.push_back({Diag::LinksAlong, i, j, 0}); penalty += 6; }
+        continue;
+      }
       if (intended(p, i, j)) continue;
       // links: test the drawn line against boxes, not the line's bounding box
       if (a.kind == Ink::Link || b.kind == Ink::Link) {
@@ -98,6 +126,25 @@ Report check(const Picture &p) {
     }
   }
   r.score = std::clamp(100 - penalty, 0.f, 100.f);
+  Rect ext{0, 0, 0, 0};
+  int bodies = 0;
+  for (const Ink &a : p.ink) {
+    if (a.kind != Ink::Body && a.kind != Ink::Label && a.kind != Ink::Group && a.kind != Ink::Link) continue;
+    bodies += a.kind == Ink::Body;
+    float x0 = std::max(a.box.x, p.stage.x), y0 = std::max(a.box.y, p.stage.y);
+    float x1 = std::min(a.box.right(), p.stage.right()), y1 = std::min(a.box.bottom(), p.stage.bottom());
+    if (x1 <= x0 || y1 <= y0) continue;
+    if (ext.empty()) ext = {x0, y0, x1 - x0, y1 - y0};
+    else {
+      float ex1 = std::max(ext.right(), x1), ey1 = std::max(ext.bottom(), y1);
+      ext.x = std::min(ext.x, x0); ext.y = std::min(ext.y, y0);
+      ext.w = ex1 - ext.x; ext.h = ey1 - ext.y;
+    }
+  }
+  if (bodies >= 2 && !ext.empty()) {
+    r.fill = ext.w * ext.h / (p.stage.w * p.stage.h);
+    r.offset = std::max(std::fabs(ext.center().x - p.stage.center().x) / p.stage.w, std::fabs(ext.center().y - p.stage.center().y) / p.stage.h);
+  }
   return r;
 }
 
@@ -109,6 +156,7 @@ std::string describe(const Picture &p, const Report &r, const Diag &d) {
   case Diag::InZone: return name(d.a) + " sits in the " + p.ink[d.b].what + " area";
   case Diag::LabelFar: return name(d.a) + " is " + std::to_string((int)d.amount) + "px from " + name(d.b);
   case Diag::LinkThrough: return name(d.a) + " passes through " + name(d.b);
+  case Diag::LinksAlong: return name(d.a) + " runs along " + name(d.b);
   }
   return "";
 }

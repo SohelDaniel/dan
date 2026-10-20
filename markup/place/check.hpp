@@ -35,7 +35,7 @@ struct Picture {
 };
 
 struct Diag {
-  enum Code : uint8_t { Overlap, OffCanvas, InZone, LabelFar, LinkThrough } code = Overlap;
+  enum Code : uint8_t { Overlap, OffCanvas, InZone, LabelFar, LinkThrough, LinksAlong } code = Overlap;
   int a = -1, b = -1;
   float amount = 0;          // overlap area (px²), or distance / overhang in px
 };
@@ -43,6 +43,9 @@ struct Diag {
 struct Report {
   std::vector<Diag> diags;
   float score = 100;                     // 100 = clean
+  // composition, kept apart from the score: how much of the stage the drawing's extent covers (0..1)
+  // and how far its centre is off the stage's centre (fraction of the stage size)
+  float fill = 0, offset = 0;
   int overlaps = 0;
 };
 

@@ -34,7 +34,7 @@ place::Picture Engine::picture() {
       if (k == "param" || k == "grid" || k == "path" || k == "region" || k == "line" || k == "arrow" || k == "vector") continue;
       if (isFieldKind(k) || k == "solution") continue;
       if (k == "polygon" || k == "angle" || k == "circle") continue; // outlines, added below
-      if (alphaOf(*m) < 0.05f && m->appear >= 1) continue; // hidden: a ghost doesn't take space
+      if ((alphaOf(*m) < 0.05f && m->appear >= 1) || ghost(*m)) continue; // hidden: a ghost doesn't take space
       std::string target = pointerTarget(*m);
       if ((pass == 0) != target.empty()) continue;
       Rectangle b = bodyBounds(*m);
@@ -127,7 +127,7 @@ place::Picture Engine::picture() {
   // links: the line as drawn, and its label
   for (auto &id : order_) {
     auto lt = links_.find(id);
-    if (lt == links_.end() || alphaOf(lt->second) < 0.05f) continue;
+    if (lt == links_.end() || alphaOf(lt->second) < 0.05f || ghost(lt->second)) continue;
     LinkGeom g = linkGeometry(lt->second);
     if (!g.ok) continue;
     auto a = idx.find(lt->second.a), b = idx.find(lt->second.b);
@@ -186,11 +186,6 @@ place::Picture Engine::picture() {
       if (const Value *v = findProp(m->props, k); v && v->type == Value::STR)
         if (auto t = idx.find(baseId(v->str)); t != idx.end()) p.allow(i, t->second);
   }
-  // intended coincidence: related things may touch (a shared category, a link, a group)
-  std::vector<std::pair<std::string, int>> bodies(idx.begin(), idx.end());
-  for (size_t i = 0; i < bodies.size(); i++)
-    for (size_t j = i + 1; j < bodies.size(); j++)
-      if (related(bodies[i].first, bodies[j].first)) p.allow(bodies[i].second, bodies[j].second);
   for (const Rectangle &f : furniture()) p.add({place::Ink::Furniture, "axes", "the axis numbers", toRect(f)});
   // reserved screen zones
   if (!title_.empty()) p.add({place::Ink::Zone, "title", "title", {24, 10, measure(title_, 24).x + 4, 32}});
@@ -776,6 +771,11 @@ void Engine::placeAllLabels(float dt) {
         n++;
       }
     float t0 = n >= 3 ? 0.22f + 0.5f * k / (n - 1) : 0.5f;
+    if (linkRoute_.count(id)) { // a routed link stands apart from its siblings near its own end
+      int outs = 0;
+      for (auto &[oid, o] : links_) outs += o.a == lt->second.a && alphaOf(o) >= 0.05f;
+      t0 = outs > n ? 0.7f : n > 1 ? 0.3f : 0.5f;
+    }
     { Vector2 a0 = at(t0); pl.mid = {a0.x, a0.y}; }
     for (float t : {t0, t0 - 0.08f, t0 + 0.08f, 0.5f, 0.35f, 0.65f}) {
       Vector2 q = at(std::clamp(t, 0.15f, 0.85f));

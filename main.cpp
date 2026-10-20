@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
     for (size_t i = 0; i < worstMsgs.size(); i++) std::fprintf(f, "%s\"%s\"", i ? "," : "", esc(worstMsgs[i]).c_str());
     std::fprintf(f, "],\"flips\":[");
     for (size_t i = 0; i < eng.flipLog.size(); i++) std::fprintf(f, "%s\"%s\"", i ? "," : "", esc(eng.flipLog[i]).c_str());
-    std::fprintf(f, "]}\n");
+    std::fprintf(f, "],\"composition\":{\"fill\":%.2f,\"offset\":%.2f}}\n", last.fill, last.offset);
     if (f != stdout) std::fclose(f);
     return 0;
   }

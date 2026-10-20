@@ -326,3 +326,41 @@ TEST_CASE("flow: a long label widens its gap; a source sits next to what it feed
   FlowMemo m2;
   CHECK(layoutFlow(bias, m2).rank[3] == 1);
 }
+
+TEST_CASE("check: two links on one track are flagged; links that cross or fan from one point are not") {
+  auto link = [](std::vector<Vec> pts) {
+    Ink k{Ink::Link, "l", "link"};
+    k.line = pts;
+    k.owner = 90; k.other = 91; // a relation's ends
+    float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
+    for (auto &q : pts) { x0 = std::min(x0, q.x); y0 = std::min(y0, q.y); x1 = std::max(x1, q.x); y1 = std::max(y1, q.y); }
+    k.box = {x0 - 1, y0 - 1, x1 - x0 + 2, y1 - y0 + 2};
+    return k;
+  };
+  auto along = [](const Report &r) { int n = 0; for (auto &d : r.diags) n += d.code == Diag::LinksAlong; return n; };
+  Picture same;
+  same.add(link({{100, 300}, {400, 300}}));
+  same.add(link({{100, 301}, {600, 301}}));
+  CHECK(along(check(same)) == 1);
+  Picture cross;
+  cross.add(link({{100, 200}, {400, 400}}));
+  cross.add(link({{100, 400}, {400, 200}}));
+  CHECK(along(check(cross)) == 0);
+  Picture fan;
+  fan.add(link({{100, 300}, {400, 200}}));
+  fan.add(link({{100, 300}, {400, 300}}));
+  fan.add(link({{100, 300}, {400, 400}}));
+  CHECK(along(check(fan)) == 0);
+}
+
+TEST_CASE("check: composition: a drawing crammed in a corner fills less and sits further off centre") {
+  auto body = [](Rect r) { return Ink{Ink::Body, "b", "box", r}; };
+  Picture corner, wide;
+  corner.add(body({60, 80, 100, 50}));
+  corner.add(body({200, 80, 100, 50}));
+  wide.add(body({200, 250, 100, 50}));
+  wide.add(body({980, 300, 100, 50}));
+  Report c = check(corner), w = check(wide);
+  CHECK(c.fill < w.fill);
+  CHECK(c.offset > w.offset);
+}

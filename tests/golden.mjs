@@ -25,7 +25,7 @@ for (const f of files) {
 const base = fs.existsSync(GOLDEN) ? JSON.parse(fs.readFileSync(GOLDEN, 'utf8')) : {};
 let worse = 0;
 const pad = (s, n) => String(s).padEnd(n);
-console.log(pad('script', 34), pad('final', 7), pad('worst', 7), pad('mean', 7), pad('overl', 6), pad('flips', 6), 'vs baseline');
+console.log(pad('script', 34), pad('final', 7), pad('worst', 7), pad('mean', 7), pad('overl', 6), pad('flips', 6), pad('fill', 6), pad('off', 6), 'vs baseline');
 for (const f of files) {
   const r = results[f];
   if (r.error) { console.log(pad(f, 34), 'ERROR', r.error); worse++; continue; }
@@ -36,7 +36,7 @@ for (const f of files) {
     cmp = d < -TOL || r.maxOverlaps > b.maxOverlaps ? `WORSE (${b.mean.toFixed(1)} -> ${r.mean.toFixed(1)})` : d > TOL ? `better (+${d.toFixed(1)})` : 'same';
     if (cmp.startsWith('WORSE')) worse++;
   }
-  console.log(pad(f, 34), pad(r.final.toFixed(1), 7), pad(r.worst.toFixed(1), 7), pad(r.mean.toFixed(1), 7), pad(r.maxOverlaps, 6), pad(r.labelFlips ?? '-', 6), cmp);
+  console.log(pad(f, 34), pad(r.final.toFixed(1), 7), pad(r.worst.toFixed(1), 7), pad(r.mean.toFixed(1), 7), pad(r.maxOverlaps, 6), pad(r.labelFlips ?? '-', 6), pad(r.composition ? r.composition.fill.toFixed(2) : '-', 6), pad(r.composition ? r.composition.offset.toFixed(2) : '-', 6), cmp);
   for (const m of r.issues.slice(0, 2)) console.log('   -', m);
   if (r.worst < r.final) for (const m of (r.worstIssues || []).slice(0, 2)) console.log(`   - at ${r.worstAt}s:`, m);
 }
