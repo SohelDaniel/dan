@@ -28,7 +28,8 @@
 namespace mk {
 
 inline bool isAxes(const std::string &schema) { return schema == "axes" || schema == "plane"; }
-// placement: where a thing goes, said in words. These are never colours, magnitudes or box rows.
+// placement words: never colours, magnitudes or box rows. Only on= / in= / over= still place (touching on
+// purpose); the rest are retired (position comes from structure) and only linted.
 inline bool isPlacementKey(const std::string &k) {
   return k == "region" || k == "below" || k == "above" || k == "left-of" || k == "right-of" || k == "near" ||
          k == "align" || k == "on" || k == "in" || k == "over";
@@ -183,10 +184,7 @@ public:
   LinkGeom linkGeometry(const Link &l, bool legacy = false);
   LinkGeom linkGeometryAt(const Link &l);
   std::vector<Rectangle> furniture();   // tick numbers and axis titles (placement.cpp)
-  bool hasPlacement(const Mark &m) const;
-  void placeRelated();                  // solve marks placed by relations / regions (placement.cpp)
-  uint64_t relatedSig_ = 0;
-  std::map<std::string, Vector2> relatedPos_;
+  const Value *attachment(const Mark &m) const; // on= / in= / over=: touching a thing on purpose
   // the new placer (--placer new): every movable label placed together, each frame, with hysteresis
   // where the placer put a label (box, side) and where it is drawn now. The springs act on the label's
   // offset from what it names: when the thing moves the label moves with it at once; when the label

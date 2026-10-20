@@ -188,8 +188,11 @@ void Engine::analyze(bool fresh) {
     };
     if (ln.verb == Verb::MORPH) need(ln.id, "morph");
     if (ln.verb == Verb::FOCUS) need(ln.id, "focus");
-    if (ln.verb == Verb::MARK && findProp(ln.props, "pos"))
-      warn("layout: '" + ln.id + "' uses pos= (screen coordinates); say where it goes instead: region=right, below=x, right-of=y");
+    if (ln.verb == Verb::MARK)
+      for (const char *k : {"region", "below", "above", "left-of", "right-of", "near", "align", "pos"})
+        if (findProp(ln.props, k))
+          warn("layout: '" + ln.id + "' " + k + "= is ignored: position comes from structure (links make a flow, "
+               "groups make lanes, order is order)");
     if (ln.verb == Verb::INDICATE) need(ln.id, "indicate");
     if (ln.verb == Verb::LINK) { need(ln.a, "link"); need(ln.b, "link"); }
     if (ln.verb == Verb::GROUP) for (auto &m : ln.members) need(m, "group");

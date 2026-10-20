@@ -11,6 +11,6 @@
   {"id": "expert", "type": "expert", "q": "I'm an ML engineer. Quick intuition: why does the gradient of cross-entropy after softmax come out as p minus y?"},
   {"id": "followup", "type": "followup", "q": "wait, why do the steps get smaller near the bottom?",
    "prior": "explain gradient decent",
-   "stage": "title \"Gradient descent\"\nschema axes x=[-1,9] y=[-1,13] xlabel=\"weight w\" ylabel=\"loss L(w)\"\nmark f path fn={(x-4)^2/2} label=\"L(w)\"\nmark p dot x=3.5 y=0.125 trail=all label=\"you\"\nmark rule tex tex=\"w \\leftarrow w - \\eta\\,L'(w)\" region=top"},
+   "stage": "title \"Gradient descent\"\nschema axes x=[-1,9] y=[-1,13] xlabel=\"weight w\" ylabel=\"loss L(w)\"\nmark f path fn={(x-4)^2/2} label=\"L(w)\"\nmark p dot x=3.5 y=0.125 trail=all label=\"you\"\nmark rule tex tex=\"w \\leftarrow w - \\eta\\,L'(w)\""},
   {"id": "mean_median", "type": "compare", "q": "mean vs median, when do they differ?"}
 ]

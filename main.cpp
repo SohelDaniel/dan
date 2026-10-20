@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
       if (!same) std::printf("--- first\n%s--- re-read\n%s", model.c_str(), model2.c_str());
       std::printf("axiom warnings: %d\n", zero);
       for (auto &l : lints) std::printf("  %s\n", l.c_str());
-      // the layout checker on the final scene: what overlaps by accident, with free regions to move to
+      // the layout checker on the final scene: what overlaps by accident
       std::vector<std::string> layoutMsgs;
       place::Report lr = eng.layoutCheck(&layoutMsgs);
       std::set<std::string> seen;

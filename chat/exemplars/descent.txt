@@ -15,7 +15,7 @@ Say: "And |again|again."
 @again mark p x=-1.424 y=0.439
 Say: "The valley is steep across and |flat|flat along, so the steps zig-zag."
 @flat mark p x=-1.054 y=-0.246
-with mark rule tex tex="\textcolor{p}{\theta} \leftarrow \textcolor{p}{\theta} - \eta\,\nabla \textcolor{L}{L}" region=top
+with mark rule tex tex="\textcolor{p}{\theta} \leftarrow \textcolor{p}{\theta} - \eta\,\nabla \textcolor{L}{L}"
 Say: "Each step: move against the |grad|gradient, scaled by a step size eta."
 @grad indicate rule
 Say: "Want to see what momentum does to that zig-zag?"

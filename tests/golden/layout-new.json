@@ -41,6 +41,12 @@
   "final": 100,
   "maxOverlaps": 0
  },
+ "scripts/attach.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
  "scripts/bank.txt": {
   "mean": 100,
   "worst": 100,
@@ -106,12 +112,6 @@
   "worst": 95.3,
   "final": 100,
   "maxOverlaps": 1
- },
- "scripts/placement.txt": {
-  "mean": 100,
-  "worst": 100,
-  "final": 100,
-  "maxOverlaps": 0
  },
  "scripts/pointers.txt": {
   "mean": 98.8,

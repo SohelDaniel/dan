@@ -475,7 +475,7 @@ void Engine::layout(float dt) {
     if (k == "label" || k == "path" || k == "region" || k == "line" || k == "arrow" || k == "param") continue;
     if (isFieldKind(k) || k == "solution") continue;
     if (isBlockKind(k) || isWorldKind(k)) continue;
-    if (findProp(m->props, "pos") || hasPlacement(*m)) continue; // placed by hand / by relations
+    if (attachment(*m)) continue; // touches another thing: placed with the pointers
     if (auto at = findProp(m->props, "at"); at && at->type == Value::STR) continue; // placed at another thing
     body.push_back(id);
   }
@@ -488,7 +488,7 @@ void Engine::layout(float dt) {
     float total = 0;
     for (auto &id : order_) {
       Mark *m = mark(id);
-      if (!m || !isBlockKind(effectiveKind(*m)) || findProp(m->props, "pos") || hasPlacement(*m)) continue;
+      if (!m || !isBlockKind(effectiveKind(*m)) || attachment(*m)) continue;
       if (isAxes(s) && findProp(m->props, "x") && findProp(m->props, "y")) continue;
       if (opacityOf(*m) < 0.3f && m->placed) continue; // hidden: a ghost keeps its spot but takes no room
       blocks.push_back(m);
@@ -531,24 +531,6 @@ void Engine::layout(float dt) {
       y += h + 14;
     }
     if (total > 0 && !alone) { stage.y += total + 6; stage.height -= total + 6; }
-    // blocks placed in an edge region get that edge kept free, so the schema's picture doesn't fill it
-    // (a card asked for region=bottom otherwise lands on whatever the graph or plot put there)
-    float top = 0, bottom = 0, left = 0, right = 0;
-    for (auto &id : order_) {
-      Mark *m = mark(id);
-      if (!m || !isBlockKind(effectiveKind(*m)) || m->appear <= 0) continue;
-      const Value *r = findProp(m->props, "region");
-      if (!r || r->type != Value::STR) continue;
-      Rectangle b = bodyBounds(*m);
-      const std::string &rg = r->str;
-      if (rg.rfind("top", 0) == 0) top = std::max(top, b.height + 14);
-      else if (rg.rfind("bottom", 0) == 0) bottom = std::max(bottom, b.height + 14);
-      else if (rg == "left") left = std::max(left, b.width + 14);
-      else if (rg == "right") right = std::max(right, b.width + 14);
-    }
-    top = std::min(top, stage.height * 0.35f); bottom = std::min(bottom, stage.height * 0.35f);
-    left = std::min(left, stage.width * 0.35f); right = std::min(right, stage.width * 0.35f);
-    stage = {stage.x + left, stage.y + top, stage.width - left - right, stage.height - top - bottom};
   }
 
   if (s == "free") layoutFree(stage, body);
@@ -556,24 +538,6 @@ void Engine::layout(float dt) {
   else if (s == "numberline") layoutNumberline(stage);
   else if (isAxes(s)) layoutAxes(stage);
   else if (s == "timeline") layoutTimeline(stage);
-
-  // pos=[fx,fy]: a hand placement in stage fractions, in any schema
-  for (auto &[id, m] : marks_) {
-    const Value *pv = findProp(m.props, "pos");
-    if (!pv || pv->type != Value::LIST || pv->list.size() < 2) continue;
-    float fx = (float)std::atof(pv->list[0].c_str()), fy = (float)std::atof(pv->list[1].c_str());
-    m.tpos = {kStage.x + fx * kStage.width, kStage.y + fy * kStage.height};
-    m.anchorBottom = false;
-    m.positioned = true;
-    m.direct = false;
-    if (effectiveKind(m) == "bar" && !isAxes(s)) { // still a bar: pos is the foot of its zero line
-      std::string mp = magProp(m);
-      auto bs = barScale_.find(mp);
-      double mx = std::max(1e-9, maxAbs_.count(mp) ? maxAbs_[mp] : 1.0);
-      m.barScale = bs != barScale_.end() ? bs->second : (float)(kStage.height * 0.45 / mx);
-      m.anchorBottom = true;
-    }
-  }
 
   // at=<thing> or at=a[3]: a pointer label names what it points at. Under an array cell it sits below the
   // cell (the convention for indices); anything else gets the first free side of the target (below, right,
@@ -589,7 +553,20 @@ void Engine::layout(float dt) {
   std::vector<Rectangle> takenPointers;
   for (auto &id : order_) {
     Mark *m = mark(id);
-    if (!m || findProp(m->props, "pos") || hasPlacement(*m) || isWorldKind(effectiveKind(*m))) continue;
+    if (!m || isWorldKind(effectiveKind(*m))) continue;
+    // on= sits on the thing's top edge, in= / over= on its centre: touching on purpose
+    if (const Value *t = attachment(*m)) {
+      Rectangle box;
+      Mark *target = mark(baseId(t->str));
+      if (!anchorBox(t->str, box)) continue;
+      if (target && target->positioned) { box.x += target->tpos.x - target->pos.x; box.y += target->tpos.y - target->pos.y; }
+      Rectangle own = bodyBounds(*m);
+      m->tpos = {box.x + box.width / 2, findProp(m->props, "on") ? box.y - own.height / 2 - 2 : box.y + box.height / 2};
+      m->anchorBottom = false;
+      m->positioned = true;
+      m->direct = false;
+      continue;
+    }
     const Value *at = findProp(m->props, "at");
     Rectangle box;
     if (!at || at->type != Value::STR || !anchorBox(at->str, box)) continue;
@@ -650,8 +627,6 @@ void Engine::layout(float dt) {
     takenPointers.push_back(rectAt(cand[side]));
   }
 
-  placeRelated(); // marks placed by words (region=, below=, …): solved against everything else on stage
-
   for (auto &[id, m] : marks_) {
     if (!m.positioned) continue;
     if (!m.placed || m.direct) { m.pos = m.tpos; m.placed = true; }
@@ -659,6 +634,12 @@ void Engine::layout(float dt) {
   }
   for (auto &[id, m] : marks_) if (m.culled) m.positioned = false; // out of the camera's view: not drawn, no labels
   if (opt_.newPlacer) placeAllLabels(opt_.instant ? 1.f : dt);
+}
+
+const Value *Engine::attachment(const Mark &m) const {
+  for (const char *k : {"on", "in", "over"})
+    if (const Value *v = findProp(m.props, k); v && v->type == Value::STR) return v;
+  return nullptr;
 }
 
 // ---------------------------------------------------------------- free

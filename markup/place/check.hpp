@@ -43,12 +43,10 @@ struct Diag {
 struct Report {
   std::vector<Diag> diags;
   float score = 100;                     // 100 = clean
-  std::vector<std::string> freeRegions;  // 3x3 regions of the stage that are mostly empty
   int overlaps = 0;
 };
 
 Report check(const Picture &p);
-std::string describe(const Picture &p, const Report &r, const Diag &d); // "name of 'alice' overlaps bar 'bob'; free regions: right"
-const char *regionName(int i);  // 0..8: top-left, top, top-right, left, center, right, bottom-left, bottom, bottom-right
+std::string describe(const Picture &p, const Report &r, const Diag &d); // "name of 'alice' overlaps bar 'bob'"
 
 } // namespace place

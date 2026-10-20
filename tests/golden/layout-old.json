@@ -12,9 +12,9 @@
   "maxOverlaps": 1
  },
  "chat/exemplars/descent.txt": {
-  "mean": 94,
-  "worst": 85.2,
-  "final": 85.2,
+  "mean": 94.3,
+  "worst": 85.9,
+  "final": 85.9,
   "maxOverlaps": 1
  },
  "chat/exemplars/median.txt": {
@@ -40,6 +40,12 @@
   "worst": 72.2,
   "final": 72.2,
   "maxOverlaps": 2
+ },
+ "scripts/attach.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
  },
  "scripts/bank.txt": {
   "mean": 100,
@@ -106,12 +112,6 @@
   "worst": 95.3,
   "final": 100,
   "maxOverlaps": 1
- },
- "scripts/placement.txt": {
-  "mean": 100,
-  "worst": 100,
-  "final": 100,
-  "maxOverlaps": 0
  },
  "scripts/pointers.txt": {
   "mean": 98.8,

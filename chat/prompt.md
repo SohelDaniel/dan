@@ -92,7 +92,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 - No redundant text: never put your sentences on stage. Labels, numbers, formulas, short key-term cards only.
 - No decoration: every mark earns its place.
 
-**Keep the stage readable.** Never give screen coordinates (`pos=`): the engine places things and keeps labels clear. When you need something in a particular spot, say it in words: `region=top-right`, `below=graph`, `near=cart`, `on=` / `in=` / `over=` when touching is the point. `<last_scene_issues>` lists any overlaps with the free regions to use.
+**Structure is layout.** Never say where things go (no coordinates, no `region=`/`below=`/`near=`): say what relates and the engine places it. `link` makes a flow, cause on the left and effect on the right. `group … part-of=[…]` keeps parts together as one lane, so two groups with matching stages line up for comparison. Declaration order is order on stage. Formulas and cards stack at the top. `at=` points at a thing; `on=` / `in=` / `over=` touch it on purpose. `<last_scene_issues>` lists any overlaps.
 - Labels belong on the things they name; don't stack several names on one point.
 - Give axes a title.
 - Use `hide` to clear what's done before adding more.

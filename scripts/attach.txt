@@ -1,0 +1,13 @@
+# Position comes from structure: the link makes a flow (cause left, effect right), formulas and cards
+# stack at the top, and touching is said on purpose (on= / in= / over=).
+title "Where things go"
+mark sun   box star    energy=100 label="Sun"
+mark earth box planet  energy=40  label="Earth"
+link light arrow sun -> earth label="sunlight"
+mark key   card text="Energy flows from the Sun to the Earth" label="Key idea"
+mark law   tex  tex="E_{\text{in}} = E_{\text{out}}"
+mark tag   label text="hot" on=sun
+mark ring  label text="air" in=earth
+Say: "Energy |go|flows from the Sun to the Earth."
+@go indicate light
+Say: "Most of it is reflected back."

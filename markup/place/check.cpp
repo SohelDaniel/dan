@@ -5,11 +5,6 @@
 
 namespace place {
 
-const char *regionName(int i) {
-  static const char *n[9] = {"top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"};
-  return i >= 0 && i < 9 ? n[i] : "?";
-}
-
 // Which pairs are meant to touch: a label and what it names, a link and its ends, a group and what
 // it encloses, furniture with furniture, and anything the engine declared related.
 static bool intended(const Picture &p, int i, int j) {
@@ -103,26 +98,15 @@ Report check(const Picture &p) {
     }
   }
   r.score = std::clamp(100 - penalty, 0.f, 100.f);
-  // free regions: the 3x3 cells of the stage with little ink in them
-  for (int k = 0; k < 9; k++) {
-    Rect cell{p.stage.x + (k % 3) * p.stage.w / 3, p.stage.y + (k / 3) * p.stage.h / 3, p.stage.w / 3, p.stage.h / 3};
-    float covered = 0;
-    for (const Ink &a : p.ink)
-      if (a.kind == Ink::Body || a.kind == Ink::Label || a.kind == Ink::Group) covered += overlapArea(cell, a.box);
-    if (covered < 0.15f * cell.w * cell.h) r.freeRegions.push_back(regionName(k));
-  }
   return r;
 }
 
 std::string describe(const Picture &p, const Report &r, const Diag &d) {
   auto name = [&](int i) { return i >= 0 && i < (int)p.ink.size() ? p.ink[i].what : std::string("?"); };
-  std::string free;
-  for (size_t i = 0; i < r.freeRegions.size() && i < 3; i++) free += (i ? ", " : "") + r.freeRegions[i];
-  std::string tail = free.empty() ? "" : "; free regions: " + free;
   switch (d.code) {
-  case Diag::Overlap: return name(d.a) + " overlaps " + name(d.b) + tail;
-  case Diag::OffCanvas: return name(d.a) + " runs " + std::to_string((int)d.amount) + "px off the screen" + tail;
-  case Diag::InZone: return name(d.a) + " sits in the " + p.ink[d.b].what + " area" + tail;
+  case Diag::Overlap: return name(d.a) + " overlaps " + name(d.b);
+  case Diag::OffCanvas: return name(d.a) + " runs " + std::to_string((int)d.amount) + "px off the screen";
+  case Diag::InZone: return name(d.a) + " sits in the " + p.ink[d.b].what + " area";
   case Diag::LabelFar: return name(d.a) + " is " + std::to_string((int)d.amount) + "px from " + name(d.b);
   case Diag::LinkThrough: return name(d.a) + " passes through " + name(d.b);
   }
