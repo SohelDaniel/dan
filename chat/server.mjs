@@ -18,7 +18,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -190,10 +190,22 @@ function appendStage(text) {
 }
 function restartStage() { if (stageAlive()) stage.kill(); stage = null; spawnStage(); }
 
-function readback(text) {
-  fs.writeFileSync(file('.fold.txt'), text);
-  const rb = spawnSync(TUTOR, [file('.fold.txt'), '--readback'], { encoding: 'utf8', cwd: ROOT }).stdout || '';
-  return rb.split('\n').filter((l) => l.trim() && !l.startsWith('#')).join('\n') + '\n'; // the model, no derived comments
+// the tutor binary on a script, in the background (the server keeps answering meanwhile)
+function runTutor(text, name, flag) {
+  fs.writeFileSync(file(name), text);
+  return new Promise((done) => {
+    const p = spawn(TUTOR, [file(name), flag], { cwd: ROOT });
+    let out = '';
+    p.stdout.on('data', (d) => (out += d));
+    p.stderr.on('data', (d) => (out += d));
+    p.on('close', (code) => done({ code, out }));
+    p.on('error', () => done({ code: -1, out }));
+  });
+}
+
+async function readback(text) {
+  const { out } = await runTutor(text, '.fold.txt', '--readback');
+  return out.split('\n').filter((l) => l.trim() && !l.startsWith('#')).join('\n') + '\n'; // the model, no derived comments
 }
 // the stage as the learner saw it at the end of the turn, rendered offscreen in the background; it goes
 // to Claude with the next message, so it sees its own picture (crowding, cut-off text, a bad composition)
@@ -204,12 +216,10 @@ function snapshotFrame(text) {
   p.on('close', (code) => { if (code === 0 && fs.existsSync(file('frame_end.png'))) S.frame = file('frame_end.png'); });
 }
 
-function check(text) {
-  fs.writeFileSync(file('.fold.txt'), text);
-  const r = spawnSync(TUTOR, [file('.fold.txt'), '--check'], { encoding: 'utf8', cwd: ROOT });
-  const out = (r.stdout || '') + (r.stderr || '');
+async function check(text) {
+  const { code, out } = await runTutor(text, '.check.txt', '--check');
   const lints = [...new Set(out.split('\n').filter((l) => l.startsWith('  ') || l.startsWith('parse:')).map((l) => l.trim()))];
-  return { ok: r.status === 0, lints };
+  return { ok: code === 0, lints };
 }
 
 // ------------------------------------------------------------ Claude: one persistent process per chat
@@ -345,7 +355,10 @@ function runTurn(text, source, model = defaultModel) {
     }
   };
 
-  const finish = (error) => {
+  let finished = false;
+  const finish = async (error) => {
+    if (finished) return;
+    finished = true;
     if (partial) { fullLine(partial); partial = ''; }
     if (mode === 'scene') endScene();
     if (error) { msg.error = error; broadcast({ t: 'error', v: error }); }
@@ -356,9 +369,9 @@ function runTurn(text, source, model = defaultModel) {
       S.turn++;
       fs.writeFileSync(path.join(S.dir, 'turns', String(S.turn).padStart(3, '0') + '.txt'), turn);
       const live = stateBefore + (stateBefore.endsWith('\n') || !stateBefore ? '' : '\n') + turn;
-      const c = check(live);
+      const [c, state] = await Promise.all([check(live), readback(live)]);
       S.lints = c.lints;
-      fs.writeFileSync(file('state.txt'), readback(live));
+      fs.writeFileSync(file('state.txt'), state);
       snapshotFrame(live);
       msg.stage = { ok: c.ok, lints: c.lints, turn, state: read('state.txt') };
       broadcast({ t: 'stage', ...msg.stage });
@@ -434,7 +447,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/replay-turn') {
     // the stage as it was before the last turn, then the last turn plays again
     const turns = turnFiles();
-    loadStage(turns.length ? readback(turns.slice(0, -1).join('\n')) + turns.at(-1) : read('state.txt'));
+    loadStage(turns.length ? (await readback(turns.slice(0, -1).join('\n'))) + turns.at(-1) : read('state.txt'));
     return json(res, { ok: true });
   }
   if (url.pathname === '/api/replay-all') {
