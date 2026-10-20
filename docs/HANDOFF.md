@@ -213,6 +213,25 @@ and the project's founding rule agreed: position is a channel of the dictionary,
 - Snapshots segfault when the display sleeps: run `caffeinate -u -d -t 900 &` first.
 - Known: boxes can overlap for ~0.5 s while gliding when a new column forms (newcomers snap, old ones ease).
 
+## 8c. 2026-10-20 (evening): 2D made solid before 3D
+
+Measured with `tools/eval/prompts-broad.json` (44 questions, every subject and question type) plus frames read by eye,
+an engine audit and research (3b1b's code, Mayer, Ainsworth, Cheng, Tversky, Code2Video). Done, each committed:
+- Robustness: whole Unicode blocks in the font; focus ends with its sentence; explicit shared `color=` is a relation;
+  self-loops; real formula sizes in headless checks; snapshots wake the display; quotes keep commas in lists.
+- Stability: boxes make a graph from the first one; the band eases and new blocks wait for room; ghosts keep their slot;
+  subtitles page in two lines; bar scales ease by time.
+- Fit: a scene that outgrows the stage is drawn smaller (`stageRect/toStage/fitStage`, `BeginMode2D` in `draw()`,
+  never below 0.6, only shrinks within a scene, not on axes). Box names wrap.
+- Vocabulary: annotations (`brace enclose underline cross check`, `of=f[part]` for `\textcolor{part}` glyphs,
+  annotate.cpp); views (named `schema` lines side by side, `schemaOf`); derivations (aligned, new glyphs lit);
+  grids (`array cols=`, `M[r][c]`, `M[r][:]`); area diagrams (`area parts= by=`, area.cpp); histograms
+  (`numberline bin=`); trees top-down (when branching is what the graph does); `schema sequence`.
+- Prompt: declare the schema first, numbers shown as spoken, physical systems drawn as their parts (heart exemplar),
+  no ritual cards.
+- Broad eval (judge, 1-5): picture 3.34 -> 3.64, layout 3.41 -> 3.52, fit 3.91 -> 4.05; cards 28/44 -> 0/44.
+  Binding (numbers spoken but not shown) stays the weakest at ~3.1: the next prompt/lint target.
+
 ## 9. Known loose ends
 
 - Voice: the user hasn't picked a voice from the samples (Brian is the default).
