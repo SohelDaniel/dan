@@ -417,7 +417,7 @@ std::string Engine::effectiveKind(const Mark &m) const {
   std::string s = schemaOf(m);
   bool hasMag = !magProp(m).empty();
   if (findProp(m.props, "shape")) return "dot"; // shape is a channel only dots carry
-  if (s == "graph") return "box";
+  if (s == "graph" || s == "sequence") return "box";
   if (s == "numberline" || s == "timeline") return "dot";
   if (s == "axes") {
     if (findProp(m.props, "x") && findProp(m.props, "y")) return "dot";

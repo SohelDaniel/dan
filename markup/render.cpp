@@ -796,6 +796,12 @@ void Engine::draw() {
       else DrawLineEx({v.area.x, v.area.y - 20}, {v.area.x + v.area.width, v.area.y - 20}, 1.5f, fade(col::muted, 0.35f * F));
     }
   }
+  if (!seqRow_.empty()) // lifelines: a party's line down through the conversation
+    for (auto &id : order_)
+      if (Mark *m = mark(id); m && m->positioned && effectiveKind(*m) == "box" && schemaOf(*m) == "sequence") {
+        Rectangle b = bodyBounds(*m);
+        dashed({m->pos.x, b.y + b.height}, {m->pos.x, seqBottom_}, 1.5f, fade(col::muted, 0.5f * alphaOf(*m)), 6, 6);
+      }
   for (auto &id : order_) if (auto g = groups_.find(id); g != groups_.end()) drawGroup(g->second);
   for (auto &id : order_) // contours, slope and vector fields: over the grid, under everything else
     if (Mark *m = mark(id); m && isFieldKind(effectiveKind(*m)) && effectiveKind(*m) != "heat") drawMark(*m);

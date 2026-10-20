@@ -584,6 +584,7 @@ void Engine::layout(float dt) {
     stage.height = std::max(S.height - bandH_, S.height * 0.4f);
   }
 
+  seqRow_.clear(); // a sequence schema fills it this frame
   if (!views_.empty()) layoutViews(stage, body);
   else {
     if (s != "graph" || body.empty()) linkRoute_.clear();
@@ -592,6 +593,7 @@ void Engine::layout(float dt) {
     else if (s == "numberline") layoutNumberline(stage);
     else if (isAxes(s)) layoutAxes(stage);
     else if (s == "timeline") layoutTimeline(stage);
+    else if (s == "sequence") layoutSequence(stage, body);
   }
 
   // at=<thing> or at=a[3]: a pointer label names what it points at. Under an array cell it sits below the
@@ -732,8 +734,29 @@ void Engine::layoutViews(Rectangle area, const std::vector<std::string> &body) {
     else if (isAxes(v.schema)) layoutAxes(inner);
     else if (v.schema == "numberline") layoutNumberline(inner);
     else if (v.schema == "timeline") layoutTimeline(inner);
+    else if (v.schema == "sequence") layoutSequence(inner, ids);
   }
   if (!anyGraph) linkRoute_.clear();
+}
+
+void Engine::layoutSequence(Rectangle area, const std::vector<std::string> &ids) {
+  if (ids.empty()) return;
+  float top = area.y + 10, boxH = 0;
+  for (auto &id : ids) boxH = std::max(boxH, bodyBounds(marks_[id]).height);
+  float step = area.width / ids.size();
+  for (size_t i = 0; i < ids.size(); i++) {
+    Mark &m = marks_[ids[i]];
+    m.tpos = {area.x + step * (i + 0.5f), top + boxH / 2};
+    m.positioned = true;
+  }
+  std::set<std::string> in(ids.begin(), ids.end());
+  std::vector<std::string> msgs;
+  for (auto &id : order_)
+    if (auto l = links_.find(id); l != links_.end() && in.count(l->second.a) && in.count(l->second.b)) msgs.push_back(id);
+  // a fixed row per message, so earlier ones never move as the conversation grows (a long one: fitStage)
+  const float y0 = top + boxH + 34, gap = 58;
+  for (size_t k = 0; k < msgs.size(); k++) seqRow_[msgs[k]] = y0 + gap * (k + 0.5f);
+  seqBottom_ = y0 + gap * msgs.size() + 10;
 }
 
 Vector2 Engine::infoOrigin() {
@@ -762,6 +785,7 @@ void Engine::fitStage(float dt) {
     if (b.width > 0) add(b);
   }
   for (auto &[gid, g] : groups_) if (Rectangle b = groupBounds(g); b.width > 0) add(b);
+  if (!seqRow_.empty() && x0 <= x1) add({x0, y0, x1 - x0, seqBottom_ - y0}); // a conversation's messages
   if (x0 > x1) return;
   Rectangle S = stageRect();
   float need = std::max((x1 - x0) / S.width, (y1 - y0) / S.height);

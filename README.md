@@ -271,7 +271,7 @@ mark tag label text="hot" on=sun          # touching on purpose: on= (on its top
 ```
 title "..."
 scene "Part 2"             # fade the stage out and start a fresh one (ids, colors, schema reset)
-schema free | numberline [prop=score range=[0,100] bin=5] | axes [x=[a,b] y=[c,d] zero=false] | timeline | graph
+schema free | numberline [prop=score range=[0,100] bin=5] | axes [x=[a,b] y=[c,d] zero=false] | timeline | graph | sequence
 wait 1s
 pause                      # wait for space / →
 ```
@@ -286,6 +286,8 @@ mark L path fn={3*exp(-0.35*x)+0.3}
 ```
 
 One view per scene can hold data (axes, plane, number line, timeline); the others are graphs or free rows. Formulas and cards still stack in the band above all of them.
+
+**Conversations.** `schema sequence` puts its things (the parties) across the top, each with a lifeline, and draws every link as a message on its own row, in the order written: a handshake, a protocol, a request and its reply, who said what to whom.
 
 **Histograms.** `bin=` on a number line drops each value into its bin (centred on multiples of `bin`), and a bin's samples stack into a column of dots: mark samples one by one or a beat at a time and the histogram grows (the central limit theorem, a die rolled sixty times). Samples have no names unless given a `label=`.
 

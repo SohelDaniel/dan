@@ -121,6 +121,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 | comparing two processes, models, architectures | two `group`s of boxes with `link`s (two lanes); matching stages line up, a shared input feeds both |
 | one thing seen two ways (a network and its loss curve, before and after, the data and its chart) | two views: `schema net graph label="…"` then its marks, `schema loss axes …` then its marks; they sit side by side |
 | history, sequences | timeline (`t=`) |
+| protocols, conversations, messages between parties (TCP, HTTP, a negotiation) | `schema sequence`: the parties as boxes, each message a `link` in order, labelled |
 | distributions, statistics | a dot plot: dots on a `numberline`, `mean(...)` markers; two groups as two views; a histogram of samples with `schema numberline … bin=1`, adding samples beat by beat so it grows |
 | fractions, proportions, conditional probability, the area model of multiplication | `area parts=[…]` (strips in proportion), `by=[[…],[…]]` to split each strip again; area is the quantity. For rare events (1 in 1000) a tree of counts reads better |
 | comparing a few quantities | bars: **only** for this |

@@ -607,6 +607,23 @@ LinkGeom Engine::linkGeometryAt(const Link &l) {
   g.ok = true;
   g.label = linkLabel(l);
 
+  if (auto row = seqRow_.find(l.id); row != seqRow_.end() && ma && mb) { // a message: across, on its own row
+    float y = row->second, xa = ma->pos.x, xb = mb->pos.x;
+    if (l.a == l.b) { // to itself: out and back
+      for (int i = 0; i <= 12; i++) {
+        float t = i / 12.f;
+        g.line.push_back({xa + std::sin(t * 3.14159f) * 34, y - 10 + t * 20});
+      }
+    } else {
+      float d = xb > xa ? 1 : -1;
+      g.line = {{xa + d * 4, y}, {xb - d * 6, y}};
+    }
+    g.pa = g.line.front();
+    g.pb = g.line.back();
+    g.mid = {(g.pa.x + g.pb.x) / 2 + (l.a == l.b ? 40 : 0), y - 14};
+    g.labelT0 = 0.3f; g.labelT1 = 0.7f;
+    return g;
+  }
   if (l.a == l.b) { // to itself (a state that stays, a retry): a loop over its top edge
     float cx = ra.x + ra.width / 2, top = ra.y, s = std::min(ra.width * 0.25f, 22.f);
     Vector2 p0{cx + s, top}, c1{cx + s + 26, top - 58}, c2{cx - s - 26, top - 58}, p1{cx - s, top};

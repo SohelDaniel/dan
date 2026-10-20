@@ -185,6 +185,12 @@
   "final": 100,
   "maxOverlaps": 0
  },
+ "scripts/sequence.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
  "scripts/showcase.txt": {
   "mean": 96.1,
   "worst": 75,

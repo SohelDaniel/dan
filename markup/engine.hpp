@@ -404,6 +404,10 @@ private:
   std::string schemaOf(const Mark &m) const; // the schema that lays this mark out
   bool inDataView(const Mark &m) const;      // laid out by the scene's data schema (always, with no views)
   void layoutViews(Rectangle area, const std::vector<std::string> &body);
+  // sequence (a conversation): parties across the top, each link a message on its own row, in order
+  void layoutSequence(Rectangle area, const std::vector<std::string> &ids);
+  std::map<std::string, float> seqRow_;   // message (link id) -> its row's y
+  float seqBottom_ = 0;                   // where the lifelines end
   place::FlowMemo flowMemo_;              // each thing's column and height last time: newcomers are inserted
   struct LinkRoute {
     std::vector<Vector2> via, viaT;       // waypoints through the gaps: drawn (eased) and target

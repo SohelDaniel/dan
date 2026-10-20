@@ -1,0 +1,13 @@
+# A conversation: schema sequence puts the parties across the top; each link is a message, in order, down the page.
+title "The TCP handshake"
+schema sequence
+mark client box host label="client"
+mark server box host label="server"
+Say: "Before any data, the two sides agree on starting numbers."
+link syn arrow client -> server label="SYN, seq = 100"
+Say: "The client says hello, with its number."
+link synack arrow server -> client label="SYN-ACK, seq = 300, ack = 101"
+Say: "The server answers with its own, and confirms the client's."
+link ack arrow client -> server label="ACK, ack = 301"
+Say: "The client confirms the server's. |go|Connected."
+@go link data arrow client -> server label="data" color=green

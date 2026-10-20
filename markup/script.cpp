@@ -432,7 +432,7 @@ static bool parseLine(const std::string &rawIn, int lineNo, Line &ln, std::strin
   if (verb == "schema") {
     ln.verb = Verb::SCHEMA;
     if (toks.size() < 2) { err = "schema needs a name"; return false; }
-    static const char *ok[] = {"free", "numberline", "axes", "plane", "timeline", "graph", "auto"};
+    static const char *ok[] = {"free", "numberline", "axes", "plane", "timeline", "graph", "sequence", "auto"};
     auto schemaName = [&](std::string k) {
       k = lower(k);
       if (k == "number-line") k = "numberline";
@@ -441,13 +441,13 @@ static bool parseLine(const std::string &rawIn, int lineNo, Line &ln, std::strin
     size_t rest = 2;
     if (std::string k = schemaName(toks[1]); !k.empty()) ln.kind = k;
     else if (toks[1].find('=') != std::string::npos) {
-      err = "unknown schema '" + toks[1] + "' (free, numberline, axes, plane, timeline, graph)";
+      err = "unknown schema '" + toks[1] + "' (free, numberline, axes, plane, timeline, graph, sequence)";
       return false;
     } else { // a view
       ln.id = toks[1];
       if (toks.size() > 2 && !schemaName(toks[2]).empty()) { ln.kind = schemaName(toks[2]); rest = 3; }
       else if (toks.size() > 2 && toks[2].find('=') == std::string::npos) {
-        err = "unknown schema '" + toks[2] + "' for view '" + ln.id + "' (free, numberline, axes, plane, timeline, graph)";
+        err = "unknown schema '" + toks[2] + "' for view '" + ln.id + "' (free, numberline, axes, plane, timeline, graph, sequence)";
         return false;
       }
     }
