@@ -425,7 +425,8 @@ private:
   float zoom_ = 1, zoomT_ = 1;          // drawn and target scale; only shrinks within a scene
   Rectangle stageRect() const;           // the stage in layout coordinates (the screen's at zoom 1)
   Rectangle toStage(Rectangle screen) const; // a screen rectangle (a reserved zone) in layout coordinates
-  void fitStage(float dt);               // after layout: shrink if what's laid out outgrew the stage
+  void fitStage(float dt);
+  Vector2 infoOrigin();                  // where labels with no place of their own stack: below the band, or in the plot's corner               // after layout: shrink if what's laid out outgrew the stage
   float bandH_ = -1;                // the block band's height, eased (-1: not laid out yet)
   bool blockRows_ = false;         // this scene's blocks flow in rows (once chosen, kept: no mid-scene reshuffle)
   std::map<std::string, float> crossedSince_; // label key -> when a line started crossing it

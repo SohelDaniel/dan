@@ -652,6 +652,11 @@ Rectangle Engine::toStage(Rectangle r) const {
   Vector2 c{kStage.x + kStage.width / 2, kStage.y + kStage.height / 2};
   return {c.x + (r.x - c.x) / zoom_, c.y + (r.y - c.y) / zoom_, r.width / zoom_, r.height / zoom_};
 }
+Vector2 Engine::infoOrigin() {
+  if (isAxes(schemaNow())) return {axes_.area.x + 18, axes_.area.y + 8};
+  Rectangle S = stageRect();
+  return {S.x + 16, S.y + std::max(0.f, bandH_) + 8};
+}
 Rectangle Engine::stageRect() const { return toStage(kStage); }
 
 // The extent of what was laid out this frame (where things are going, not where they are drawn yet);
@@ -791,6 +796,7 @@ void Engine::layoutFree(Rectangle area, const std::vector<std::string> &ids) {
   if (squeeze < 0.6f) warn("layout: " + std::to_string(ids.size()) + " things crowd one row; group them, or use a table/array");
   float x = area.x + area.width / 2 - total * squeeze / 2;
 
+  std::set<std::string> eased;
   std::function<void(const Item &, float)> assign = [&](const Item &it, float x0) {
     if (!it.group) {
       Mark &m = marks_[it.id];
@@ -804,7 +810,8 @@ void Engine::layoutFree(Rectangle area, const std::vector<std::string> &ids) {
         float target = (float)std::min(up > 0 ? avail * (1 - negFrac) / up : 1e9, down > 0 ? avail * negFrac / down : 1e9);
         auto bs = barScale_.find(mp);
         if (bs == barScale_.end()) bs = barScale_.emplace(mp, target).first;
-        else bs->second = lerpf(bs->second, target, 0.15f);
+        else if (eased.insert(mp).second) // once per scale per frame, at the same rate as everything else
+          bs->second = opt_.instant ? target : smoothApproach(bs->second, target, lastDt_, 9);
         m.barScale = bs->second;
       }
       return;

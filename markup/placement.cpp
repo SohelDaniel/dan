@@ -142,8 +142,7 @@ place::Picture Engine::picture() {
   }
   // labels with no place of their own: the quiet stack in the corner (drawInfo)
   {
-    float x = 56, y = 74;
-    if (isAxes(schemaNow())) { x = axes_.area.x + 18; y = axes_.area.y + 8; }
+    auto [x, y] = infoOrigin();
     for (auto &id : order_) {
       Mark *m = mark(id);
       if (!m || effectiveKind(*m) != "label" || m->positioned || alphaOf(*m) <= 0.01f) continue;
@@ -359,9 +358,13 @@ std::vector<TextLabel> Engine::markLabelsAt(const Mark &m) {
         l.leaderFrom = {ctr.x, ctr.y - r - 2};
         l.leaderTo = {ctr.x, ctr.y - r - 6 - m.labelLift};
       }
-    } else if (s == "timeline") { // alternate above / below with a leader line
-      int i = m.order % 2;
-      Vector2 lp{ctr.x, ctr.y + (i ? 64.f : -64.f)};
+    } else if (s == "timeline") { // in time order: alternate above / below, every other pair further out
+      int rank = 0;
+      for (auto &[oid, o] : marks_)
+        if (&o != &m && o.positioned && effectiveKind(o) == "dot" && (o.pos.x < m.pos.x || (o.pos.x == m.pos.x && o.order < m.order))) rank++;
+      int i = rank % 2;
+      float reach = rank % 4 < 2 ? 64.f : 112.f;
+      Vector2 lp{ctr.x, ctr.y + (i ? reach : -reach)};
       TextLabel &l = add(name, lp, 19, 0.5f, i ? 0.f : 1.f, TextLabel::Fg, "name");
       l.leader = true;
       l.leaderFrom = {ctr.x, ctr.y + (i ? r : -r)};

@@ -72,9 +72,9 @@
   "maxOverlaps": 1
  },
  "scripts/contract.txt": {
-  "mean": 100,
-  "worst": 100,
-  "final": 100,
+  "mean": 98,
+  "worst": 98,
+  "final": 98,
   "maxOverlaps": 0
  },
  "scripts/derivative.txt": {
@@ -154,6 +154,12 @@
   "worst": 80,
   "final": 100,
   "maxOverlaps": 1
+ },
+ "scripts/timeline.txt": {
+  "mean": 96,
+  "worst": 96,
+  "final": 96,
+  "maxOverlaps": 0
  },
  "scripts/zoom.txt": {
   "mean": 100,

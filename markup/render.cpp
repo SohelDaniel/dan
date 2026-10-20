@@ -632,8 +632,7 @@ void Engine::drawGroup(const Group &g) {
 
 void Engine::drawInfo() {
   // labels the schema did not place: a quiet stack, top-left (parameters, exact values)
-  float x = 56, y = 74;
-  if (isAxes(schemaNow())) { x = axes_.area.x + 18; y = axes_.area.y + 8; }
+  auto [x, y] = infoOrigin();
   for (auto &id : order_) {
     Mark *m = mark(id);
     if (!m || effectiveKind(*m) != "label" || m->positioned) continue;
@@ -659,9 +658,16 @@ void Engine::drawSubtitle() {
     lines.back().push_back(i);
     w += ww + space;
   }
+  // at most two lines, in their reserved zone: a long sentence pages along with the voice
+  size_t first = 0;
+  if (lines.size() > 2) {
+    size_t at = 0, said = say_.active ? say_.nextWord : say_.words.size();
+    for (size_t k = 0; k < lines.size(); k++) if (!lines[k].empty() && lines[k].front() < std::max<size_t>(said, 1)) at = k;
+    first = std::min(at - at % 2, lines.size() - 2);
+  }
   float y = 592;
-  if (lines.size() > 2) y -= 16 * (lines.size() - 2);
-  for (auto &L : lines) {
+  for (size_t li = first; li < lines.size() && li < first + 2; li++) {
+    auto &L = lines[li];
     float lw = 0;
     for (size_t i : L) lw += measure(say_.words[i].text, size).x + space;
     float x = W / 2.f - lw / 2;

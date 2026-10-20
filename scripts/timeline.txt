@@ -1,0 +1,10 @@
+# A crowded timeline: close dates alternate above and below, every other pair further out.
+title "The road to 1914"
+schema timeline
+mark a dot crisis t=1905 label="First Moroccan Crisis"
+mark b dot crisis t=1908 label="Bosnian annexation"
+mark c dot war t=1912 label="First Balkan War"
+mark d dot war t=1913 label="Second Balkan War"
+mark e dot trigger t=1914 label="Sarajevo"
+mark f dot war t=1914.6 label="War declared"
+Say: "Crisis after crisis, each one closer to the edge."
