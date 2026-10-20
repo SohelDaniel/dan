@@ -16,6 +16,12 @@ using namespace rm;
 static const Rectangle kStage{40, 66, 1200, 494};
 
 std::string Engine::schemaNow() const { return schema_ != "auto" ? schema_ : autoSchema_; }
+bool Engine::inDataView(const Mark &m) const { return views_.empty() || schemaOf(m) == schemaNow(); }
+std::string Engine::schemaOf(const Mark &m) const {
+  if (!m.view.empty())
+    for (auto &v : views_) if (v.id == m.view) return v.schema;
+  return schemaNow();
+}
 
 static bool listRange(const Value *v, float &lo, float &hi) {
   if (!v || v->type != Value::LIST || v->list.size() < 2) return false;
@@ -28,7 +34,7 @@ static float easeOut(float t) { return 1 - (1 - t) * (1 - t) * (1 - t); }
 
 // ================================================================ sizes
 float Engine::dotRadius(const Mark &m) {
-  std::string s = schemaNow();
+  std::string s = schemaOf(m);
   if (auto r = findProp(m.props, "r")) return std::max(2.0, num(*r));
   if (s == "numberline" || s == "timeline") return 10;
   if (isAxes(s)) return 7;
@@ -64,7 +70,7 @@ Vector2 Engine::boxSize(const Mark &m) {
 }
 
 Rectangle Engine::bodyBounds(const Mark &m) {
-  std::string k = effectiveKind(m), s = schemaNow();
+  std::string k = effectiveKind(m), s = schemaOf(m);
   Vector2 p = m.pos;
   if (isAnnotationKind(k)) {
     Annotation a = annotation(m);
@@ -325,7 +331,7 @@ void Engine::computeRanges(float dt) {
     if (auto p = findProp(schemaProps_, "prop"); p && p->type == Value::STR) nlProp_ = p->str;
     else {
       std::map<std::string, int> counts;
-      for (auto &[id, m] : marks_) { std::string mp = magProp(m); if (!mp.empty()) counts[mp]++; }
+      for (auto &[id, m] : marks_) { if (!inDataView(m)) continue; std::string mp = magProp(m); if (!mp.empty()) counts[mp]++; }
       int best = 0;
       for (auto &[kk, c] : counts) if (c > best) { best = c; nlProp_ = kk; }
     }
@@ -336,6 +342,7 @@ void Engine::computeRanges(float dt) {
         lo = 1e9f; hi = -1e9f;
         if (minVal_.count(nlProp_)) { lo = (float)minVal_[nlProp_]; hi = (float)maxVal_[nlProp_]; }
         for (auto &[id, m] : marks_) {
+          if (!inDataView(m)) continue; // another view's thing
           bool ok;
           double v = num(m, nlProp_, &ok);
           if (ok && std::isfinite(v)) { lo = std::min(lo, (float)v); hi = std::max(hi, (float)v); }
@@ -361,6 +368,7 @@ void Engine::computeRanges(float dt) {
         for (const char *key : {"x", "x1", "x2", "from", "to"})
           if (minVal_.count(key)) { x0 = std::min(x0, (float)minVal_[key]); x1 = std::max(x1, (float)maxVal_[key]); }
         for (auto &[id, m] : marks_) {
+          if (!inDataView(m)) continue; // another view's thing
           for (const char *key : {"x", "x1", "x2", "from", "to"}) {
             bool ok;
             double v = num(m, key, &ok);
@@ -387,6 +395,7 @@ void Engine::computeRanges(float dt) {
         for (const char *key : {"y", "y1", "y2"})
           if (minVal_.count(key)) { y0 = std::min(y0, (float)minVal_[key]); y1 = std::max(y1, (float)maxVal_[key]); }
         for (auto &[id, m] : marks_) {
+          if (!inDataView(m)) continue; // another view's thing
           std::string kind = effectiveKind(m);
           float wx0, wx1, wy0, wy1;
           if (worldExtent(m, wx0, wx1, wy0, wy1)) { y0 = std::min(y0, wy0); y1 = std::max(y1, wy1); }
@@ -436,6 +445,7 @@ void Engine::computeRanges(float dt) {
         for (const char *key : {"t", "at", "year"}) {
           if (minVal_.count(key)) { lo = std::min(lo, (float)minVal_[key]); hi = std::max(hi, (float)maxVal_[key]); }
           for (auto &[id, m] : marks_) {
+            if (!inDataView(m)) continue; // another view's thing
             bool ok;
             double v = num(m, key, &ok);
             if (ok && std::isfinite(v)) { lo = std::min(lo, (float)v); hi = std::max(hi, (float)v); }
@@ -536,12 +546,15 @@ void Engine::layout(float dt) {
     stage.height = std::max(S.height - bandH_, S.height * 0.4f);
   }
 
-  if (s != "graph" || body.empty()) linkRoute_.clear();
-  if (s == "free") layoutFree(stage, body);
-  else if (s == "graph") layoutGraph(stage, body);
-  else if (s == "numberline") layoutNumberline(stage);
-  else if (isAxes(s)) layoutAxes(stage);
-  else if (s == "timeline") layoutTimeline(stage);
+  if (!views_.empty()) layoutViews(stage, body);
+  else {
+    if (s != "graph" || body.empty()) linkRoute_.clear();
+    if (s == "free") layoutFree(stage, body);
+    else if (s == "graph") layoutGraph(stage, body);
+    else if (s == "numberline") layoutNumberline(stage);
+    else if (isAxes(s)) layoutAxes(stage);
+    else if (s == "timeline") layoutTimeline(stage);
+  }
 
   // at=<thing> or at=a[3]: a pointer label names what it points at. Under an array cell it sits below the
   // cell (the convention for indices); anything else gets the first free side of the target (below, right,
@@ -657,6 +670,32 @@ Rectangle Engine::toStage(Rectangle r) const {
   Vector2 c{kStage.x + kStage.width / 2, kStage.y + kStage.height / 2};
   return {c.x + (r.x - c.x) / zoom_, c.y + (r.y - c.y) / zoom_, r.width / zoom_, r.height / zoom_};
 }
+// Views share the area under the band in declaration order: side by side (a number line or timeline
+// is wide, so then they stack), four as two by two. Each lays out its own marks by its own schema.
+void Engine::layoutViews(Rectangle area, const std::vector<std::string> &body) {
+  int n = (int)views_.size();
+  bool stack = std::any_of(views_.begin(), views_.end(), [](const View &v) { return v.schema == "numberline" || v.schema == "timeline"; });
+  int cols = stack ? 1 : n == 4 ? 2 : n, rows = (n + cols - 1) / cols;
+  const float gap = 40, labelH = 28;
+  float w = (area.width - gap * (cols - 1)) / cols, h = (area.height - gap * (rows - 1)) / rows;
+  bool anyGraph = false;
+  for (int i = 0; i < n; i++) {
+    View &v = views_[i];
+    v.area = {area.x + (i % cols) * (w + gap), area.y + (i / cols) * (h + gap), w, h};
+    Rectangle inner = v.area;
+    if (findProp(v.props, "label")) { inner.y += labelH; inner.height -= labelH; }
+    std::vector<std::string> ids;
+    for (auto &id : body)
+      if (Mark *m = mark(id); m && (m->view == v.id || (m->view.empty() && i == 0))) ids.push_back(id);
+    if (v.schema == "graph") { layoutGraph(inner, ids, v.id); anyGraph = true; }
+    else if (v.schema == "free") layoutFree(inner, ids);
+    else if (isAxes(v.schema)) layoutAxes(inner);
+    else if (v.schema == "numberline") layoutNumberline(inner);
+    else if (v.schema == "timeline") layoutTimeline(inner);
+  }
+  if (!anyGraph) linkRoute_.clear();
+}
+
 Vector2 Engine::infoOrigin() {
   if (isAxes(schemaNow())) return {axes_.area.x + 18, axes_.area.y + 8};
   Rectangle S = stageRect();
@@ -838,7 +877,7 @@ void Engine::layoutFree(Rectangle area, const std::vector<std::string> &ids) {
 // ---------------------------------------------------------------- graph
 // Position from structure (place/flow.hpp): links make columns, declaration order is order within one,
 // top-level groups are lanes. Laid out again only when the structure or a size changes.
-void Engine::layoutGraph(Rectangle area, const std::vector<std::string> &ids) {
+void Engine::layoutGraph(Rectangle area, const std::vector<std::string> &ids, const std::string &view) {
   if (ids.empty()) return;
   place::FlowInput in;
   in.area = {area.x, area.y, area.width, area.height};
@@ -879,11 +918,13 @@ void Engine::layoutGraph(Rectangle area, const std::vector<std::string> &ids) {
         sig += std::to_string(a) + ">" + std::to_string(b) + ":" + std::to_string((int)lw / 8) + ",";
       }
   }
-  if (sig != graphSig_) {
-    graphSig_ = sig;
+  if (sig != graphSig_[view]) {
+    graphSig_[view] = sig;
     place::FlowOut o = place::layoutFlow(in, flowMemo_);
-    auto drawn = std::move(linkRoute_); // keep the bends where they are drawn now, to ease from
-    linkRoute_.clear();
+    std::map<std::string, LinkRoute> drawn; // this graph's links: keep their bends where they are drawn now
+    for (auto &id : order_)
+      if (auto l = links_.find(id); l != links_.end() && idx.count(l->second.a) && idx.count(l->second.b))
+        if (auto r = linkRoute_.find(id); r != linkRoute_.end()) { drawn[id] = r->second; linkRoute_.erase(r); }
     for (size_t i = 0; i < ids.size(); i++) graphPos_[ids[i]] = {o.centre[i].x, o.centre[i].y};
     for (size_t e = 0; e < in.edges.size(); e++) {
       if (edgeLink[e].empty()) continue;
@@ -915,7 +956,7 @@ void Engine::layoutNumberline(Rectangle area) {
   std::vector<std::string> rest;
   for (auto &id : order_) {
     Mark *m = mark(id);
-    if (!m) continue;
+    if (!m || !inDataView(*m)) continue;
     std::string k = effectiveKind(*m);
     bool ok;
     double v = num(*m, nlProp_, &ok);
@@ -986,7 +1027,7 @@ void Engine::layoutAxes(Rectangle area) {
   std::vector<std::string> rest;
   for (auto &id : order_) {
     Mark *m = mark(id);
-    if (!m) continue;
+    if (!m || !inDataView(*m)) continue;
     std::string k = effectiveKind(*m);
     bool hx, hy;
     double x = num(*m, "x", &hx), y = num(*m, "y", &hy);
@@ -1013,13 +1054,13 @@ void Engine::layoutAxes(Rectangle area) {
   // dot names: each takes the first corner (NE, NW, SE, SW) that doesn't cover another name or dot
   std::vector<Rectangle> taken;
   for (auto &id : order_)
-    if (Mark *m = mark(id); m && m->positioned && effectiveKind(*m) == "dot") {
+    if (Mark *m = mark(id); m && m->positioned && inDataView(*m) && effectiveKind(*m) == "dot") {
       float r = dotRadius(*m);
       taken.push_back({m->tpos.x - r, m->tpos.y - r, 2 * r, 2 * r});
     }
   for (auto &id : order_) {
     Mark *m = mark(id);
-    if (!m || !m->positioned || effectiveKind(*m) != "dot") continue;
+    if (!m || !m->positioned || !inDataView(*m) || effectiveKind(*m) != "dot") continue;
     Vector2 sz = measure(displayName(*m), 17);
     int best = 0;
     for (int q = 0; q < 4; q++) {
@@ -1045,7 +1086,7 @@ void Engine::layoutTimeline(Rectangle area) {
   std::vector<std::string> rest;
   for (auto &id : order_) {
     Mark *m = mark(id);
-    if (!m) continue;
+    if (!m || !inDataView(*m)) continue;
     std::string k = effectiveKind(*m);
     if (k == "path" || k == "region" || k == "label" || isBlockKind(k)) continue;
     bool ok = false;

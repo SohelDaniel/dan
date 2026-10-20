@@ -271,6 +271,17 @@ wait 1s
 pause                      # wait for space / →
 ```
 
+**Views: two pictures of one thing.** Name a schema and it becomes a view: the marks after it are laid out together, by that schema, in their own part of the stage. Views sit side by side in the order they are declared (stacked when one is a number line or timeline). A bare `schema net` selects a view again, for marks added later.
+
+```
+schema net graph label="the network"                       # boxes and links on the left …
+mark x box input label="x"
+schema loss axes x=[0,10] y=[0,4] label="its loss"          # … and the loss curve they produce on the right
+mark L path fn={3*exp(-0.35*x)+0.3}
+```
+
+One view per scene can hold data (axes, plane, number line, timeline); the others are graphs or free rows. Formulas and cards still stack in the band above all of them.
+
 If no schema is given, one is inferred. Paths, regions or `x=` give `axes`. `t=` gives `timeline`. Boxes, or links between things with no magnitudes, give `graph`. Anything else is `free`.
 
 ## The dictionary, as implemented

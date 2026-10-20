@@ -423,7 +423,7 @@ void Engine::drawLabels(const Mark &m) {
 void Engine::drawMark(const Mark &mc) {
   Mark &m = const_cast<Mark &>(mc);
   if (!m.positioned && effectiveKind(m) != "label") return;
-  std::string k = effectiveKind(m), s = schemaNow();
+  std::string k = effectiveKind(m), s = schemaOf(m);
   if (k == "tex") { drawTex(m); return; }
   if (isWorldKind(k)) {
     // under a camera, shapes are clipped to the axes like curves are
@@ -768,6 +768,15 @@ void Engine::draw() {
     }
   }
 
+  for (size_t i = 0; i < views_.size(); i++) { // each view's name, and a quiet line between views
+    const View &v = views_[i];
+    if (auto l = findProp(v.props, "label"); l && l->type == Value::STR) text(l->str, {v.area.x + 4, v.area.y + 2}, 19, fade(col::muted, F), 0, 0);
+    if (i > 0) {
+      const Rectangle &p = views_[i - 1].area;
+      if (v.area.x > p.x + 1) DrawLineEx({v.area.x - 20, v.area.y}, {v.area.x - 20, v.area.y + v.area.height}, 1.5f, fade(col::muted, 0.35f * F));
+      else DrawLineEx({v.area.x, v.area.y - 20}, {v.area.x + v.area.width, v.area.y - 20}, 1.5f, fade(col::muted, 0.35f * F));
+    }
+  }
   for (auto &id : order_) if (auto g = groups_.find(id); g != groups_.end()) drawGroup(g->second);
   for (auto &id : order_) // contours, slope and vector fields: over the grid, under everything else
     if (Mark *m = mark(id); m && isFieldKind(effectiveKind(*m)) && effectiveKind(*m) != "heat") drawMark(*m);

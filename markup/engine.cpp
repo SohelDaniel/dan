@@ -254,6 +254,8 @@ void Engine::reset() {
   focus_.clear();
   schema_ = "auto";
   schemaProps_.clear();
+  views_.clear();
+  curView_.clear();
   title_.clear();
   sceneIdx_ = 0;
   if (!autoSchemas_.empty()) autoSchema_ = autoSchemas_[0];
@@ -411,7 +413,7 @@ std::string Engine::catValue(const Mark &m) const {
 std::string Engine::effectiveKind(const Mark &m) const {
   if (!m.kind.empty()) return m.kind;
   if (findProp(m.props, "tex")) return "tex";
-  std::string s = schemaNow();
+  std::string s = schemaOf(m);
   bool hasMag = !magProp(m).empty();
   if (findProp(m.props, "shape")) return "dot"; // shape is a channel only dots carry
   if (s == "graph") return "box";
@@ -574,6 +576,8 @@ bool Engine::paramAt(const Mark &p, double t, double &x, double &y) {
 }
 
 void Engine::clearStage() {
+  views_.clear();
+  curView_.clear();
   marks_.clear();
   links_.clear();
   groups_.clear();
@@ -709,6 +713,23 @@ void Engine::execLine(const Line &ln) {
     if (!opt_.instant) waitingPause_ = true;
     break;
   case Verb::SCHEMA:
+    if (!ln.id.empty()) { // a named view: create it, or select it for the marks that follow
+      auto v = std::find_if(views_.begin(), views_.end(), [&](const View &w) { return w.id == ln.id; });
+      if (v == views_.end()) { views_.push_back({ln.id, ln.kind.empty() ? "free" : ln.kind, ln.props}); v = views_.end() - 1; }
+      else if (!ln.kind.empty()) { v->schema = ln.kind; v->props = ln.props; }
+      curView_ = ln.id;
+      bool data = isAxes(v->schema) || v->schema == "numberline" || v->schema == "timeline";
+      if (data && !ln.kind.empty()) {
+        if (isAxes(schema_) || schema_ == "numberline" || schema_ == "timeline")
+          if (schema_ != v->schema || std::count_if(views_.begin(), views_.end(), [&](const View &w) { return w.schema == schema_; }) > 1)
+            warn("schema: one view per scene can hold data (axes, plane, number line, timeline); '" + ln.id + "' takes it over");
+        schema_ = v->schema;
+        schemaProps_ = v->props;
+        rangesInit_ = false;
+      }
+      caption("view " + ln.id + " (" + v->schema + ") -> its own part of the stage, its own layout rules");
+      break;
+    }
     schema_ = ln.kind;
     schemaProps_ = ln.props;
     rangesInit_ = false;
@@ -747,6 +768,7 @@ void Engine::doMark(const Line &ln) {
     m.props = ln.props;
     m.order = (int)order_.size();
     m.appear = opt_.instant ? 1 : 0;
+    m.view = curView_;
     order_.push_back(ln.id);
     Mark &mm = marks_.emplace(ln.id, m).first->second;
     bornAt_[ln.id] = clock_;
@@ -754,7 +776,7 @@ void Engine::doMark(const Line &ln) {
     std::string k = effectiveKind(mm), mp = magProp(mm), cv = catValue(mm);
     std::string rule = "thing -> a " + k;
     if (!mp.empty() && (k == "bar")) rule += " · magnitude " + mp + " -> length from a shared zero";
-    else if (!mp.empty() && k == "dot" && schemaNow() == "numberline") rule += " · " + mp + " -> position on the line";
+    else if (!mp.empty() && k == "dot" && schemaOf(mm) == "numberline") rule += " · " + mp + " -> position on the line";
     else if (!mp.empty() && k == "dot") rule += " · magnitude " + mp + " -> area";
     if (k == "path") rule += " · a function -> a curve";
     if (k == "region") rule += " · part of a function -> filled area";
@@ -917,7 +939,7 @@ void Engine::doMorph(const Line &ln) {
   std::string ch = "its value";
   if (Mark *m = mark(ln.id)) {
     std::string k = effectiveKind(*m);
-    if (ln.prop == magProp(*m)) ch = k == "bar" ? "bar length" : k == "dot" ? (schemaNow() == "numberline" ? "position" : "dot area") : "the number shown";
+    if (ln.prop == magProp(*m)) ch = k == "bar" ? "bar length" : k == "dot" ? (schemaOf(*m) == "numberline" ? "position" : "dot area") : "the number shown";
     if (ln.prop == "x" || ln.prop == "y" || ln.prop == "t") ch = "position";
     if (ln.prop == "from" || ln.prop == "to") ch = "the region's extent";
   }
@@ -1307,7 +1329,8 @@ std::string Engine::readback(bool comments) {
   std::ostringstream o;
   if (comments) o << "# readback t=" << fmtNum(std::round(clock_ * 10) / 10) << "s\n";
   if (!title_.empty()) o << "title \"" << title_ << "\"\n";
-  if (schema_ != "auto") {
+  if (!views_.empty()) { // views are declared where their first mark is (below)
+  } else if (schema_ != "auto") {
     o << "schema " << schema_;
     for (auto &p : schemaProps_) o << " " << p.key << "=" << p.val.markup();
     o << "\n";
@@ -1315,9 +1338,22 @@ std::string Engine::readback(bool comments) {
     o << "# schema (auto) " << autoSchema_ << "\n";
   }
   std::vector<std::string> evals;
+  std::set<std::string> declared;
+  std::string inView;
   for (auto &id : order_) {
     if (auto it = marks_.find(id); it != marks_.end()) {
       const Mark &m = it->second;
+      if (!m.view.empty() && m.view != inView) { // switch to its view (declaring it the first time)
+        inView = m.view;
+        o << "schema " << m.view;
+        if (declared.insert(m.view).second)
+          for (auto &v : views_)
+            if (v.id == m.view) {
+              o << " " << v.schema;
+              for (auto &p : v.props) o << " " << p.key << "=" << p.val.markup();
+            }
+        o << "\n";
+      }
       o << "mark " << m.id << " " << effectiveKind(m);
       if (!m.category.empty()) o << " " << Value::string(m.category).markup();
       for (auto &p : m.props) {

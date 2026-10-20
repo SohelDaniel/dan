@@ -1,0 +1,20 @@
+# Two views of one history: the same commits before and after a merge, side by side.
+title "Before and after a merge"
+schema before graph label="before"
+mark a box commit label="A"
+mark b box commit label="B"
+mark c box commit label="C"
+link ab arrow a -> b
+link bc arrow b -> c
+schema after graph label="after"
+mark a2 box commit label="A"
+mark b2 box commit label="B"
+mark c2 box commit label="C"
+mark d2 box feature label="D"
+mark m2 box merge label="M"
+link a2b2 arrow a2 -> b2
+link b2c2 arrow b2 -> c2
+link b2d2 arrow b2 -> d2
+link c2m arrow c2 -> m2
+link d2m arrow d2 -> m2
+Say: "Two histories, one merge."

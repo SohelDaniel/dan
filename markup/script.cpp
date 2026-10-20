@@ -426,17 +426,32 @@ static bool parseLine(const std::string &rawIn, int lineNo, Line &ln, std::strin
   }
   if (verb == "pause") { ln.verb = Verb::PAUSE; return true; }
 
+  // schema axes x=[0,5]          the scene's one schema
+  // schema net graph label="…"     a named view: the marks after it are shown together in their own part of
+  // schema net                     the stage (two views of one thing side by side); a bare name selects it again
   if (verb == "schema") {
     ln.verb = Verb::SCHEMA;
     if (toks.size() < 2) { err = "schema needs a name"; return false; }
-    ln.kind = lower(toks[1]);
-    if (ln.kind == "number-line" || ln.kind == "numberline") ln.kind = "numberline";
     static const char *ok[] = {"free", "numberline", "axes", "plane", "timeline", "graph", "auto"};
-    if (std::none_of(std::begin(ok), std::end(ok), [&](const char *s) { return ln.kind == s; })) {
-      err = "unknown schema '" + ln.kind + "' (free, numberline, axes, plane, timeline, graph)";
+    auto schemaName = [&](std::string k) {
+      k = lower(k);
+      if (k == "number-line") k = "numberline";
+      return std::any_of(std::begin(ok), std::end(ok), [&](const char *s) { return k == s; }) ? k : std::string();
+    };
+    size_t rest = 2;
+    if (std::string k = schemaName(toks[1]); !k.empty()) ln.kind = k;
+    else if (toks[1].find('=') != std::string::npos) {
+      err = "unknown schema '" + toks[1] + "' (free, numberline, axes, plane, timeline, graph)";
       return false;
+    } else { // a view
+      ln.id = toks[1];
+      if (toks.size() > 2 && !schemaName(toks[2]).empty()) { ln.kind = schemaName(toks[2]); rest = 3; }
+      else if (toks.size() > 2 && toks[2].find('=') == std::string::npos) {
+        err = "unknown schema '" + toks[2] + "' for view '" + ln.id + "' (free, numberline, axes, plane, timeline, graph)";
+        return false;
+      }
     }
-    return kvRest(2, ln.props);
+    return kvRest(rest, ln.props);
   }
 
   // the camera (axes and plane): say what to look at, never where on screen

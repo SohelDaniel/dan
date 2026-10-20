@@ -114,6 +114,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 | algorithms, data structures, code | `array` (re-mark `items=` to swap/shift: values travel), pointer labels `at=a[k]`, `code` with a moving `line=`, `table` for traces |
 | processes, cause and effect, systems | boxes + `link` arrows (graph): the links make the columns |
 | comparing two processes, models, architectures | two `group`s of boxes with `link`s (two lanes); matching stages line up, a shared input feeds both |
+| one thing seen two ways (a network and its loss curve, before and after, the data and its chart) | two views: `schema net graph label="…"` then its marks, `schema loss axes …` then its marks; they sit side by side |
 | history, sequences | timeline (`t=`) |
 | distributions, statistics | numberline / dots, `mean(...)` markers |
 | comparing a few quantities | bars: **only** for this |

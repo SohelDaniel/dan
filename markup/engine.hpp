@@ -72,6 +72,7 @@ struct Obj {
 };
 
 struct Mark : Obj {
+  std::string view;          // the named view it belongs to ("" with a single schema)
   Vector2 pos{0, 0}, tpos{0, 0};
   bool placed = false;    // has had a first layout (so it doesn't fly in from 0,0)
   bool anchorBottom = false; // pos is bottom-centre (free layout) instead of centre
@@ -278,7 +279,7 @@ private:
   std::string schemaNow() const;
   void layout(float dt);
   void layoutFree(Rectangle area, const std::vector<std::string> &ids);
-  void layoutGraph(Rectangle area, const std::vector<std::string> &ids);
+  void layoutGraph(Rectangle area, const std::vector<std::string> &ids, const std::string &view = "");
   void layoutNumberline(Rectangle area);
   void layoutAxes(Rectangle area);
   void layoutTimeline(Rectangle area);
@@ -384,8 +385,16 @@ private:
   rm::Axes axes_;
   rm::NumberLine nl_;
   std::map<std::string, float> barScale_; // eased px/unit per property
-  std::string graphSig_;
+  std::map<std::string, std::string> graphSig_; // per view ("" for the scene's one graph)
   std::map<std::string, Vector2> graphPos_;
+  // views: named schemas sharing the stage (schema net graph / schema loss axes …), in declaration order.
+  // At most one holds data (axes, plane, number line, timeline): it sets schema_ / schemaProps_.
+  struct View { std::string id, schema; Props props; Rectangle area{0, 0, 0, 0}; };
+  std::vector<View> views_;
+  std::string curView_;                    // new marks join it
+  std::string schemaOf(const Mark &m) const; // the schema that lays this mark out
+  bool inDataView(const Mark &m) const;      // laid out by the scene's data schema (always, with no views)
+  void layoutViews(Rectangle area, const std::vector<std::string> &body);
   place::FlowMemo flowMemo_;              // each thing's column and height last time: newcomers are inserted
   struct LinkRoute {
     std::vector<Vector2> via, viaT;       // waypoints through the gaps: drawn (eased) and target

@@ -315,7 +315,7 @@ std::vector<TextLabel> Engine::markLabels(const Mark &m, bool legacy) {
 
 std::vector<TextLabel> Engine::markLabelsAt(const Mark &m) {
   std::vector<TextLabel> out;
-  std::string k = effectiveKind(m), s = schemaNow();
+  std::string k = effectiveKind(m), s = schemaOf(m);
   if (!m.positioned || isAnnotationKind(k)) return out; // an annotation draws its own name
   std::string name = displayName(m), mp = magProp(m), cp = catProp(m), cv = catValue(m);
   auto add = [&](const std::string &t, Vector2 at, float size, float ax, float ay, TextLabel::Ink ink,
@@ -650,7 +650,7 @@ float Engine::stickyFor(const std::string &key) {
 // vector names and the outside names of shapes: the ones fixed offsets put on top of each other.
 // Bar names under their baseline, number-line and timeline labels keep their schema's place.
 bool Engine::movableLabel(const Mark &m, const TextLabel &l) {
-  std::string k = effectiveKind(m), s = schemaNow();
+  std::string k = effectiveKind(m), s = schemaOf(m);
   if (l.role == "inside") return false;
   if (k == "dot") return !m.anchorBottom && (isAxes(s) || s == "graph");
   if (isCurveKind(k) || k == "line" || k == "arrow") return true;
@@ -690,13 +690,13 @@ void Engine::placeAllLabels(float dt) {
     if (!m || !m->positioned || alphaOf(*m) < 0.05f) continue;
     std::string k = effectiveKind(*m);
     std::vector<Vector2> stroke;
-    if (isAxes(schemaNow())) {
+    if (isAxes(schemaOf(*m))) {
       if (isCurveKind(k)) stroke = curvePoints(*m);
       else if (k == "line" || k == "arrow") { Vector2 A, B; bool hs; if (lineEnds(*m, A, B, hs)) stroke = {A, B}; }
       else if (k == "vector") { Vector2 a, b; if (vectorEnds(*m, a, b)) stroke = {a, b}; }
     }
     if (!stroke.empty()) world.strokes.push_back(thin(stroke));
-    if (findProp(m->props, "trail") && isAxes(schemaNow())) { // labels keep off trails too
+    if (findProp(m->props, "trail") && isAxes(schemaOf(*m))) { // labels keep off trails too
       std::vector<place::Vec> tl;
       for (auto &q : trailLine(*m)) tl.push_back({q.x, q.y});
       if (tl.size() > 1) world.strokes.push_back(tl);
@@ -710,7 +710,7 @@ void Engine::placeAllLabels(float dt) {
       Pending p{id, i, box, {box.width, box.height}, {}, {}, 2};
       if (k == "dot") {
         p.anchor = bodyBounds(*m);
-        p.sides = isAxes(schemaNow()) ? std::vector<S>{S::NE, S::NW, S::SE, S::SW, S::E, S::W, S::N, S::S}
+        p.sides = isAxes(schemaOf(*m)) ? std::vector<S>{S::NE, S::NW, S::SE, S::SW, S::E, S::W, S::N, S::S}
                                       : std::vector<S>{S::S, S::N, S::E, S::W, S::SE, S::SW, S::NE, S::NW};
       } else if (isCurveKind(k) && !stroke.empty()) { // near the end of the curve (inside the axes), above or below it
         Vector2 e = stroke.back();

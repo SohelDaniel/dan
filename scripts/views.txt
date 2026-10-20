@@ -1,0 +1,18 @@
+# Two views of one thing side by side: a network, and its loss going down as it learns.
+title "Training a tiny network"
+schema net graph label="the network"
+mark x box input label="x"
+mark h box hidden label="h"
+mark y box output label="ŷ"
+link w1 arrow x -> h label="w₁" w=0.5
+link w2 arrow h -> y label="w₂" w=-0.3
+schema loss axes x=[0,10] y=[0,4] xlabel="step" ylabel="loss" label="its loss"
+mark clock param value=0
+mark L path fn={3*exp(-0.35*x)+0.3} domain=[0,10] label="loss"
+mark now dot x={clock} y={3*exp(-0.35*clock)+0.3} label="now"
+mark rule tex tex="w \leftarrow w - \eta\,\frac{\partial L}{\partial w}"
+Say: "Each step nudges the |go|weights, and the loss slides down."
+@go morph clock.value 0 -> 8 3s
+with morph w1.w -> 1.2 3s
+with morph w2.w -> 0.8 3s
+Say: "Same network, better weights."

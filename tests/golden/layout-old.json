@@ -173,6 +173,18 @@
   "final": 96,
   "maxOverlaps": 0
  },
+ "scripts/views-compare.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/views.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
  "scripts/zoom.txt": {
   "mean": 94.8,
   "worst": 83.6,
