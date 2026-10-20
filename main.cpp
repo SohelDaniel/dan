@@ -313,6 +313,15 @@ int main(int argc, char **argv) {
     if (!s.empty()) s.pop_back();
   };
 
+  // TUTOR_SHOT=file.png:seconds saves the real window's own frame (high-DPI and all) and quits: the one
+  // check offscreen snapshots can't make
+  std::string shotFile;
+  float shotAt = 0, shotClock = 0;
+  if (const char *e = std::getenv("TUTOR_SHOT"); e && std::strchr(e, ':')) {
+    shotFile.assign(e, std::strchr(e, ':'));
+    shotAt = (float)std::atof(std::strchr(e, ':') + 1);
+  }
+
   while (!WindowShouldClose()) {
     // a hitch is clamped so motion doesn't jump, but not while the voice speaks: then
     // animations must keep pace with the audio clock
@@ -391,6 +400,7 @@ int main(int argc, char **argv) {
       TakeScreenshot(f.c_str());
       std::printf("saved %s\n", f.c_str());
     }
+    if (shotAt > 0 && (shotClock += dt) >= shotAt) { TakeScreenshot(shotFile.c_str()); break; }
 
     // hot reload: edit the .txt, the stage restarts
     reloadCheck += dt;

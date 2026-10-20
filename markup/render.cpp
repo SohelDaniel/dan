@@ -1,5 +1,6 @@
 // Drawing: every mark kind, links, enclosures, the voice's subtitles and the dictionary caption.
 #include "engine.hpp"
+#include "rlgl.h"
 #include <algorithm>
 #include <cmath>
 
@@ -726,7 +727,12 @@ void Engine::draw() {
   // the stage, scaled when the scene outgrew it; title, subtitles and hints stay at screen size
   Rectangle S = stageRect();
   Vector2 c{S.x + S.width / 2, S.y + S.height / 2}; // the stage's centre is the same at every scale
-  BeginMode2D(Camera2D{c, c, 0, zoom_});
+  // multiplied into the current matrix, not replacing it (BeginMode2D would drop the high-DPI scaling
+  // a Retina window draws with, and the stage would shrink into the top-left corner)
+  rlPushMatrix();
+  rlTranslatef(c.x, c.y, 0);
+  rlScalef(zoom_, zoom_, 1);
+  rlTranslatef(-c.x, -c.y, 0);
 
   // schema furniture
   const float F = stageFade_;
@@ -835,7 +841,7 @@ void Engine::draw() {
     if (Mark *m = mark(id); m && isAnnotationKind(effectiveKind(*m))) drawMark(*m);
   drawPulses();
   drawInfo();
-  EndMode2D();
+  rlPopMatrix();
   drawSubtitle();
   drawHud();
 }
