@@ -228,6 +228,9 @@ public:
   // (start time, wav file) for every narrated line, so a recording can be given its soundtrack
   std::vector<std::pair<float, std::string>> audioLog() const;
 
+  // the learner's hand: the mouse at screen size, each frame (drags a slider of a `set=learner` param)
+  void pointer(Vector2 p, bool down);
+
   // EvalCtx
   bool var(const std::string &name, double &out) override;
   bool member(const std::string &id, const std::string &prop, double &out) override;
@@ -325,6 +328,12 @@ private:
   std::vector<double> listNums(const Mark &m, const std::string &key);
   float opacityOf(const Obj &o);
   void drawSubtitle();
+  // ---- what the learner sets (controls.cpp)
+  struct Control { std::string id, name; double value = 0, lo = 0, hi = 1; float width = 0; Rectangle track{}; };
+  bool learnerSets(const Mark &m);
+  std::vector<Control> controls();
+  void drawControls();
+  std::string dragging_;
   void drawHud();
   void drawInfo();
   float alphaOf(const Obj &o);

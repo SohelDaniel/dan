@@ -49,6 +49,7 @@ std::vector<std::pair<std::string, Rectangle>> Engine::screenZones() {
   if (!title_.empty()) z.push_back({"title", toStage({24, 10, measure(title_, 24).x + 4, 32})});
   z.push_back({"key hints", toStage({(float)W - 380, 4, 376, 24})});
   if (say_.active || say_.lingering > 0) z.push_back({"subtitle", toStage({120, 586, 1040, 100})});
+  for (auto &c : controls()) z.push_back({"slider", toStage({c.track.x - measure(c.name, 16).x - 10, c.track.y - 12, c.width, 28})});
   return z;
 }
 

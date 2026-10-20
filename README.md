@@ -122,7 +122,7 @@ Colours by name: blue, orange, green, red, yellow, purple, teal, pink, brown, li
 - Data: `dot` `bar` `box` `label`.
 - On axes or plane: `line` `arrow` `path` `region`, plus the world shapes below.
 - Blocks: `tex` `card` `code` `array` `table`.
-- `param`: an invisible number that drives others (a clock, a constant).
+- `param`: an invisible number that drives others (a clock, a constant). With `set=learner` (and `range=[a,b]`) the learner sets it: a slider under the stage, and what it drives follows as they drag.
 
 If you leave the kind out, the schema picks one: a bar if the thing has a magnitude, otherwise a dot. Graph scenes use boxes.
 

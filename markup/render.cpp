@@ -926,6 +926,7 @@ void Engine::draw() {
   drawInfo();
   rlPopMatrix();
   drawSubtitle();
+  drawControls();
   drawHud();
 }
 

@@ -1,0 +1,6 @@
+# What the learner sets: a param with set=learner gets a slider; dragging it reshapes what it drives.
+title "Stretching a parabola"
+schema axes x=[-3,3] y=[0,9]
+mark k param value=1 range=[0,3] label="stretch k" set=learner
+mark f path fn={k*x^2} label="y = k x²"
+Say: "Drag the stretch and watch the parabola narrow or widen."

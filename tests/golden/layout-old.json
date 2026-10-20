@@ -161,6 +161,12 @@
   "final": 100,
   "maxOverlaps": 0
  },
+ "scripts/learner.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
  "scripts/loop.txt": {
   "mean": 100,
   "worst": 100,

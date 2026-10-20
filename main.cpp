@@ -388,6 +388,7 @@ int main(int argc, char **argv) {
       }
     }
 
+    eng.pointer(GetMousePosition(), IsMouseButtonDown(MOUSE_BUTTON_LEFT));
     if (!typing && IsKeyPressed(KEY_SPACE)) {
       if (eng.waiting()) eng.resume();
       else eng.togglePause();

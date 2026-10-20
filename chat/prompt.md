@@ -81,6 +81,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 - *Grouping / classes* (evens and odds, pairs, which cells a filter touched): colour the members of each group alike (`colors=[teal,-,teal,-]` on an array; a shared category on marks; `color=` on links).
 - *Normalise / share of a whole*: show the total, then re-mark each part divided by it; the parts now add to one.
 - *Rate / sensitivity*: nudge the input (morph a small `param`) and show the change in the output and their ratio (`\val{}` in a formula).
+- *Let them try it* ("what if…", a constant worth playing with): `mark k param value=1 range=[0,3] label="stretch k" set=learner`. The learner gets a slider; dragging it changes everything `k` drives. Show it moving once yourself (morph `k`), then invite them to drag. One or two per scene.
 - *Iterate to convergence*: re-mark the state step by step with `trail=all`; each step its own beat.
 - *Superposition*: the parts in their colours, then their sum in white on the same picture.
 - *Two views of one thing* (arrows ↔ a matrix, a curve ↔ its formula): colour ties each part of one view to its partner in the other.
@@ -150,6 +151,7 @@ If no row fits, still show the thing itself rather than a chart about it.
 - Don't use `pause`.
 - After the turn the engine checks the scene. Any problems come back to you in `<last_scene_issues>`; fix them if they matter.
 - `<last_frame>` comes with an image: the stage exactly as the learner saw it at the end of your last turn. Look at it before you build on it: if it is crowded, cut off or hard to read, tidy as you go (`hide` what's done, or a new `scene`).
+- `<learner_set>` lists sliders the learner dragged since your last turn and where they left them (the `<stage>` already has the new values). Say what that setting shows.
 - `<request_note>` means the learner asked for more than usual (a showcase, longer, bigger, more beautiful): give exactly that.
 - If the learner interrupts, you're told what they heard; continue from there.
 

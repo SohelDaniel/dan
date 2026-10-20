@@ -74,7 +74,7 @@ const saveMeta = () => fs.writeFileSync(file('session.json'),
   JSON.stringify({ sid: S.sid, turn: S.turn, title: S.title, lints: S.lints, updated: Date.now() }, null, 1));
 const logMsg = (m) => fs.appendFileSync(file('messages.jsonl'), JSON.stringify({ ...m, ts: Date.now() }) + '\n');
 const sessionOf = (dir, meta) => ({ id: path.basename(dir), dir, sid: meta.sid || null, turn: meta.turn || 0,
-  title: meta.title || '', lints: meta.lints || [], busy: false, memSent: null, pending: null, cut: false, note: '' });
+  title: meta.title || '', lints: meta.lints || [], busy: false, memSent: null, pending: null, cut: false, note: '', learnerSet: {} });
 
 function newSession() {
   const id = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
@@ -173,6 +173,12 @@ function onStageEvent(ev) {
     broadcast({ t: 'idle' });
   } else if (kind === 'input') {
     submit(JSON.parse(rest), 'stage');
+  } else if (kind === 'set') { // the learner dragged a slider: the stage's model has the new value now
+    const [id, v] = rest.split(' ');
+    if (!/^[\w.-]+$/.test(id) || !Number.isFinite(+v)) return;
+    for (const f of ['state.txt', 'live.txt']) fs.appendFileSync(file(f), `mark ${id} value=${+v}\n`);
+    S.learnerSet[id] = +v;
+    broadcast({ t: 'set', id, v: +v });
   }
 }
 // show this text from scratch (session open, replay)
@@ -295,6 +301,9 @@ function contextFor(text) {
       parts.push(`<library_scene name="${n}">\n${fs.readFileSync(path.join(LIBRARY, n + '.txt'), 'utf8').trim()}\n</library_scene>`);
   if (S.lints.length) parts.push(`<last_scene_issues>\n${S.lints.join('\n')}\n</last_scene_issues>`);
   if (S.note) { parts.push(S.note); S.note = ''; }
+  const sets = Object.entries(S.learnerSet);
+  if (sets.length) parts.push(`<learner_set>\n${sets.map(([id, v]) => `${id} = ${v}`).join('\n')}\n(the learner dragged these sliders before writing; react to what that showed)\n</learner_set>`);
+  S.learnerSet = {};
   if (/\b(show me (what|everything)|what (you|u) can do|display|tour|demo|showcase|longer|bigger|more (aesthetic|beautiful|visual|detail)|full (display|show))\b/i.test(text))
     parts.push('<request_note>The learner explicitly asked for more: a showcase, longer, bigger or more beautiful. Give exactly that, at showcase scale (several full scenes), not the default length.</request_note>');
   if (S.frame) parts.push('<last_frame> (attached image): the stage as the learner saw it at the end of your last turn. If it is crowded, cut off or hard to read, keep that in mind as you build on it.');
