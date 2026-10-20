@@ -774,6 +774,8 @@ Rectangle Engine::stageRect() const { return toStage(kStage); }
 // if it outgrew the stage, the target scale drops so it fits. Axes and planes always fit their area.
 void Engine::fitStage(float dt) {
   if (isAxes(schemaNow())) { // a plot always fits its area: back to full size
+    zoomFresh_ = false;
+    zoomSettle_ = 0;
     zoomT_ = 1;
     zoom_ = opt_.instant ? 1 : smoothApproach(zoom_, 1.f, dt, 6);
     return;
@@ -808,6 +810,17 @@ void Engine::fitStage(float dt) {
   if (x0 > x1) return;
   Rectangle S = stageRect();
   float need = std::max((x1 - x0) / S.width, (y1 - y0) / S.height);
+  // a scene's first content is shown large (up to 1.4x: one formula, a small array, a pair of boxes): for its
+  // first moments the scale follows the content both ways; then it only pulls back as the scene fills
+  // a number line or timeline spans the stage by design, like a plot: drawn larger, it would only squeeze its data
+  float most = schemaNow() == "numberline" || schemaNow() == "timeline" ? 1.f : 1.4f;
+  if (zoomSettle_ > 0) {
+    zoomSettle_ -= opt_.instant ? 0.2f : dt;
+    zoomT_ = std::clamp(zoom_ / need, 0.6f, most);
+    zoom_ = zoomFresh_ || opt_.instant ? zoomT_ : smoothApproach(zoom_, zoomT_, dt, 8);
+    zoomFresh_ = false;
+    return;
+  }
   if (need > 1.01f) zoomT_ = std::max(0.6f, std::min(zoomT_, zoom_ / need));
   zoom_ = opt_.instant ? zoomT_ : smoothApproach(zoom_, zoomT_, dt, 6);
 }

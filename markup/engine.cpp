@@ -283,6 +283,8 @@ void Engine::reset() {
   flowMemo_.clear();
   bandH_ = -1;
   zoom_ = zoomT_ = 1;
+  zoomFresh_ = true;
+  zoomSettle_ = 0.6f;
   linkRoute_.clear();
   cam_ = Camera{};
   hist_.clear();
@@ -607,6 +609,8 @@ void Engine::clearStage() {
   flowMemo_.clear();
   bandH_ = -1;
   zoom_ = zoomT_ = 1;
+  zoomFresh_ = true;
+  zoomSettle_ = 0.6f;
   linkRoute_.clear();
   rangeSig_.clear();
   rangesInit_ = false;
@@ -722,7 +726,16 @@ void Engine::execLine(const Line &ln) {
     if (!opt_.instant) waitingPause_ = true;
     break;
   case Verb::SCHEMA:
-    if (!ln.id.empty()) { // a named view: create it, or select it for the marks that follow
+    // an unnamed schema and named ones in one scene: the unnamed one is a view too ("main"), so each keeps
+    // its own part of the stage (a plane with its field beside a network, not under it)
+    if (!ln.id.empty() && views_.empty() && schema_ != "auto") {
+      views_.push_back({"main", schema_, schemaProps_});
+      for (auto &[id, m] : marks_) if (m.view.empty()) m.view = "main";
+    }
+    if (!ln.id.empty() || !views_.empty()) { // a named view: create it, or select it for the marks that follow
+      Line named = ln;
+      if (named.id.empty()) named.id = "main";
+      const Line &ln = named;
       auto v = std::find_if(views_.begin(), views_.end(), [&](const View &w) { return w.id == ln.id; });
       if (v == views_.end()) { views_.push_back({ln.id, ln.kind.empty() ? "free" : ln.kind, ln.props}); v = views_.end() - 1; }
       else if (!ln.kind.empty()) { v->schema = ln.kind; v->props = ln.props; }

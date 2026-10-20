@@ -1,0 +1,12 @@
+# An unnamed schema followed by a named one: both are views (the unnamed one is "main"), side by side.
+title "A field beside a network"
+schema plane x=[-3,3] y=[-3,3] grid=false axes=false
+mark clock param value=0
+mark F field vx={-y} vy={x} style=lines
+mark p dot x={2*cos(clock)} y={2*sin(clock)} trail=1.5s label="planet"
+schema net graph label="a tiny net"
+mark x1 box input label="x₁"
+mark h1 box output label="h"
+link w1 arrow x1 -> h1 label="w₁"
+Say: "A planet circles in its |go|field, and a network sits beside it."
+@go morph clock.value 0 -> 3.14 2s ease=linear

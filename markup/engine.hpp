@@ -448,7 +448,9 @@ private:
   std::vector<int> sceneBlocks_;   // per scene: how many blocks its script declares
   // fit: a scene that outgrows the stage is drawn smaller (never below 0.6, so text stays legible).
   // Layout, labels and the checker work in the enlarged layout stage; drawing scales it back.
-  float zoom_ = 1, zoomT_ = 1;          // drawn and target scale; only shrinks within a scene
+  float zoom_ = 1, zoomT_ = 1;          // drawn and target scale; set by the scene's first content, then only shrinks
+  bool zoomFresh_ = true;               // nothing measured yet in this scene
+  float zoomSettle_ = 0.6f;             // seconds left in which the scale may still grow
   Rectangle stageRect() const;           // the stage in layout coordinates (the screen's at zoom 1)
   Rectangle toStage(Rectangle screen) const; // a screen rectangle (a reserved zone) in layout coordinates
   void fitStage(float dt);              // after layout: shrink if what's laid out outgrew the stage

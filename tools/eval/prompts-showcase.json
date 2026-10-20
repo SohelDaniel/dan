@@ -1,0 +1,5 @@
+[
+  {"id": "display", "type": "showcase", "q": "give me a display of what you can do like how you can visualize thing with the tools you have"},
+  {"id": "full", "type": "showcase", "q": "show me a full display build stuff from random topics and fields"},
+  {"id": "longer", "type": "showcase", "q": "explain how a pendulum works but make it longer and more aesthetic, I want a proper visual"}
+]

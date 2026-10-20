@@ -174,10 +174,10 @@
   "maxOverlaps": 1
  },
  "scripts/pointers.txt": {
-  "mean": 98.7,
-  "worst": 57.4,
+  "mean": 99.7,
+  "worst": 92,
   "final": 100,
-  "maxOverlaps": 2
+  "maxOverlaps": 1
  },
  "scripts/recursion.txt": {
   "mean": 100,
@@ -214,6 +214,12 @@
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
+ },
+ "scripts/views-mixed.txt": {
+  "mean": 99.8,
+  "worst": 97,
+  "final": 100,
+  "maxOverlaps": 1
  },
  "scripts/views.txt": {
   "mean": 100,
