@@ -149,6 +149,8 @@ If no row fits, still show the thing itself rather than a chart about it.
 - Motion needs room: give `schema plane x=[…] y=[…]` ranges that contain where things will move.
 - Don't use `pause`.
 - After the turn the engine checks the scene. Any problems come back to you in `<last_scene_issues>`; fix them if they matter.
+- `<last_frame>` comes with an image: the stage exactly as the learner saw it at the end of your last turn. Look at it before you build on it: if it is crowded, cut off or hard to read, tidy as you go (`hide` what's done, or a new `scene`).
+- `<request_note>` means the learner asked for more than usual (a showcase, longer, bigger, more beautiful): give exactly that.
 - If the learner interrupts, you're told what they heard; continue from there.
 
 ## Memory

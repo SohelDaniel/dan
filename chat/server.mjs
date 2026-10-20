@@ -132,8 +132,9 @@ function spawnStage() {
   const args = [file('live.txt'), '--stdin'];
   if (mute) args.push('--mute');
   if (VOICE) args.push('--voice-id', VOICE);
-  stage = spawn(TUTOR, args, { cwd: ROOT, stdio: ['pipe', 'pipe', 'ignore'] }); // cwd ROOT: .inworld_key + caches
+  stage = spawn(TUTOR, args, { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'] }); // cwd ROOT: .inworld_key + caches
   stage.stdin.on('error', () => {});
+  stage.stderr.on('data', (d) => fs.appendFileSync(file('stage.log'), d)); // parse errors, voice failures
   let buf = '';
   stage.stdout.on('data', (d) => {
     buf += d;
@@ -194,6 +195,15 @@ function readback(text) {
   const rb = spawnSync(TUTOR, [file('.fold.txt'), '--readback'], { encoding: 'utf8', cwd: ROOT }).stdout || '';
   return rb.split('\n').filter((l) => l.trim() && !l.startsWith('#')).join('\n') + '\n'; // the model, no derived comments
 }
+// the stage as the learner saw it at the end of the turn, rendered offscreen in the background; it goes
+// to Claude with the next message, so it sees its own picture (crowding, cut-off text, a bad composition)
+function snapshotFrame(text) {
+  fs.writeFileSync(file('.frame.txt'), text);
+  S.frame = null;
+  const p = spawn(TUTOR, [file('.frame.txt'), '--snapshot', file('frame'), '--at', 'end', '--mute'], { cwd: ROOT, stdio: 'ignore' });
+  p.on('close', (code) => { if (code === 0 && fs.existsSync(file('frame_end.png'))) S.frame = file('frame_end.png'); });
+}
+
 function check(text) {
   fs.writeFileSync(file('.fold.txt'), text);
   const r = spawnSync(TUTOR, [file('.fold.txt'), '--check'], { encoding: 'utf8', cwd: ROOT });
@@ -275,6 +285,9 @@ function contextFor(text) {
       parts.push(`<library_scene name="${n}">\n${fs.readFileSync(path.join(LIBRARY, n + '.txt'), 'utf8').trim()}\n</library_scene>`);
   if (S.lints.length) parts.push(`<last_scene_issues>\n${S.lints.join('\n')}\n</last_scene_issues>`);
   if (S.note) { parts.push(S.note); S.note = ''; }
+  if (/\b(show me (what|everything)|what (you|u) can do|display|tour|demo|showcase|longer|bigger|more (aesthetic|beautiful|visual|detail)|full (display|show))\b/i.test(text))
+    parts.push('<request_note>The learner explicitly asked for more: a showcase, longer, bigger or more beautiful. Give exactly that, at showcase scale (several full scenes), not the default length.</request_note>');
+  if (S.frame) parts.push('<last_frame> (attached image): the stage as the learner saw it at the end of your last turn. If it is crowded, cut off or hard to read, keep that in mind as you build on it.');
   parts.push(`<stage>\n${read('state.txt').trim() || '(empty)'}\n</stage>`);
   return parts.join('\n') + `\n\nLearner: ${text}`;
 }
@@ -284,7 +297,7 @@ function runTurn(text, source, model = defaultModel) {
   S.cut = false;
   speech.lines = []; speech.current = null;
   if (!S.title) S.title = text.replace(/\s+/g, ' ').trim().slice(0, 60);
-  logMsg({ role: 'user', text, source });
+  logMsg({ role: 'user', text, source, frame: !!S.frame }); // frame: the last picture went with it
   const t0 = Date.now();
   S.turnAt = () => +((Date.now() - t0) / 1000).toFixed(1);
   const times = S.turnTimes = { first: null, stage: null, voice: null, done: null }; // seconds after send
@@ -346,6 +359,7 @@ function runTurn(text, source, model = defaultModel) {
       const c = check(live);
       S.lints = c.lints;
       fs.writeFileSync(file('state.txt'), readback(live));
+      snapshotFrame(live);
       msg.stage = { ok: c.ok, lints: c.lints, turn, state: read('state.txt') };
       broadcast({ t: 'stage', ...msg.stage });
     } else S.lints = [];
@@ -375,7 +389,12 @@ function runTurn(text, source, model = defaultModel) {
       finish('Claude stopped: ' + (e.err.trim().split('\n').pop() || 'process exited'));
     }
   };
-  claude.p.stdin.write(JSON.stringify({ type: 'user', message: { role: 'user', content: contextFor(text) } }) + '\n');
+  const content = [{ type: 'text', text: contextFor(text) }];
+  if (S.frame) { // what the learner last saw, as an image
+    try { content.push({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: fs.readFileSync(S.frame).toString('base64') } }); } catch {}
+    S.frame = null;
+  }
+  claude.p.stdin.write(JSON.stringify({ type: 'user', message: { role: 'user', content } }) + '\n');
 }
 
 // ------------------------------------------------------------ http
