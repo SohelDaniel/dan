@@ -22,5 +22,4 @@ group tf part-of=[t1,t2,t3] label="transformer: all at once"
 Say: "A transformer looks at every word |all|at once, and each word weighs the others."
 @all indicate a2
 with indicate a3
-mark key card text="RNN: memory passed along. Transformer: every word sees every word." label="Key idea"
 Say: "So the transformer never has to squeeze a long sentence through one memory."

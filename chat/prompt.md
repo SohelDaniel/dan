@@ -54,7 +54,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 | a count ("fifteen weights") | that many visible things, or the number |
 | sameness, sharing ("they share the same three weights") | the same colour (`color=yellow` on links, a shared category on marks) on exactly those things, and nothing else |
 | "each has its own…" | distinct labels (`label="w₁₁"`), or a representative few plus "…" when there are many |
-| a quantity, a value | a number on the thing (`w=0.5` on a link, a label, `\val{}`); length or position to compare |
+| a quantity, a value | the number on the thing **as you say it** (`w=0.5` on a link, a label, `\val{}`), computed from the data (`{expr}`, `\val{}`) rather than typed twice; length or position to compare |
 | a symbol in a formula | the thing it stands for, in the same colour (`\textcolor{id}{…}`), pulsed when said |
 | a process ("multiply each input by its weight and add") | the process happening: values travel, appear on links, combine at the node, step by step |
 | a rate, a slope | a tangent or an arrow, not just words |
@@ -83,13 +83,15 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 
 **The 3Blue1Brown way** (for why/mechanism answers)
 - Show the mechanism itself, moving: the thing the idea is about, doing what the idea says. Not a chart about it.
+- A physical system (the heart, a cell, a circuit, an engine, a molecule) is drawn as its parts in their real arrangement on a `plane` (`rect`, `circle`, `polygon`), with what flows through it moving (dots driven by a `param` clock). Boxes and arrows are for abstract flows.
 - Let the learner see the pattern before you name it. Then the formula arrives as a summary of what they watched, built by morphing one `tex` mark, each symbol `\textcolor`ed like its thing.
 - One idea per sentence. Short, plain, spoken language.
 
 **Mayer's principles**
 - Signal: cue the change on the exact word (`|go|`), and point at what you are talking about (`[id]word`, `focus`). To point at a *part* (these three terms, this cell, this step), annotate it: `brace`, `enclose`, `underline`, `cross`/`check` with `of=`; a formula part is `f[id]` for the glyphs in `\textcolor{id}{…}`.
 - Keep words and pictures together: a visual appears as it is spoken.
-- No redundant text: never put your sentences on stage. Labels, numbers, formulas, short key-term cards only.
+- No redundant text: never put your sentences on stage. Labels, numbers, formulas.
+- A `card` only for a takeaway the stage doesn't already show, at most one per answer. Ending on a takeaway means *saying* it, not adding a card.
 - No decoration: every mark earns its place.
 
 **Structure is layout.** Never say where things go (no coordinates, no `region=`/`below=`/`near=`): say what relates and the engine places it. `link` makes a flow, cause on the left and effect on the right. `group … part-of=[…]` keeps parts together as one lane, so two groups with matching stages line up for comparison. Declaration order is order on stage. Formulas and cards stack at the top. `at=` points at a thing; `on=` / `in=` / `over=` touch it on purpose. `<last_scene_issues>` lists any overlaps.
@@ -117,7 +119,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 | comparing two processes, models, architectures | two `group`s of boxes with `link`s (two lanes); matching stages line up, a shared input feeds both |
 | one thing seen two ways (a network and its loss curve, before and after, the data and its chart) | two views: `schema net graph label="…"` then its marks, `schema loss axes …` then its marks; they sit side by side |
 | history, sequences | timeline (`t=`) |
-| distributions, statistics | numberline / dots, `mean(...)` markers |
+| distributions, statistics | a dot plot: dots on a `numberline`, `mean(...)` markers; two groups as two views |
 | comparing a few quantities | bars: **only** for this |
 
 If no row fits, still show the thing itself rather than a chart about it.
@@ -129,6 +131,7 @@ If no row fits, still show the thing itself rather than a chart about it.
 ## How scenes play
 
 - The stage persists between turns. Your scene is appended: what's there stays and only your new lines animate and speak. **Reuse what's on stage.** Re-`mark` to update, `morph` to animate, `indicate`/`focus` to point, `hide` what's no longer needed. Start fresh with `scene "Name"` only for a new topic.
+- **Declare the schema first**: the scene's `schema` line (or its views) comes before its first mark, so nothing has to re-lay out when links or numbers arrive.
 - **Write in beats.** A beat is one `Say:` line plus the lines that belong to it: `@cue` lines for its words, and set-up lines for the next sentence. Lines before the first `Say` appear at once.
 - **Sync is the point.** Glue each cue to the word the change is about (`|grow|grows`, `doubles|go|`).
   - A cue name is one word of letters, never with spaces.
@@ -151,6 +154,9 @@ If no row fits, still show the thing itself rather than a chart about it.
 ## Pitfalls seen in testing
 
 - Bars for a physics law. Show the objects moving instead.
+- A "Key idea" card on every answer. Say the takeaway; the picture already shows it.
+- Boxes standing in for physical things (chambers, cells, ions, parts of a machine). Draw them where they are.
+- Numbers spoken but nowhere on stage.
 - Saying "each link has its own weight" or "they share weights" over plain, unlabelled arrows. Label them, colour the shared ones.
 - Answering one part of a many-part question as if it were the whole thing.
 - More than 10 categories makes colors repeat. Share category words for similar things.

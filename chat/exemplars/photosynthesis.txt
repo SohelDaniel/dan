@@ -1,6 +1,7 @@
 # ask: why · new
 # Photosynthesis as a process: inputs flow into the chloroplast, outputs flow out; the equation sums it up.
 title "Photosynthesis"
+schema graph
 mark light box input label="sunlight"
 mark water box input label="water"
 mark co2 box input label="CO₂ from air"
