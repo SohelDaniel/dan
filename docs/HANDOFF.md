@@ -249,8 +249,20 @@ Each committed, regressions (test, check, append, golden) green after each:
   server folds it into the stage text and sends `<learner_set>`. Simulated drags verified; a real mouse drag on a
   Retina window has not been tried yet.
 
-Still open on the list: latency (~9 s to the first drawing), engine unit tests and long functions, then 3D, then the
-taste scorer (3b1b priors, an AI judge, a few clicks from the user).
+Latency, measured (2026-10-21, probe and A/B evals on the 44 broad questions):
+- Most of the ~9 s is Claude *thinking* before its first word (5-14 s in real chats; Haiku and Sonnet decide this
+  themselves, `MAX_THINKING_TOKENS=0` doesn't stop them). A prompt line "don't deliberate" stops Sonnet thinking
+  (first sentence ~4 s instead of ~7.5 s) but costs accuracy 3.70 -> 3.34, teaching 3.68 -> 3.41, binding
+  3.18 -> 2.80. Rejected: the thinking is what makes answers right.
+- Dropping the ```plan block saves ~1.5 s at equal judge scores but raises spoken-but-not-shown lints 41 -> 54.
+  Kept.
+- Done instead: the voice for each Say starts synthesising as soon as it is written (`#!voice`), the server's
+  check runs in the background, Claude's process is warm when a chat opens.
+
+Code health: engine unit tests (`tests/test_engine.cpp`); `parseLine`, `placeAllLabels` and `layout` split,
+verified identical against the previous binary.
+
+Next: 3D, then the taste scorer (3b1b priors, an AI judge, a few clicks from the user).
 
 ## 9. Known loose ends
 
