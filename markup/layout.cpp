@@ -972,6 +972,7 @@ void Engine::layoutGraph(Rectangle area, const std::vector<std::string> &ids, co
       r.portA = o.route[e].portA;
       r.portB = o.route[e].portB;
       r.back = o.route[e].back;
+      r.down = o.down;
     }
   }
   for (auto &id : ids) {

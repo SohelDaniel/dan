@@ -249,7 +249,7 @@ mark tag tex tex="E = v^2" x=4 y=30 size=30
 You never say where a thing goes. Position is a channel of the dictionary, like color: the engine derives it from what the script already says.
 
 - **Data** stays where its data puts it: axes, number line, timeline, plane.
-- **Links** make a flow (schema `graph`): cause on the left, effect on the right, in columns. A link that skips columns is routed through the gaps; one that runs back (a cycle, a gradient) arcs.
+- **Links** make a flow (schema `graph`): cause on the left, effect on the right, in columns. A link that skips columns is routed through the gaps; one that runs back (a cycle, a gradient) arcs. A hierarchy (every thing has at most one parent, and something branches: a call tree, a probability tree, a taxonomy) reads top-down instead.
 - **Groups** (`group g part-of=[…]`) are lanes in a flow: their parts stay together in a box, and the stages of two lanes line up, so two processes can be compared side by side.
 - **Order** of declaration is order on stage: left to right in a row, top to bottom in a column.
 - **Formulas, cards, code, arrays and tables** stack in a band at the top.

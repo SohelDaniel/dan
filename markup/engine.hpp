@@ -408,6 +408,7 @@ private:
     std::vector<Vector2> via, viaT;       // waypoints through the gaps: drawn (eased) and target
     float portA = 0, portB = 0;           // where it leaves and enters, along the sides
     bool back = false;                    // against the flow: an arc
+    bool down = false;                    // a tree: leaves the bottom, enters the top
   };
   std::map<std::string, LinkRoute> linkRoute_; // links laid out by the flow (graph schema)
 
@@ -454,12 +455,14 @@ private:
     std::vector<Vector2> path;          // brace / underline stroke
     std::string label;
     Vector2 labelAt{0, 0}, labelAnchor{0.5f, 0};
+    Rectangle labelBox{0, 0, 0, 0};
     int side = 0;                        // 0 below, 1 right, 2 above, 3 left
   };
   Annotation annotation(const Mark &m);
   bool annotationTarget(const Mark &m, Rectangle &out);
   bool texPartBox(const Mark &m, const std::string &part, Rectangle &out);
   void layoutAnnotations();
+  std::vector<Vector2> shapeOutline(const Mark &m); // a rect, circle, polygon or angle as its outline
   float annotationRoom(const Mark &block);
   void drawAnnotation(const Mark &m);
   Vector2 infoOrigin();                  // where labels with no place of their own stack: below the band, or in the plot's corner               // after layout: shrink if what's laid out outgrew the stage

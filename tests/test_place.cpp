@@ -292,9 +292,10 @@ TEST_CASE("flow: streaming: a newcomer is inserted, the things on stage keep the
   auto o1 = layoutFlow(in, memo);
   auto in2 = flowOf({"a", "b", "c", "d", "e"}, {"a>b", "a>c", "a>d", "a>e"});
   auto o2 = layoutFlow(in2, memo);
-  CHECK(o2.centre[1].y < o2.centre[2].y);
-  CHECK(o2.centre[2].y < o2.centre[3].y);
-  CHECK(o1.centre[1].y < o1.centre[2].y);
+  auto across = [](const FlowOut &o, int i) { return o.down ? o.centre[i].x : o.centre[i].y; }; // across the flow
+  CHECK(across(o2, 1) < across(o2, 2));
+  CHECK(across(o2, 2) < across(o2, 3));
+  CHECK(across(o1, 1) < across(o1, 2));
   FlowMemo m1, m2;
   auto p1 = layoutFlow(in2, m1), p2 = layoutFlow(in2, m2);
   for (size_t i = 0; i < p1.centre.size(); i++) CHECK(p1.centre[i] == p2.centre[i]);
@@ -363,4 +364,15 @@ TEST_CASE("check: composition: a drawing crammed in a corner fills less and sits
   Report c = check(corner), w = check(wide);
   CHECK(c.fill < w.fill);
   CHECK(c.offset > w.offset);
+}
+
+TEST_CASE("flow: a hierarchy reads top-down; a chain, or a thing with two parents, reads left to right") {
+  FlowMemo m1, m2, m3;
+  auto tree = layoutFlow(flowOf({"r", "a", "b", "a1", "a2"}, {"r>a", "r>b", "a>a1", "a>a2"}), m1);
+  CHECK(tree.down);
+  CHECK(tree.centre[0].y < tree.centre[1].y);   // the root on top
+  CHECK(tree.centre[1].x < tree.centre[2].x);   // children side by side, in declaration order
+  CHECK(tree.centre[1].y == tree.centre[2].y);
+  CHECK(!layoutFlow(flowOf({"a", "b", "c"}, {"a>b", "b>c"}), m2).down);
+  CHECK(!layoutFlow(flowOf({"x1", "x2", "h"}, {"x1>h", "x2>h"}), m3).down);
 }

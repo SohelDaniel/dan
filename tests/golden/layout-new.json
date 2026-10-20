@@ -24,10 +24,10 @@
   "maxOverlaps": 1
  },
  "chat/exemplars/heart.txt": {
-  "mean": 96.8,
+  "mean": 98.7,
   "worst": 68.2,
   "final": 100,
-  "maxOverlaps": 2
+  "maxOverlaps": 3
  },
  "chat/exemplars/median.txt": {
   "mean": 100,
@@ -120,10 +120,10 @@
   "maxOverlaps": 0
  },
  "scripts/grid.txt": {
-  "mean": 99.4,
-  "worst": 88.8,
+  "mean": 99.6,
+  "worst": 92.8,
   "final": 100,
-  "maxOverlaps": 2
+  "maxOverlaps": 1
  },
  "scripts/hide.txt": {
   "mean": 100,
@@ -162,8 +162,8 @@
   "maxOverlaps": 1
  },
  "scripts/pointers.txt": {
-  "mean": 98.6,
-  "worst": 54,
+  "mean": 98.7,
+  "worst": 57.4,
   "final": 100,
   "maxOverlaps": 2
  },

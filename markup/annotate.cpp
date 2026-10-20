@@ -148,6 +148,7 @@ Engine::Annotation Engine::annotation(const Mark &m) {
   }
   a.label = name;
   Rectangle lb{a.labelAt.x - ls.x * a.labelAnchor.x, a.labelAt.y - ls.y * a.labelAnchor.y, ls.x, ls.y};
+  if (!name.empty()) a.labelBox = lb;
   a.bounds = a.box.width > 0 ? a.box : Rectangle{0, 0, 0, 0};
   for (auto &p : a.path) a.bounds = unite(a.bounds, {p.x - 2, p.y - 2, 4, 4});
   if (!name.empty()) a.bounds = unite(a.bounds, lb);

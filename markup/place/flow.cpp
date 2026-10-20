@@ -339,15 +339,33 @@ void routeEdges(const Work &w, const FlowInput &in, const std::vector<float> &x,
 
 } // namespace
 
-FlowOut layoutFlow(const FlowInput &in, FlowMemo &memo) {
+// a hierarchy: every thing has at most one parent, something branches, and no lanes
+static bool isTree(const FlowInput &in, const std::vector<std::pair<int, int>> &flow) {
+  if (flow.empty() || std::any_of(in.lane.begin(), in.lane.end(), [](int l) { return l >= 0; })) return false;
+  std::vector<int> parents(in.id.size(), 0), kids(in.id.size(), 0);
+  for (auto [u, v] : flow) { parents[v]++; kids[u]++; }
+  if (std::any_of(parents.begin(), parents.end(), [](int p) { return p > 1; })) return false;
+  return std::any_of(kids.begin(), kids.end(), [](int k) { return k > 1; });
+}
+
+FlowOut layoutFlow(const FlowInput &given, FlowMemo &memo) {
   FlowOut out;
-  int n = (int)in.id.size();
+  int n = (int)given.id.size();
   if (n == 0) return out;
-  std::vector<bool> back = breakCycles(n, in.edges);
+  std::vector<bool> back = breakCycles(n, given.edges);
   std::vector<std::pair<int, int>> flow;
-  for (size_t e = 0; e < in.edges.size(); e++) {
-    auto [a, b, lw] = in.edges[e];
+  for (size_t e = 0; e < given.edges.size(); e++) {
+    auto [a, b, lw] = given.edges[e];
     if (a != b) flow.push_back(back[e] ? std::pair{b, a} : std::pair{a, b});
+  }
+  // a tree is laid out with the axes swapped (the same algorithm, columns become rows), then swapped back
+  out.down = isTree(given, flow);
+  if (memo.down != out.down) { memo.slot.clear(); memo.down = out.down; }
+  FlowInput in = given;
+  if (out.down) {
+    in.area = {given.area.y, given.area.x, given.area.h, given.area.w};
+    for (auto &s : in.size) std::swap(s.x, s.y);
+    for (auto &e : in.edges) e.labelW = e.labelW > 0 ? 24 : 0; // a label beside a downward link needs its height
   }
   std::vector<int> rank = assignRanks(in, flow);
   Work w = buildWork(in, rank, back);
@@ -358,18 +376,22 @@ FlowOut layoutFlow(const FlowInput &in, FlowMemo &memo) {
   routeEdges(w, in, x, y, back, out);
   out.overflow = wide || tall;
   for (int v = 0; v < n; v++) {
-    out.centre.push_back({x[rank[v]], y[v]});
+    out.centre.push_back(out.down ? Vec{y[v], x[rank[v]]} : Vec{x[rank[v]], y[v]});
     out.rank.push_back(rank[v]);
     memo.slot[in.id[v]] = {rank[v], y[v]};
   }
+  if (out.down)
+    for (auto &r : out.route) for (auto &p : r.via) std::swap(p.x, p.y);
   return out;
 }
 
-std::vector<Vec> smoothRoute(const std::vector<Vec> &p, int perSeg) {
+std::vector<Vec> smoothRoute(const std::vector<Vec> &p, int perSeg, bool vertical) {
   if (p.size() < 2) return p;
   std::vector<Vec> out{p[0]};
   for (size_t i = 1; i < p.size(); i++) {
-    Vec a = p[i - 1], b = p[i], c1{(a.x + b.x) / 2, a.y}, c2{(a.x + b.x) / 2, b.y};
+    Vec a = p[i - 1], b = p[i];
+    Vec c1 = vertical ? Vec{a.x, (a.y + b.y) / 2} : Vec{(a.x + b.x) / 2, a.y};
+    Vec c2 = vertical ? Vec{b.x, (a.y + b.y) / 2} : Vec{(a.x + b.x) / 2, b.y};
     for (int k = 1; k <= perSeg; k++) {
       float t = (float)k / perSeg, u = 1 - t;
       out.push_back(a * (u * u * u) + c1 * (3 * u * u * t) + c2 * (3 * u * t * t) + b * (t * t * t));

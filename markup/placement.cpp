@@ -19,13 +19,33 @@ std::string Engine::inkName(const Mark &m) {
   return k + " '" + m.id + "'";
 }
 
+// a translucent world shape as the eye reads it: its outline (things and names may sit inside it)
+std::vector<Vector2> Engine::shapeOutline(const Mark &m) {
+  std::string k = effectiveKind(m);
+  std::vector<Vector2> pts;
+  if (k == "polygon") {
+    auto q = listNums(m, "pts");
+    for (size_t i = 0; i + 1 < q.size(); i += 2) pts.push_back(axes_.toScreen((float)q[i], (float)q[i + 1]));
+    if (!pts.empty()) pts.push_back(pts.front());
+  } else if (k == "circle") {
+    Vector2 ctr = axes_.toScreen((float)num(m, "x"), (float)num(m, "y"));
+    double r = num(m, "r");
+    float ppy = axes_.area.height / std::max(1e-6f, axes_.ymax - axes_.ymin);
+    for (int i = 0; i <= 24; i++) {
+      float t = 6.2831853f * i / 24;
+      pts.push_back({ctr.x + std::cos(t) * (float)r * ppy, ctr.y + std::sin(t) * (float)r * ppy});
+    }
+  } else {
+    Rectangle b = bodyBounds(m);
+    pts = {{b.x, b.y}, {b.x + b.width, b.y}, {b.x + b.width, b.y + b.height}, {b.x, b.y + b.height}, {b.x, b.y}};
+  }
+  return pts;
+}
+
 place::Picture Engine::picture() {
   place::Picture p;
   std::map<std::string, int> idx; // mark id -> ink
-  auto pointerTarget = [&](const Mark &m) -> std::string { // what a pointer or an annotation is about
-    if (isAnnotationKind(effectiveKind(m)))
-      if (const Value *of = findProp(m.props, "of"))
-        return baseId(of->type == Value::LIST ? (of->list.empty() ? "" : of->list[0]) : of->str);
+  auto pointerTarget = [&](const Mark &m) -> std::string {
     const Value *at = findProp(m.props, "at");
     return at && at->type == Value::STR && !isWorldKind(effectiveKind(m)) ? baseId(at->str) : "";
   };
@@ -36,7 +56,8 @@ place::Picture Engine::picture() {
       std::string k = effectiveKind(*m);
       if (k == "param" || k == "grid" || k == "path" || k == "region" || k == "line" || k == "arrow" || k == "vector") continue;
       if (isFieldKind(k) || k == "solution") continue;
-      if (k == "polygon" || k == "angle" || k == "circle") continue; // outlines, added below
+      if (k == "polygon" || k == "angle" || k == "circle" || k == "rect") continue; // outlines, added below
+      if (isAnnotationKind(k)) continue;                                            // stroke and name, added below
       if ((alphaOf(*m) < 0.05f && m->appear >= 1) || m->appear <= 0 || ghost(*m)) continue; // hidden, or not entered yet
       std::string target = pointerTarget(*m);
       if ((pass == 0) != target.empty()) continue;
@@ -47,13 +68,11 @@ place::Picture Engine::picture() {
       if (!target.empty()) {
         auto t = idx.find(target);
         ink.owner = t == idx.end() ? -1 : t->second;
-        ink.what = (isAnnotationKind(effectiveKind(*m)) ? effectiveKind(*m) : std::string("pointer")) + " '" + id + "'";
+        ink.what = "pointer '" + id + "'";
       }
       if (!focus_.empty() && baseId(focus_) == id) ink.priority = 2;
       idx[id] = p.add(ink);
-      if (const Value *of = findProp(m->props, "of"); of && of->type == Value::LIST && isAnnotationKind(effectiveKind(*m)))
-        for (auto &ref : of->list) // it covers all its targets, not just the first
-          if (auto t = idx.find(baseId(ref)); t != idx.end()) p.allow(idx[id], t->second);
+
     }
   auto lineInk = [&](const std::string &id, const std::string &what, const std::vector<Vector2> &pts, int owner, int other) {
     if (pts.size() < 2) return -1;
@@ -83,24 +102,9 @@ place::Picture Engine::picture() {
       Vector2 A, B;
       bool hs;
       if (lineEnds(*m, A, B, hs)) idx[id] = lineInk(id, k + " '" + id + "'", {A, B}, -1, -1);
-    } else if (k == "polygon" || k == "circle" || k == "angle") { // translucent shapes: only their outline
+    } else if (k == "polygon" || k == "circle" || k == "angle" || k == "rect") { // translucent shapes: only their outline
       std::vector<Vector2> pts;
-      if (k == "polygon") {
-        auto q = listNums(*m, "pts");
-        for (size_t i = 0; i + 1 < q.size(); i += 2) pts.push_back(axes_.toScreen((float)q[i], (float)q[i + 1]));
-        if (!pts.empty()) pts.push_back(pts.front());
-      } else if (k == "circle") {
-        Vector2 ctr = axes_.toScreen((float)num(*m, "x"), (float)num(*m, "y"));
-        double r = num(*m, "r");
-        float ppy = axes_.area.height / std::max(1e-6f, axes_.ymax - axes_.ymin);
-        for (int i = 0; i <= 24; i++) {
-          float t = 6.2831853f * i / 24;
-          pts.push_back({ctr.x + std::cos(t) * (float)r * ppy, ctr.y + std::sin(t) * (float)r * ppy});
-        }
-      } else {
-        Rectangle b = bodyBounds(*m);
-        pts = {{b.x, b.y}, {b.x + b.width, b.y}, {b.x + b.width, b.y + b.height}, {b.x, b.y + b.height}, {b.x, b.y}};
-      }
+      pts = shapeOutline(*m);
       idx[id] = lineInk(id, k + " '" + id + "'", pts, -1, -1);
     } else if (k == "vector") {
       Vector2 s0, e1;
@@ -109,6 +113,29 @@ place::Picture Engine::picture() {
       if (const Value *at = findProp(m->props, "at"); at && at->type == Value::STR)
         if (auto t = idx.find(baseId(at->str)); t != idx.end()) owner = t->second;
       idx[id] = lineInk(id, inkName(*m), {s0, e1}, owner, -1);
+    }
+  }
+  // annotations: the stroke they draw (a brace, an underline, a box's outline, a cross) and their name, both
+  // about their target, which they may touch
+  for (auto &id : order_) {
+    Mark *m = mark(id);
+    if (!m || !m->positioned || !isAnnotationKind(effectiveKind(*m)) || alphaOf(*m) < 0.05f) continue;
+    Annotation a = annotation(*m);
+    if (!a.ok) continue;
+    const Value *of = findProp(m->props, "of");
+    std::vector<std::string> refs = of->type == Value::LIST ? of->list : std::vector<std::string>{of->str};
+    auto t = idx.find(baseId(refs.empty() ? "" : refs[0]));
+    int owner = t == idx.end() ? -1 : t->second;
+    std::vector<Vector2> stroke = a.path;
+    if (stroke.empty()) { const Rectangle &b = a.box; stroke = {{b.x, b.y}, {b.x + b.width, b.y}, {b.x + b.width, b.y + b.height}, {b.x, b.y + b.height}, {b.x, b.y}}; }
+    std::string what = effectiveKind(*m) + " '" + id + "'";
+    int si = lineInk(id, what, stroke, owner, -1);
+    for (auto &ref : refs) if (auto r = idx.find(baseId(ref)); r != idx.end()) p.allow(si, r->second);
+    if (a.labelBox.width > 0) {
+      place::Ink ink{place::Ink::Label, id, "name of " + what, toRect(a.labelBox)};
+      ink.owner = si;
+      int li = p.add(ink);
+      for (auto &ref : refs) if (auto r = idx.find(baseId(ref)); r != idx.end()) p.allow(li, r->second);
     }
   }
   for (auto &id : order_) // trails: strokes owned by the thing that leaves them
@@ -600,13 +627,16 @@ LinkGeom Engine::linkGeometryAt(const Link &l) {
     g.pb = {rb.x + rb.width / 2, y};
     g.bend = (g.pb.x >= g.pa.x ? 1 : -1) * std::clamp(std::fabs(g.pb.x - g.pa.x) * 0.4f, 40.f, 120.f);
     g.mid = arcPoint(g.pa, g.pb, g.bend, 0.5f) - Vector2{0, 16};
-  } else if (auto rt = linkRoute_.find(l.id); rt != linkRoute_.end() && !rt->second.back && rb.x > ra.x + ra.width) {
-    // laid out by the flow: from the source's right side, through the gaps, into the target's left side
+  } else if (auto rt = linkRoute_.find(l.id); rt != linkRoute_.end() && !rt->second.back &&
+                                                (rt->second.down ? rb.y > ra.y + ra.height : rb.x > ra.x + ra.width)) {
+    // laid out by the flow: from the source's right side (a tree: its bottom), through the gaps, into the
+    // target's left side (top)
     const LinkRoute &r = rt->second;
-    std::vector<place::Vec> pts{{ra.x + ra.width + 6, ra.y + ra.height / 2 + r.portA}};
+    std::vector<place::Vec> pts{r.down ? place::Vec{ra.x + ra.width / 2 + r.portA, ra.y + ra.height + 6}
+                                       : place::Vec{ra.x + ra.width + 6, ra.y + ra.height / 2 + r.portA}};
     for (auto &v : r.via) pts.push_back({v.x, v.y});
-    pts.push_back({rb.x - 6, rb.y + rb.height / 2 + r.portB});
-    for (auto &q : place::smoothRoute(pts)) g.line.push_back({q.x, q.y});
+    pts.push_back(r.down ? place::Vec{rb.x + rb.width / 2 + r.portB, rb.y - 6} : place::Vec{rb.x - 6, rb.y + rb.height / 2 + r.portB});
+    for (auto &q : place::smoothRoute(pts, 12, r.down)) g.line.push_back({q.x, q.y});
     g.pa = g.line.front();
     g.pb = g.line.back();
     g.labelT1 = 1.f / (pts.size() - 1); // its label sits in the first gap, whose width was made for it
@@ -671,6 +701,12 @@ void Engine::placeAllLabels(float dt) {
     std::string k = effectiveKind(*m);
     if (k == "path" || k == "region" || k == "line" || k == "arrow" || k == "param" || k == "grid" || k == "vector") continue;
     if (isFieldKind(k) || k == "solution") continue;
+    if (k == "rect" || k == "circle" || k == "polygon" || k == "angle") { // an area: names may sit inside it, not on its edge
+      std::vector<place::Vec> line;
+      for (auto &q : shapeOutline(*m)) line.push_back({q.x, q.y});
+      world.strokes.push_back(line);
+      continue;
+    }
     Rectangle b = bodyBounds(*m);
     if (b.width <= 0 || b.height <= 0) continue;
     obstacle[id] = (int)world.obstacles.size();
