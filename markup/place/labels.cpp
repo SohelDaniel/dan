@@ -33,9 +33,11 @@ std::vector<LabelOut> placeLabels(const std::vector<LabelReq> &reqs, const Label
   for (int i = 0; i < (int)w.obstacles.size(); i++) grid.insert(i, w.obstacles[i]);
   int strokeBase = (int)boxes.size();
   std::vector<Seg> segs;
+  std::vector<int> segStroke; // which stroke each segment is part of
   for (auto &s : w.strokes)
     for (size_t k = 1; k < s.size(); k++) {
       segs.push_back({s[k - 1], s[k]});
+      segStroke.push_back(int(&s - w.strokes.data()));
       grid.insert(strokeBase + (int)segs.size() - 1, segs.back());
     }
   int labelBase = strokeBase + (int)segs.size() + 1000000; // placed labels get ids from here
@@ -45,14 +47,18 @@ std::vector<LabelOut> placeLabels(const std::vector<LabelReq> &reqs, const Label
     float c = rank * 2.0f + dist * 0.15f;
     if (!contains(w.bounds, box, 0.5f)) c += 10000;
     for (auto &z : w.zones) c += overlapArea(z, box) > 1 ? 4000 : 0;
+    for (auto &f : r.foreign) c += overlapArea(f, box) > 1 ? 1500 : 0;
     float boxArea = std::max(1.f, box.w * box.h);
+    std::vector<int> crossed; // a stroke costs once, however finely it's sampled
     for (int id : grid.query(box)) {
       if (id < strokeBase) {
         if (id == r.owner) continue; // a label may sit on its own thing
         // covering a thing hides it: far worse than crossing a thin line
         c += 3000 * std::min(1.f, overlapArea(box, boxes[id]) / boxArea) + (overlaps(box, boxes[id]) ? 1500 : 0);
       } else if (id < labelBase) {
-        if (hits(segs[id - strokeBase], inflate(box, -2))) c += 120;
+        int s = segStroke[id - strokeBase];
+        if (s == r.ownStroke || std::find(crossed.begin(), crossed.end(), s) != crossed.end()) continue;
+        if (hits(segs[id - strokeBase], inflate(box, -2))) { c += 120; crossed.push_back(s); }
       } else {
         const Rect &o = inflate(placed[id - labelBase], 3); // labels keep a little air between them
         if (overlaps(box, o)) c += 2500 + 3000 * std::min(1.f, overlapArea(box, o) / boxArea);

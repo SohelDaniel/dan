@@ -626,6 +626,7 @@ void Engine::clearStage() {
   cam_ = Camera{};
   blockRows_ = false;
   pointerSide_.clear();
+  annVariant_.clear();
   crossedSince_.clear();
   clearFieldCaches();
   hist_.clear();

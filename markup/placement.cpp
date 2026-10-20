@@ -715,8 +715,27 @@ LinkGeom Engine::linkGeometryAt(const Link &l) {
       for (auto &[oid, o] : links_)
         if (o.a == l.b && o.b == l.a && oid != l.id) { g.bend = 34; break; }
     // against the flow (a cycle): an arc clear of the row it spans
-    if (auto rt = linkRoute_.find(l.id); rt != linkRoute_.end() && rt->second.back && !findProp(l.props, "bend"))
-      g.bend = std::max(std::max(40.f, g.bend), 0.3f * std::fabs(cb.x - ca.x));
+    if (auto rt = linkRoute_.find(l.id); rt != linkRoute_.end() && rt->second.back && !findProp(l.props, "bend")) {
+      g.bend = std::max(std::max(40.f, g.bend), std::min(90.f, 0.3f * std::fabs(cb.x - ca.x))); // just clear of its row
+      // bowed to whichever side crosses fewer other things (a return wire stays out of the next lane)
+      auto crossings = [&](float bend) {
+        int n = 0;
+        for (auto &[oid, o] : marks_) {
+          if (oid == l.a || oid == l.b || !o.positioned || effectiveKind(o) != "box") continue;
+          Rectangle r = bodyBounds(o);
+          for (int i = 1; i < 24; i++) if (CheckCollisionPointRec(arcPoint(g.pa, g.pb, bend, i / 24.f), r)) { n++; break; }
+        }
+        for (auto &[gid, gr] : groups_) {
+          if (std::find(gr.members.begin(), gr.members.end(), l.a) != gr.members.end()) continue; // its own lane
+          Rectangle r = groupBounds(gr, 0, false);
+          for (int i = 1; i < 24; i++) if (CheckCollisionPointRec(arcPoint(g.pa, g.pb, bend, i / 24.f), r)) { n += 2; break; }
+        }
+        Rectangle S = stageRect();
+        for (int i = 1; i < 24; i++) if (!CheckCollisionPointRec(arcPoint(g.pa, g.pb, bend, i / 24.f), S)) { n += 3; break; }
+        return n;
+      };
+      if (crossings(-g.bend) < crossings(g.bend)) g.bend = -g.bend;
+    }
     g.mid = std::fabs(g.bend) > 0.5f ? arcPoint(g.pa, g.pb, g.bend, 0.5f) : lerp(g.pa, g.pb, 0.5f);
   }
   if (std::fabs(g.bend) > 0.5f)
@@ -770,6 +789,11 @@ void Engine::placeAllLabels(float dt) {
     if (b.width <= 0 || b.height <= 0) continue;
     obstacle[id] = (int)world.obstacles.size();
     world.obstacles.push_back(R(b));
+  }
+  for (auto &[gid, g] : groups_) { // a group's outline is a stroke: names sit inside or outside it, not on it
+    Rectangle r = groupBounds(g);
+    for (float d : {-4.f, 4.f}) // a little air either side of the drawn line
+      if (r.width > 0) world.strokes.push_back({{r.x - d, r.y - d}, {r.x + r.width + d, r.y - d}, {r.x + r.width + d, r.y + r.height + d}, {r.x - d, r.y + r.height + d}, {r.x - d, r.y - d}});
   }
   // labels that keep their place are obstacles too; strokes (curves, lines, vectors, links) shouldn't be covered
   struct Pending { std::string id; size_t index; Rectangle anchor; Vector2 size; std::vector<place::Side> sides; std::vector<place::Vec> along; int priority; };
@@ -863,7 +887,7 @@ void Engine::placeAllLabels(float dt) {
     }
   }
   // link labels: at the middle of the link, or a little along it
-  struct PendingLink { std::string id; Vector2 size; place::Vec mid; std::vector<place::Vec> along; };
+  struct PendingLink { std::string id; Vector2 size; place::Vec mid; std::vector<place::Vec> along; int stroke; std::vector<place::Rect> foreign; };
   std::vector<PendingLink> plinks;
   for (auto &id : order_) {
     auto lt = links_.find(id);
@@ -874,8 +898,13 @@ void Engine::placeAllLabels(float dt) {
     for (auto &q : g.line) line.push_back({q.x, q.y});
     world.strokes.push_back(line);
     if (g.label.empty()) continue;
+    int stroke = (int)world.strokes.size() - 1;
     Vector2 sz = measure(g.label, 18);
-    PendingLink pl{id, {sz.x + 12, sz.y + 6}, {g.mid.x, g.mid.y}, {}};
+    PendingLink pl{id, {sz.x + 12, sz.y + 6}, {g.mid.x, g.mid.y}, {}, stroke, {}};
+    for (auto &[gid, gr] : groups_) { // a group that doesn't hold both ends
+      auto in = [&](const std::string &e) { return std::find(gr.members.begin(), gr.members.end(), e) != gr.members.end(); };
+      if (Rectangle r = groupBounds(gr); r.width > 0 && !(in(lt->second.a) && in(lt->second.b))) pl.foreign.push_back(R(r));
+    }
     auto at = [&](float t) {
       t = g.labelT0 + t * (g.labelT1 - g.labelT0);
       if (g.line.size() < 2) return Vector2{g.mid.x, g.mid.y};
@@ -933,6 +962,8 @@ void Engine::placeAllLabels(float dt) {
     r.along = pl.along;
     if (auto s = linkSlots_.find(pl.id); s != linkSlots_.end()) r.prevSide = s->second.side;
     r.sticky = stickyFor("link:" + pl.id);
+    r.ownStroke = pl.stroke;
+    r.foreign = pl.foreign;
     reqs.push_back(r);
   }
   auto out = place::placeLabels(reqs, world);

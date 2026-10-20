@@ -171,17 +171,23 @@ Rectangle Engine::fullBounds(const Mark &m) {
   return r;
 }
 
-Rectangle Engine::groupBounds(const Group &g, int depth) {
+Rectangle Engine::groupBounds(const Group &g, int depth, bool arcs) {
   float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
   for (auto &id : g.members) {
     Rectangle r{0, 0, 0, 0};
     bool ok = false;
     if (Mark *m = mark(id)) { r = fullBounds(*m); ok = m->positioned || m->placed; }
-    else if (auto it = groups_.find(id); it != groups_.end() && depth < 8) { r = groupBounds(it->second, depth + 1); ok = r.width > 0; }
+    else if (auto it = groups_.find(id); it != groups_.end() && depth < 8) { r = groupBounds(it->second, depth + 1, arcs); ok = r.width > 0; }
     if (!ok) continue;
     x0 = std::min(x0, r.x); y0 = std::min(y0, r.y); x1 = std::max(x1, r.x + r.width); y1 = std::max(y1, r.y + r.height);
   }
   if (x0 > x1) return {0, 0, 0, 0};
+  auto member = [&](const std::string &id) { return std::find(g.members.begin(), g.members.end(), id) != g.members.end(); };
+  for (auto &[lid, l] : links_) { // a return link between its members bows out of their row: it's inside too
+    auto rt = linkRoute_.find(lid);
+    if (!arcs || rt == linkRoute_.end() || !rt->second.back || !member(l.a) || !member(l.b) || alphaOf(l) < 0.05f) continue;
+    for (auto &q : linkGeometryAt(l).line) { y0 = std::min(y0, q.y); y1 = std::max(y1, q.y); }
+  }
   const float pad = 14;
   return {x0 - pad, y0 - pad - 24, (x1 - x0) + 2 * pad, (y1 - y0) + 2 * pad + 24};
 }

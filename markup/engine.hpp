@@ -302,7 +302,7 @@ private:
   std::vector<std::pair<std::string, std::string>> boxRows(const Mark &m);
   Rectangle bodyBounds(const Mark &m);
   Rectangle fullBounds(const Mark &m);   // incl. name labels
-  Rectangle groupBounds(const Group &g, int depth = 0);
+  Rectangle groupBounds(const Group &g, int depth = 0, bool arcs = true); // arcs: around its return links too
   double pathAt(const Mark &path, double x, int depth = 0);
   bool paramAt(const Mark &path, double t, double &x, double &y);
   bool isParametric(const Mark &m) const;
@@ -494,7 +494,8 @@ private:
     Rectangle labelBox{0, 0, 0, 0};
     int side = 0;                        // 0 below, 1 right, 2 above, 3 left
   };
-  Annotation annotation(const Mark &m);
+  Annotation annotation(const Mark &m, int variant = -1);
+  std::map<std::string, int> annVariant_; // each annotation's chosen placement (kept while it stays clear)
   bool annotationTarget(const Mark &m, Rectangle &out);
   bool texPartBox(const Mark &m, const std::string &part, Rectangle &out);
   void layoutAnnotations();

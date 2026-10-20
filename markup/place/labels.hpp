@@ -18,6 +18,8 @@ struct LabelReq {
   int prevSide = -1;              // where it was last time (index into sides, or -2 for an `along` spot)
   float sticky = 0;               // extra worth of staying put: a thin line sweeping past beats a jump
   int owner = -1;                 // obstacle index of the thing it names (it may sit on it)
+  int ownStroke = -1;             // stroke index of the line it names (a link's label may sit on its link)
+  std::vector<Rect> foreign;      // areas it doesn't belong in (another group: there it would read as theirs)
 };
 
 struct LabelOut {

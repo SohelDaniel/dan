@@ -8,6 +8,7 @@
 // list covers its targets together. The side comes from the target's shape (below something wide,
 // right of something tall, flipped at the stage's edge), and the annotation follows its target.
 #include "engine.hpp"
+#include "place/geom.hpp"
 #include <cmath>
 
 namespace mk {
@@ -59,7 +60,11 @@ bool Engine::annotationTarget(const Mark &m, Rectangle &out) {
   return out.width > 0;
 }
 
-Engine::Annotation Engine::annotation(const Mark &m) {
+// variant: 0 is the preferred placement; 1, 2 the alternatives layoutAnnotations tries when it would land
+// on an annotation placed before it (the other side for a brace, above or left for a check, another
+// corner for a name). -1: the variant layout chose this frame.
+Engine::Annotation Engine::annotation(const Mark &m, int variant) {
+  if (variant < 0) { auto v = annVariant_.find(m.id); variant = v == annVariant_.end() ? 0 : v->second; }
   Annotation a;
   std::string k = effectiveKind(m);
   if (!annotationTarget(m, a.target)) return a;
@@ -89,6 +94,7 @@ Engine::Annotation Engine::annotation(const Mark &m) {
     };
     int first = wide ? 0 : 1, second = wide ? 2 : 3;
     a.side = cost(second) < cost(first) ? second : first;
+    if (variant % 2 == 1) a.side = a.side == first ? second : first;
     Vector2 u = a.side < 2 ? (wide ? Vector2{1, 0} : Vector2{0, 1}) : (a.side == 2 ? Vector2{1, 0} : Vector2{0, 1});
     Vector2 n = a.side == 0 ? Vector2{0, 1} : a.side == 1 ? Vector2{1, 0} : a.side == 2 ? Vector2{0, -1} : Vector2{-1, 0};
     Vector2 from = a.side == 0 ? Vector2{T.x, T.y + T.height + gap}
@@ -122,9 +128,10 @@ Engine::Annotation Engine::annotation(const Mark &m) {
     const Rectangle &B = a.box;
     const std::pair<Vector2, Vector2> spots[] = {{{B.x + B.width, B.y - 4}, {1, 1}}, {{B.x + B.width, B.y + B.height + 4}, {1, 0}},
                                                  {{B.x, B.y - 4}, {0, 1}}, {{B.x, B.y + B.height + 4}, {0, 0}}};
-    a.labelAt = spots[0].first;
-    a.labelAnchor = spots[0].second;
-    for (auto &[at, anchor] : spots) {
+    a.labelAt = spots[variant % 4].first;
+    a.labelAnchor = spots[variant % 4].second;
+    for (int s = 0; s < 4; s++) {
+      auto &[at, anchor] = spots[(s + variant) % 4];
       Rectangle lb{at.x - ls.x * anchor.x, at.y - ls.y * anchor.y, ls.x, ls.y};
       bool clear = true;
       for (auto &[oid, o] : marks_) {
@@ -140,11 +147,14 @@ Engine::Annotation Engine::annotation(const Mark &m) {
       }
       if (clear) { a.labelAt = at; a.labelAnchor = anchor; break; }
     }
-  } else { // cross over it, check beside it
-    a.box = k == "cross" ? Rectangle{T.x, T.y, T.width, T.height}
-                         : Rectangle{T.x + T.width + gap, T.y + T.height / 2 - 18, 36, 36};
-    a.labelAt = {a.box.x + a.box.width / 2, a.box.y + a.box.height + 6};
-    a.labelAnchor = {0.5f, 0};
+  } else { // cross over it, check beside it (right, else above, else left); a name under it, else above
+    const Rectangle checks[3] = {{T.x + T.width + gap, T.y + T.height / 2 - 18, 36, 36},
+                                 {T.x + T.width / 2 - 18, T.y - gap - 36, 36, 36},
+                                 {T.x - gap - 36, T.y + T.height / 2 - 18, 36, 36}};
+    a.box = k == "cross" ? Rectangle{T.x, T.y, T.width, T.height} : checks[variant % 3];
+    bool above = k == "cross" ? variant % 2 == 1 : variant % 3 == 1;
+    a.labelAt = above ? Vector2{a.box.x + a.box.width / 2, a.box.y - 4} : Vector2{a.box.x + a.box.width / 2, a.box.y + a.box.height + 6};
+    a.labelAnchor = {0.5f, above ? 1.f : 0.f};
   }
   a.label = name;
   Rectangle lb{a.labelAt.x - ls.x * a.labelAnchor.x, a.labelAt.y - ls.y * a.labelAnchor.y, ls.x, ls.y};
@@ -172,11 +182,61 @@ float Engine::annotationRoom(const Mark &block) {
 
 // placed after everything else, so it sits on where its targets went this frame
 void Engine::layoutAnnotations() {
+  // in order, each takes the first placement that keeps clear of the ones placed before it, keeping last
+  // frame's while it stays clear (no flipping)
+  std::vector<Rectangle> taken;
+  for (auto &[gid, g] : groups_) { // a group's outline is ink too (its inside is free)
+    Rectangle r = groupBounds(g);
+    if (r.width <= 0) continue;
+    taken.push_back({r.x - 2, r.y - 2, r.width + 4, 4});
+    taken.push_back({r.x - 2, r.y + r.height - 2, r.width + 4, 4});
+    taken.push_back({r.x - 2, r.y, 4, r.height});
+    taken.push_back({r.x + r.width - 2, r.y, 4, r.height});
+  }
+  auto ink = [&](const Annotation &a, const std::string &k) { // what an annotation adds to the picture
+    std::vector<Rectangle> r;
+    if (a.labelBox.width > 0) r.push_back(a.labelBox);
+    if (k == "check") r.push_back(a.box);
+    if (!a.path.empty()) {
+      Rectangle b{a.path[0].x, a.path[0].y, 0, 0};
+      for (auto &q : a.path) b = {std::min(b.x, q.x), std::min(b.y, q.y), std::max(b.x + b.width, q.x) - std::min(b.x, q.x), std::max(b.y + b.height, q.y) - std::min(b.y, q.y)};
+      r.push_back({b.x - 2, b.y - 2, b.width + 4, b.height + 4});
+    }
+    return r;
+  };
+  // what a placement would sit on: annotations placed before it, group outlines, other things, link lines
+  std::vector<std::vector<Vector2>> lines;
+  for (auto &[lid, l] : links_) lines.push_back(linkGeometryAt(l).line);
+  auto hits = [&](const std::vector<Rectangle> &r, const Mark &self) {
+    Rectangle T;
+    annotationTarget(self, T);
+    int n = 0;
+    for (auto &x : r) {
+      for (auto &t : taken) n += CheckCollisionRecs(x, t);
+      for (auto &[oid, o] : marks_) {
+        if (&o == &self || !o.positioned || ghost(o) || isAnnotationKind(effectiveKind(o))) continue;
+        Rectangle b = bodyBounds(o);
+        if (b.width > 0 && CheckCollisionRecs(x, b) && !CheckCollisionRecs(b, T)) n++; // its own target is fine
+      }
+      // sitting on an arrow is worse than touching an outline; arrowheads reach past a line's last point
+      place::Rect near{x.x - 8, x.y - 8, x.width + 16, x.height + 16};
+      for (auto &ln : lines)
+        for (size_t i = 1; i < ln.size(); i++)
+          if (place::hits({{ln[i - 1].x, ln[i - 1].y}, {ln[i].x, ln[i].y}}, near)) { n += 2; break; }
+    }
+    return n;
+  };
   for (auto &id : order_) {
     Mark *m = mark(id);
-    if (!m || !isAnnotationKind(effectiveKind(*m))) continue;
-    Annotation a = annotation(*m);
+    std::string k = m ? effectiveKind(*m) : "";
+    if (!m || !isAnnotationKind(k)) continue;
+    int prev = annVariant_.count(id) ? annVariant_[id] : 0, chosen = prev, best = hits(ink(annotation(*m, prev), k), *m);
+    for (int v = 0; v < 3 && best > 0; v++) // the placement that sits on the least; last frame's on a tie
+      if (int h = v == prev ? best : hits(ink(annotation(*m, v), k), *m); h < best) { best = h; chosen = v; }
+    annVariant_[id] = chosen;
+    Annotation a = annotation(*m, chosen);
     if (!a.ok) continue;
+    for (auto &r : ink(a, k)) taken.push_back(r);
     m->tpos = m->pos = {a.bounds.x + a.bounds.width / 2, a.bounds.y + a.bounds.height / 2};
     m->positioned = m->placed = m->direct = true;
   }
