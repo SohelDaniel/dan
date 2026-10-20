@@ -841,7 +841,7 @@ void Engine::doMark(const Line &ln) {
     } else if (cur && cur->type == Value::STR && p.val.type == Value::STR && cur->str != p.val.str) {
       m.strBlend[p.key] = {cur->str, opt_.instant ? 1.f : 0.f};
       *cur = p.val;
-      if (p.key != "tex") colorForKey("cat:" + p.val.str);
+      if (p.key == catProp(m)) colorForKey("cat:" + p.val.str); // only a category's new value is a colour (not a label, a pointer's at=)
       Active a;
       a.kind = Active::STR; a.id = m.id; a.prop = p.key; a.dur = opt_.instant ? 0 : 0.8f; a.blocking = false;
       actives_.push_back(a);
@@ -928,7 +928,7 @@ void Engine::doMorph(const Line &ln) {
            "' but it is '" + old + "'; morphing from the real value");
     setProp(o->props, ln.prop, ln.to);
     o->strBlend[ln.prop] = {old, dur > 0 ? 0.f : 1.f};
-    if (ln.prop != "tex" && !list) colorForKey("cat:" + ln.to.str);
+    if (Mark *om = mark(ln.id); om && !list && ln.prop == catProp(*om)) colorForKey("cat:" + ln.to.str); // a category's new value only
     Active a;
     a.kind = Active::STR; a.id = ln.id; a.prop = ln.prop; a.dur = dur;
     a.ease = rateByName(ln.ease);
