@@ -122,6 +122,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 | one thing seen two ways (a network and its loss curve, before and after, the data and its chart) | two views: `schema net graph label="…"` then its marks, `schema loss axes …` then its marks; they sit side by side |
 | history, sequences | timeline (`t=`) |
 | distributions, statistics | a dot plot: dots on a `numberline`, `mean(...)` markers; two groups as two views |
+| fractions, proportions, conditional probability, the area model of multiplication | `area parts=[…]` (strips in proportion), `by=[[…],[…]]` to split each strip again; area is the quantity. For rare events (1 in 1000) a tree of counts reads better |
 | comparing a few quantities | bars: **only** for this |
 
 If no row fits, still show the thing itself rather than a chart about it.

@@ -38,7 +38,7 @@ static bool parseNumber(const std::string &s, double &out) {
 bool isMarkKind(const std::string &k) {
   static const char *kinds[] = {"dot",   "bar",  "box",  "line",    "arrow", "label", "path",  "region", "tex",
                                 "circle", "rect", "polygon", "angle", "vector", "card", "code", "array", "table", "param", "grid",
-                                "field", "slope", "heat", "contour", "solution", "brace", "enclose", "underline", "cross", "check"};
+                                "field", "slope", "heat", "contour", "solution", "brace", "enclose", "underline", "cross", "check", "area"};
   for (auto c : kinds) if (k == c) return true;
   return false;
 }
@@ -65,8 +65,8 @@ Value Value::parse(const std::string &tokIn, std::string *err) {
     std::string inner = tok.substr(1, tok.size() - 2), cur;
     int depth = 0;
     for (char c : inner) {
-      if (c == '{' || c == '(') depth++;
-      if (c == '}' || c == ')') depth--;
+      if (c == '{' || c == '(' || c == '[') depth++; // nested lists stay whole: by=[[1,0],[10,989]]
+      if (c == '}' || c == ')' || c == ']') depth--;
       if (c == ',' && depth == 0) { if (!trim(cur).empty()) v.list.push_back(stripQuotes(trim(cur))); cur.clear(); }
       else cur += c;
     }

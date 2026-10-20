@@ -17,7 +17,8 @@ static const std::set<std::string> kPositional = {"x",  "y",     "t",     "at", 
                                                   "xt", "yt",     "bend", "pos",    "range", "size",
                                                   "opacity", "dx", "dy", "h", "height", "pts", "cols", "line",
                                                   "grid", "axes", "equal", "index", "cells", "items", "n", "m", "xlabel", "ylabel",
-                                                  "vx", "vy", "levels", "labels", "trail", "colors"};
+                                                  "vx", "vy", "levels", "labels", "trail", "colors",
+                                                  "parts", "by", "bylabels", "bycolors"};
 static const std::set<std::string> kTextKeys = {"label", "name", "text", "fn",   "of",   "color",
                                                 "shape", "ease", "unit", "note", "title", "tex",
                                                 "at", "to", "side", "style", "cmap", "levels", "trail"};

@@ -303,6 +303,7 @@ void Engine::drawBlock(const Mark &m) {
   const Value *lv = findProp(m.props, "label");
   float y = r.y;
   if (lv && k != "card" && k != "code") { text(lv->str, {r.x, y}, 17, fade(col::muted, a), 0, 0); y += 26; }
+  if (k == "area") { drawArea(m, a); return; }
   const Value *tv = findProp(m.props, "text");
   std::string txt = tv ? (tv->type == Value::STR ? tv->str : labelText(m)) : "";
 

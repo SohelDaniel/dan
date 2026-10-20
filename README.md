@@ -206,6 +206,8 @@ mark lo  label text="lo" at=a[0]                                         # a poi
 mark win label text="window" at=a[1:3]                                   # a bracket under cells 1 to 3 (a span)
 mark a   array items=[1,2,3,4] colors=[teal,-,teal,-]                     # cells that belong together share a colour
 mark M   array cols=3 items=[1,2,3,4,5,6]                                  # a grid (a matrix, a DP table): rows of 3
+mark d   area parts=[3,7] labels=[rain,dry] colors=[blue,-]               # a whole split by proportion: area is the quantity
+mark d   by=[[8,2],[1,9]] bylabels=[umbrella,none,umbrella,none]          # each strip split again (d[i], d[i][j])
 mark r   enclose of=M[1][:]                                               # M[r][c] a cell, M[r][:] a row, M[:][c] a column
 mark t   table cols=3 cells=[step,lo,hi, 1,0,4]                          # first row is the header
 ```

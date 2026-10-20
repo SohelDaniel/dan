@@ -46,7 +46,7 @@ inline bool isFieldKind(const std::string &k) { return k == "field" || k == "slo
 inline bool isCurveKind(const std::string &k) { return k == "path" || k == "solution"; }
 // text-like blocks that stack in the top band unless placed
 inline bool isBlockKind(const std::string &k) {
-  return k == "tex" || k == "card" || k == "code" || k == "array" || k == "table";
+  return k == "tex" || k == "card" || k == "code" || k == "array" || k == "table" || k == "area";
 }
 // annotations: marks about other things (of=…): annotate.cpp
 inline bool isAnnotationKind(const std::string &k) {
@@ -462,6 +462,11 @@ private:
   bool annotationTarget(const Mark &m, Rectangle &out);
   bool texPartBox(const Mark &m, const std::string &part, Rectangle &out);
   void layoutAnnotations();
+  // the area diagram (area.cpp): parts of a whole as proportional strips, each optionally split again
+  Vector2 areaSize(const Mark &m);
+  Rectangle areaCell(const Mark &m, int i, int j);
+  bool areaRef(const Mark &m, const std::string &ref, Rectangle &out);
+  void drawArea(const Mark &m, float alpha);
   std::vector<Vector2> shapeOutline(const Mark &m); // a rect, circle, polygon or angle as its outline
   float annotationRoom(const Mark &block);
   void drawAnnotation(const Mark &m);

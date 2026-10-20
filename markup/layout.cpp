@@ -249,6 +249,7 @@ Vector2 Engine::blockSize(const Mark &m) {
   std::string txt = tv ? (tv->type == Value::STR ? tv->str : labelText(m)) : "";
   const Value *lv = findProp(m.props, "label");
   float head = lv ? 26.f : 0.f;
+  if (k == "area") return areaSize(m);
   if (k == "card") {
     auto lines = wrap(txt, 24, 520);
     float w = lv ? measure(lv->str, 17).x : 0;
@@ -338,6 +339,7 @@ bool Engine::anchorBox(const std::string &ref, Rectangle &out) {
   int cell;
   Mark *t = mark(baseId(ref, &cell));
   if (!t || !t->positioned) return false;
+  if (ref.find('[') != std::string::npos && effectiveKind(*t) == "area") return areaRef(*t, ref, out);
   if (ref.find('[') != std::string::npos && effectiveKind(*t) == "array") { // cells: their union
     std::vector<int> cells = cellsOf(*t, ref);
     if (cells.empty()) return false;

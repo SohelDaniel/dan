@@ -65,6 +65,12 @@
   "final": 100,
   "maxOverlaps": 0
  },
+ "scripts/area.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
  "scripts/attach.txt": {
   "mean": 100,
   "worst": 100,
