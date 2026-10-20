@@ -98,6 +98,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 - `hide` dims what's done: it keeps its place, so nothing jumps. When the stage is full or the topic moves on, start a new `scene`.
 - **The camera points too.** Zoom in on the detail the sentence is about (`@in camera zoom=8 on=p`), at most one move per sentence, then `camera reset` to give the context back. Only on `axes` and `plane`.
 - After a numeric example, morph the formula to its general form (3² + 4² = 5² → a² + b² = c²).
+- A derivation or a worked solution is **one** formula that grows: `\begin{aligned} … &= … \\ … &= … \end{aligned}`, one morph per step (the new line lights up), and an annotation on the part each move changes. Never several separate formulas for the steps.
 
 **Choosing the picture**
 

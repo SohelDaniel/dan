@@ -73,6 +73,10 @@ struct Obj {
 
 struct Mark : Obj {
   std::string view;          // the named view it belongs to ("" with a single schema)
+  std::string texPrev;       // formulas: what it was before its last change, and when that change settled
+  float texSettledAt = -1e9f; //   (what the change brought in stays lit for a moment)
+  std::set<size_t> texFresh; // formulas: the glyphs its last change brought in (they light up for a moment)
+  float texFreshUntil = 0;
   Vector2 pos{0, 0}, tpos{0, 0};
   bool placed = false;    // has had a first layout (so it doesn't fly in from 0,0)
   bool anchorBottom = false; // pos is bottom-centre (free layout) instead of centre

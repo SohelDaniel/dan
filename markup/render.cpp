@@ -68,6 +68,16 @@ std::string Engine::labelText(const Mark &m) {
 // A formula is a row of glyphs. It writes itself in left to right; a term written
 // \textcolor{id}{…} takes that thing's color and stays lit while the voice is about it;
 // when the formula changes, glyphs the two formulas share glide to their new places.
+// the glyphs of `to` that `from` doesn't have (the k-th glyph of a character pairs with the k-th in the other)
+static std::set<size_t> newGlyphs(const TexLayout &from, const TexLayout &to) {
+  std::map<std::string, size_t> have, seen;
+  for (auto &g : from.glyphs) have[g.key]++;
+  std::set<size_t> out;
+  for (size_t i = 0; i < to.glyphs.size(); i++)
+    if (seen[to.glyphs[i].key]++ >= have[to.glyphs[i].key]) out.insert(i);
+  return out;
+}
+
 void Engine::drawTex(const Mark &m) {
   float a0 = easeOut(std::clamp(m.appear, 0.f, 1.f)) * stageFade_ * opacityOf(m); // hide fades a formula too
   if (a0 <= 0.003f) return;
@@ -113,16 +123,22 @@ void Engine::drawTex(const Mark &m) {
     if (old && (!old->ok || old.get() == now.get())) old.reset();
   }
 
+  // what a change brings in (the new step, the term that changed) is lit while it arrives and a moment after
+  auto lit = [&](Color c, float k) { return k > 0 ? lerpColor(c, fade(col::yellow, c.a / 255.f), 0.85f * k) : c; };
   if (!old) {
     // write-in: glyphs fade up one after another as the mark appears
     const float lag = 0.7f;
+    float fresh = std::clamp(1 - (clock_ - m.texSettledAt) / 1.5f, 0.f, 1.f);
+    std::set<size_t> brought;
+    if (fresh > 0 && !m.texPrev.empty())
+      if (TexPtr prev = tex::request(texSource(m.texPrev)); prev && prev->ok) brought = newGlyphs(*prev, *now);
     size_t n = now->glyphs.size();
     for (size_t i = 0; i < n; i++) {
       const TexGlyph &g = now->glyphs[i];
       float gt = std::clamp(m.appear * (1 + lag) - lag * (float)i / std::max<size_t>(1, n), 0.f, 1.f);
       if (gt <= 0) continue;
       float e = easeOut(gt);
-      tex::drawGlyph(*now, g, originOf(*now) + Vector2{0, (1 - e) * 10}, px, glyphColor(g, e));
+      tex::drawGlyph(*now, g, originOf(*now) + Vector2{0, (1 - e) * 10}, px, lit(glyphColor(g, e), brought.count(i) ? fresh : 0));
     }
     return;
   }
@@ -152,7 +168,7 @@ void Engine::drawTex(const Mark &m) {
     size_t have = fromIx.count(key) ? fromIx[key].size() : 0;
     for (size_t j = have; j < to.size(); j++) { // new symbols fade in, settling down
       const TexGlyph &gb = now->glyphs[to[j]];
-      tex::drawGlyph(*now, gb, o1 + Vector2{0, 10 * (1 - t)}, px, glyphColor(gb, t));
+      tex::drawGlyph(*now, gb, o1 + Vector2{0, 10 * (1 - t)}, px, lit(glyphColor(gb, t), 1));
     }
   }
 }

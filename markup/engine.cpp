@@ -1166,7 +1166,11 @@ void Engine::tickActives(float dt) {
     }
     if (k >= 1) {
       if (a.kind == Active::NUM && o) setProp(o->props, a.prop, a.finalVal);
-      if (a.kind == Active::STR && o) o->strBlend.erase(a.prop);
+      if (a.kind == Active::STR && o) {
+        if (auto it = o->strBlend.find(a.prop); it != o->strBlend.end() && a.prop == "tex")
+          if (Mark *mk = mark(o->id)) { mk->texPrev = it->second.first; mk->texSettledAt = clock_; }
+        o->strBlend.erase(a.prop);
+      }
       if (!a.log.empty()) {
         since_.push_back(a.log + " done");
         if (since_.size() > 16) since_.erase(since_.begin());

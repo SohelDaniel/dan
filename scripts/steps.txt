@@ -1,0 +1,10 @@
+# A derivation is one formula that grows: aligned steps, each new line lit as it arrives, the move annotated.
+title "Solving step by step"
+mark eq tex tex="\begin{aligned} 2x + \textcolor{three}{3} &= 11 \end{aligned}"
+Say: "Start with two x plus three equals eleven."
+mark why enclose of=eq[three] label="take it away"
+Say: "Take |sub|three from both sides."
+@sub morph eq.tex -> "\begin{aligned} 2x + \textcolor{three}{3} &= 11 \\ 2x &= 8 \end{aligned}" 1s
+hide why
+Say: "Then |half|halve both."
+@half morph eq.tex -> "\begin{aligned} 2x + \textcolor{three}{3} &= 11 \\ 2x &= 8 \\ x &= 4 \end{aligned}" 1s

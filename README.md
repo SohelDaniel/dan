@@ -237,7 +237,8 @@ mark tag tex tex="E = v^2" x=4 y=30 size=30
 - **Placement:** formulas stack in a band at the top of the stage and the schema lays out the rest below them. On axes, `x= y=` puts its centre at a data point. `size=` is the font size in px (default 38).
 - **`\val{expr}`** shows a value now, with the same expressions as `{…}`: `\val{price}`, `\val{alice.balance - bob.balance}`. It updates live while the value morphs.
 - **`\textcolor{id}{…}`** paints a term in the color of the thing `id` and keeps that term lit while `focus id` dims the rest, so the formula and the picture point at the same thing. Plain color names work too (`\textcolor{orange}{x}`). Don't use `\color`: it is a switch that colors everything after it.
-- **Changing a formula** (`morph f.tex -> "…" 1.5s`, or re-marking with a new `tex=`) moves the symbols the two formulas share to their new places and fades the rest. Build an equation up step by step this way instead of making new marks.
+- **Changing a formula** (`morph f.tex -> "…" 1.5s`, or re-marking with a new `tex=`) moves the symbols the two formulas share to their new places and fades the rest; what the change brings in is lit for a moment. Build an equation up step by step this way instead of making new marks.
+- **A derivation is one formula that grows.** Write the steps as `\begin{aligned} 2x + 3 &= 11 \\ 2x &= 8 \end{aligned}` (the `&` lines the `=` signs up) and morph it to add each line; annotate the move on the part it changes (`enclose of=eq[three] label="take it away"`). Separate formulas side by side read as one run-on line.
 - A formula is ink (foreground color) unless it has a category, `color=` or `of=`. It doesn't use up a color.
 - `--check` typesets every formula and reports TeX errors and `\textcolor` names that are neither a thing nor a color.
 

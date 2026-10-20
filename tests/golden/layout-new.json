@@ -167,6 +167,12 @@
   "final": 100,
   "maxOverlaps": 1
  },
+ "scripts/steps.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
  "scripts/timeline.txt": {
   "mean": 96,
   "worst": 96,
