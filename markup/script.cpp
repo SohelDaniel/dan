@@ -404,6 +404,23 @@ static bool parseLine(const std::string &rawIn, int lineNo, Line &ln, std::strin
     return true;
   }
 
+  // send a[2] -> f[x] [1s] [via=l1]: a copy of a thing (a cell, a formula part) travels to another and lands
+  // there (3Blue1Brown's TransformFromCopy); via= takes it along a link. Like indicate, it isn't part of the model.
+  if (verb == "send") {
+    ln.verb = Verb::SEND;
+    if (toks.size() < 4 || toks[2] != "->") { err = "send needs a source and a target: send a[2] -> f[x]"; return false; }
+    ln.a = toks[1];
+    ln.b = toks[3];
+    ln.dur = 1.0f;
+    for (size_t i = 4; i < toks.size(); i++) {
+      float d;
+      if (isDuration(toks[i], d)) ln.dur = d;
+      else if (toks[i].rfind("via=", 0) == 0) ln.id = toks[i].substr(4);
+      else { err = "send: unexpected '" + toks[i] + "' (a duration like 1s, or via=<link>)"; return false; }
+    }
+    return true;
+  }
+
   // hide / show: fade a thing to a ghost and back. It stays on stage (identity); this is a morph of opacity.
   if (verb == "hide" || verb == "show") {
     ln.verb = Verb::MORPH;

@@ -164,6 +164,10 @@ void Engine::analyze(bool fresh) {
       else if (isFieldKind(ln.kind) || ln.kind == "solution") { hasWorld = true; hasFn = false; } // the plane
       break;
     case Verb::LINK: defined.insert(ln.id); hasLinks = true; break;
+    case Verb::SEND: // a formula part named by send is a part, like one an annotation names
+      for (auto *ref : {&ln.a, &ln.b})
+        if (size_t b = ref->find('['); b != std::string::npos) parts.insert(ref->substr(b + 1, ref->find(']') - b - 1));
+      break;
     case Verb::GROUP: defined.insert(ln.id); break;
     case Verb::MORPH:
       if (ln.hasFrom) see(ln.prop, ln.from);
@@ -209,6 +213,7 @@ void Engine::analyze(bool fresh) {
           warn("layout: '" + ln.id + "' " + k + "= is ignored: position comes from structure (links make a flow, "
                "groups make lanes, order is order)");
     if (ln.verb == Verb::INDICATE) need(ln.id, "indicate");
+    if (ln.verb == Verb::SEND) { need(ln.a, "send"); need(ln.b, "send"); if (!ln.id.empty()) need(ln.id, "send via"); }
     if (ln.verb == Verb::LINK) { need(ln.a, "link"); need(ln.b, "link"); }
     if (ln.verb == Verb::GROUP) for (auto &m : ln.members) need(m, "group");
   });
@@ -714,6 +719,18 @@ void Engine::execLine(const Line &ln) {
     caption("pointing -> " + ln.id + " pulses (signaling: the eye goes where the voice is)");
     break;
   }
+  case Verb::SEND: { // a copy travels from one thing (or part) to another, then the target pulses
+    Active a;
+    a.kind = Active::FLIGHT;
+    a.prop = ln.a;
+    a.dest = ln.b;
+    a.via = ln.id;
+    a.dur = opt_.instant ? 0 : ln.dur;
+    a.blocking = false;
+    actives_.push_back(a);
+    caption("send " + ln.a + " -> " + ln.b + ": a copy travels there (where a value comes from, where it goes)");
+    break;
+  }
   case Verb::SAY: startSay(ln); break;
   case Verb::WAIT: {
     Active a;
@@ -1151,6 +1168,7 @@ bool Engine::blocking() const {
 }
 
 void Engine::tickActives(float dt) {
+  std::vector<Active> landed; // flights that arrived: their target pulses next
   for (size_t i = 0; i < actives_.size();) {
     Active &a = actives_[i];
     a.t += dt;
@@ -1187,6 +1205,15 @@ void Engine::tickActives(float dt) {
       }
     }
     if (k >= 1) {
+      if (a.kind == Active::FLIGHT) {
+        Active p;
+        p.kind = Active::PULSE;
+        p.id = baseId(a.dest);
+        p.prop = a.dest;
+        p.dur = opt_.instant ? 0 : 0.8f;
+        p.blocking = false;
+        landed.push_back(p);
+      }
       if (a.kind == Active::NUM && o) setProp(o->props, a.prop, a.finalVal);
       if (a.kind == Active::STR && o) {
         if (auto it = o->strBlend.find(a.prop); it != o->strBlend.end() && a.prop == "tex")
@@ -1202,6 +1229,7 @@ void Engine::tickActives(float dt) {
       i++;
     }
   }
+  actives_.insert(actives_.end(), landed.begin(), landed.end());
 }
 
 void Engine::skip() {

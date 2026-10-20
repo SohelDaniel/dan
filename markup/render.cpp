@@ -428,6 +428,72 @@ void Engine::drawPulses() {
   }
 }
 
+// the box a reference names as it is drawn now: a thing, a cell or span, or a formula part f[id]
+bool Engine::refBox(const std::string &ref, Rectangle &out) {
+  Mark *t = mark(baseId(ref));
+  size_t b = ref.find('[');
+  if (t && b != std::string::npos && effectiveKind(*t) == "tex") {
+    if (!texPartBox(*t, ref.substr(b + 1, ref.find(']') - b - 1), out)) return false;
+    out.x += t->pos.x - t->tpos.x; // texPartBox measures where the formula is going
+    out.y += t->pos.y - t->tpos.y;
+    return true;
+  }
+  return anchorBox(ref, out);
+}
+
+// send: a copy of the source travels to the target on an arc (or along a link with via=), growing or
+// shrinking to the target's size; what travels is the source itself: a formula part's glyphs, a cell's
+// value, or the thing
+void Engine::drawFlights() {
+  for (auto &a : actives_) {
+    if (a.kind != Active::FLIGHT || a.dur <= 0) continue;
+    Rectangle A, B;
+    if (!refBox(a.prop, A) || !refBox(a.dest, B)) continue;
+    float k = std::clamp(a.t / a.dur, 0.f, 1.f), e = rate::smooth(k);
+    Vector2 ca{A.x + A.width / 2, A.y + A.height / 2}, cb{B.x + B.width / 2, B.y + B.height / 2}, c;
+    if (auto l = links_.find(a.via); l != links_.end()) { // along the link's own line
+      LinkGeom g = linkGeometry(l->second);
+      float f = e * (g.line.size() - 1);
+      size_t i0 = std::min((size_t)f, g.line.size() > 1 ? g.line.size() - 2 : 0);
+      c = g.line.size() > 1 ? lerp(g.line[i0], g.line[i0 + 1], f - i0) : lerp(ca, cb, e);
+    } else { // an arc, bowing up (or sideways when going up or down)
+      Vector2 d = cb - ca, n = norm(Vector2{d.y, -d.x});
+      if (n.y > 0) n = n * -1.f;
+      c = lerp(ca, cb, e) + n * (std::sin(e * 3.14159265f) * std::min(120.f, len(d) * 0.25f));
+    }
+    float s = std::max(0.2f, (A.height + (B.height - A.height) * e) / std::max(1.f, A.height)); // scale
+    float alpha = stageFade_ * std::min(1.f, (1 - k) * 6 + 0.25f);
+    Mark *src = mark(baseId(a.prop));
+    if (!src) continue;
+    std::string kind = effectiveKind(*src);
+    size_t b = a.prop.find('[');
+    if (kind == "tex" && b != std::string::npos) { // the part's glyphs
+      TexPtr L = texNow(*src);
+      if (!L || !L->ok) continue;
+      std::string part = a.prop.substr(b + 1, a.prop.find(']') - b - 1);
+      float px = texSize(*src) / 1000.f;
+      Vector2 o = src->pos - Vector2{L->w * px / 2, L->h * px / 2};
+      for (auto &g : L->glyphs) {
+        if (g.color != part) continue;
+        Vector2 at = o + g.at * px;                      // where the glyph's origin is in the source
+        Vector2 rel = at - ca;                           // relative to the part's centre
+        tex::drawGlyph(*L, g, c + rel * s - g.at * px * s, px * s, fade(col::yellow, alpha));
+      }
+    } else if (kind == "array" && b != std::string::npos) { // the cells' values
+      std::string t;
+      const Value *iv = findProp(src->props, "items");
+      for (int i : cellsOf(*src, a.prop)) if (iv && i < (int)iv->list.size()) t += (t.empty() ? "" : " ") + iv->list[i];
+      text(t, c, 24 * s, fade(col::yellow, alpha), 0.5f, 0.5f);
+    } else { // the thing itself, drawn where the copy is
+      Mark copy = *src;
+      copy.pos = c;
+      copy.lit = 1;
+      copy.appear = 1;
+      drawMark(copy);
+    }
+  }
+}
+
 // a mark's outside text, exactly where layout put it (markLabels)
 void Engine::drawLabels(const Mark &m) {
   float a = alphaOf(m);
@@ -840,6 +906,7 @@ void Engine::draw() {
   for (auto &id : order_) // annotations on top of what they are about
     if (Mark *m = mark(id); m && isAnnotationKind(effectiveKind(*m))) drawMark(*m);
   drawPulses();
+  drawFlights();
   drawInfo();
   rlPopMatrix();
   drawSubtitle();

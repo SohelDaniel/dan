@@ -120,8 +120,9 @@ struct Group : Obj {
 };
 
 struct Active {
-  enum Kind { NUM, STR, WAIT, PAUSE, CLEAR, PULSE, CAM } kind = NUM;
+  enum Kind { NUM, STR, WAIT, PAUSE, CLEAR, PULSE, CAM, FLIGHT } kind = NUM;
   std::string id, prop;
+  std::string dest, via;    // FLIGHT: where the copy goes, and the link it travels along
   double from = 0, to = 0;
   Value finalVal;           // what the prop becomes when done (keeps expressions)
   float t = 0, dur = 1;
@@ -468,6 +469,8 @@ private:
   bool annotationTarget(const Mark &m, Rectangle &out);
   bool texPartBox(const Mark &m, const std::string &part, Rectangle &out);
   void layoutAnnotations();
+  bool refBox(const std::string &ref, Rectangle &out); // a thing, cell, span or formula part, as drawn now
+  void drawFlights();
   std::vector<std::pair<std::string, Rectangle>> screenZones();
   // the area diagram (area.cpp): parts of a whole as proportional strips, each optionally split again
   Vector2 areaSize(const Mark &m);

@@ -1,0 +1,12 @@
+# send: a copy travels from where a value is to where it is used (TransformFromCopy); via= follows a link.
+title "Where the numbers go"
+schema graph
+mark a array items=[3,4] label="inputs"
+mark f tex tex="\textcolor{x}{3} \times 2 = 6"
+mark x box input label="x = 3"
+mark y box output label="y = 6"
+link m arrow x -> y label="× 2"
+Say: "The first input |go|goes into the formula."
+@go send a[0] -> f[x] 1s
+Say: "And the value |flows|flows along the link to the output."
+@flows send x -> y 1.2s via=m

@@ -69,6 +69,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 
 **Visual idioms: general patterns, by the kind of claim** (not topic templates; adapt them)
 
+- *A value goes somewhere* (this number goes into the formula, this term moves to the other side, a signal flows through the network): `send a[2] -> f[x]` on the word, or `send x -> y via=link`. The copy travels; both ends stay.
 - *Weighted sum* (inputs times weights, added): weights live on the links; on "multiplied", re-mark each link to show its product, on "added" the node shows the sum.
   ```
   link w1 arrow x1 -> s label="w₁" w=0.5
