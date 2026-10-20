@@ -168,6 +168,8 @@ public:
   bool loadText(const std::string &text);
   // live use: continue the running script without restarting the stage (streamed turns)
   bool appendText(const std::string &text);
+  // start synthesising a Say line before its beat arrives (the server sends it as soon as it is written)
+  void prefetchVoice(const std::string &sayLine);
   bool speaking() const { return say_.active && say_.utt != nullptr; }
   // stop what is playing: the rest of the script so far runs instantly (state stays consistent), voice stops
   void interrupt();
@@ -186,6 +188,7 @@ public:
   void resume();                            // releases a `pause` line
 
   std::string readback(bool withComments = true);
+  Color colorFor(const std::string &id) { Mark *m = mark(id); return m ? colorOf(*m) : BLANK; } // for tests
   // layout: everything drawn, as the placement checker sees it; and its verdict (placement.cpp)
   place::Picture picture();
   // a mark's outside text, positioned (placement.cpp). legacy: the fixed offsets, ignoring the placer

@@ -31,10 +31,14 @@ tests/test_viz: tests/test_viz.cpp $(VIZ_SRC) markup/viz/*.hpp markup/expr.cpp m
 tests/test_script: tests/test_script.cpp markup/script.cpp markup/script.hpp markup/expr.cpp markup/expr.hpp
 	$(CXX) $(TEST_FLAGS) tests/test_script.cpp markup/script.cpp markup/expr.cpp -o $@
 
-test: tests/test_place tests/test_viz tests/test_script
+tests/test_engine: tests/test_engine.cpp $(LIB_SRC) $(MK_SRC) rm/raymanim.hpp markup/*.hpp markup/place/*.hpp markup/viz/*.hpp
+	$(CXX) $(TEST_FLAGS) tests/test_engine.cpp $(LIB_SRC) $(MK_SRC) -o $@ $(RAYLIB) $(FRAMEWORKS) -lcurl
+
+test: tests/test_place tests/test_viz tests/test_script tests/test_engine
 	./tests/test_place
 	./tests/test_viz
 	./tests/test_script
+	./tests/test_engine
 
 tests/bench_place: tests/bench_place.cpp $(PLACE_SRC) markup/place/*.hpp
 	$(CXX) -std=c++20 -O2 -Ithird_party tests/bench_place.cpp $(PLACE_SRC) -o $@
@@ -63,6 +67,6 @@ tools/tex/node_modules: tools/tex/package.json
 	cd tools/tex && npm install --no-audit --no-fund
 
 clean:
-	rm -f tutor manim_demo tests/test_place tests/test_viz tests/test_script tests/test_fonts tests/bench_place
+	rm -f tutor manim_demo tests/test_place tests/test_viz tests/test_script tests/test_engine tests/test_fonts tests/bench_place
 
 .PHONY: all check clean tex test test-fonts golden bench append
