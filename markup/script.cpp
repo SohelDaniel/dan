@@ -529,6 +529,20 @@ static bool parseLine(const std::string &rawIn, int lineNo, Line &ln, std::strin
   return false;
 }
 
+// A line tagged @score whose sentence never speaks |score| would wait for the sentence to end; glue the
+// cue to the word it names instead ("score", "scores"; one word starting with the other, 3+ letters).
+static void glueCue(Line &say, const std::string &cue) {
+  auto has = [&](const std::vector<std::string> &hs) { return std::find(hs.begin(), hs.end(), cue) != hs.end(); };
+  if (has(say.trailingHooks)) return;
+  for (auto &w : say.words) if (has(w.hooks)) return;
+  for (auto &w : say.words) {
+    std::string t;
+    for (char c : w.text) if (std::isalpha((unsigned char)c)) t += (char)std::tolower((unsigned char)c);
+    const std::string &shorter = t.size() < cue.size() ? t : cue, &longer = t.size() < cue.size() ? cue : t;
+    if (t == cue || (shorter.size() >= 3 && longer.compare(0, shorter.size(), shorter) == 0)) { w.hooks.push_back(cue); return; }
+  }
+}
+
 bool Script::parse(const std::string &text) {
   steps.clear();
   errors.clear();
@@ -537,7 +551,7 @@ bool Script::parse(const std::string &text) {
 }
 
 bool Script::append(const std::string &text) {
-  size_t errs = errors.size();
+  size_t errs = errors.size(), first = steps.size();
   std::istringstream in(text);
   std::string raw;
   int &lineNo = lines_;
@@ -565,6 +579,11 @@ bool Script::append(const std::string &text) {
     s.main = ln;
     steps.push_back(s);
   }
+  Line *say = nullptr; // the sentence the new lines belong to: the last Say before each
+  for (size_t i = first; i-- > 0 && !say;) if (steps[i].main.verb == Verb::SAY) say = &steps[i].main;
+  for (size_t i = first; i < steps.size(); i++)
+    if (steps[i].main.verb == Verb::SAY) say = &steps[i].main;
+    else if (say && !steps[i].hook.empty()) glueCue(*say, steps[i].hook);
   return errors.size() == errs;
 }
 

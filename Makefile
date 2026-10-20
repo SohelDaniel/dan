@@ -28,9 +28,13 @@ tests/test_place: tests/test_place.cpp $(PLACE_SRC) markup/place/*.hpp
 tests/test_viz: tests/test_viz.cpp $(VIZ_SRC) markup/viz/*.hpp markup/expr.cpp markup/expr.hpp
 	$(CXX) $(TEST_FLAGS) tests/test_viz.cpp $(VIZ_SRC) markup/expr.cpp -o $@
 
-test: tests/test_place tests/test_viz
+tests/test_script: tests/test_script.cpp markup/script.cpp markup/script.hpp markup/expr.cpp markup/expr.hpp
+	$(CXX) $(TEST_FLAGS) tests/test_script.cpp markup/script.cpp markup/expr.cpp -o $@
+
+test: tests/test_place tests/test_viz tests/test_script
 	./tests/test_place
 	./tests/test_viz
+	./tests/test_script
 
 tests/bench_place: tests/bench_place.cpp $(PLACE_SRC) markup/place/*.hpp
 	$(CXX) -std=c++20 -O2 -Ithird_party tests/bench_place.cpp $(PLACE_SRC) -o $@
@@ -59,6 +63,6 @@ tools/tex/node_modules: tools/tex/package.json
 	cd tools/tex && npm install --no-audit --no-fund
 
 clean:
-	rm -f tutor manim_demo tests/test_place tests/test_viz tests/test_fonts tests/bench_place
+	rm -f tutor manim_demo tests/test_place tests/test_viz tests/test_script tests/test_fonts tests/bench_place
 
 .PHONY: all check clean tex test test-fonts golden bench append
