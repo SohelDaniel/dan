@@ -253,8 +253,19 @@ place::Report Engine::layoutCheck(std::vector<std::string> *messages) {
                    k.what.c_str(), k.box.x, k.box.y, k.box.w, k.box.h, k.owner, k.other, k.members.size());
     }
   }
-  if (messages)
+  if (messages) {
     for (auto &d : r.diags) messages->push_back(place::describe(p, r, d));
+    // clutter: 3Blue1Brown's scenes end with 3 to 6 things on screen, and he cuts to a new one rather than
+    // piling up (docs/3b1b-habits.md). A note for the author, not part of the score.
+    int live = 0;
+    for (auto &[id, m] : marks_) {
+      std::string k = effectiveKind(m);
+      bool sample = k == "dot" && schemaOf(m) == "numberline" && findProp(schemaProps_, "bin"); // a histogram is one picture
+      if (m.positioned && !ghost(m) && k != "param" && k != "label" && !isAnnotationKind(k) && !sample) live++;
+    }
+    if (live > 8)
+      messages->push_back(std::to_string(live) + " things on stage at once; a scene reads best with 3 to 6: hide what's done, or start a new scene");
+  }
   return r;
 }
 

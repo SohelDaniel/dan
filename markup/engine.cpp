@@ -692,6 +692,14 @@ Color Engine::colorOf(const Mark &m) {
 }
 
 // ================================================================ runtime
+// things created at the same moment enter one after another, 0.15 s apart (a lag of about 0.15 of an
+// entrance, between his 0.1 for fades and 0.25 for distinct items), at most a second behind the first
+float Engine::entranceDelay() {
+  if (opt_.instant) return 0;
+  if (clock_ != staggerAt_) { staggerAt_ = clock_; staggerN_ = 0; }
+  return std::min(1.f, 0.15f * staggerN_++);
+}
+
 void Engine::execStep(size_t idx) {
   const Step &s = script_.steps[idx];
   if (s.main.verb == Verb::SAY) sayStep_ = idx;
@@ -817,6 +825,7 @@ void Engine::doMark(const Line &ln) {
     m.props = ln.props;
     m.order = (int)order_.size();
     m.appear = opt_.instant ? 1 : 0;
+    m.enterIn = entranceDelay();
     m.view = curView_;
     order_.push_back(ln.id);
     Mark &mm = marks_.emplace(ln.id, m).first->second;
@@ -887,7 +896,7 @@ void Engine::doLink(const Line &ln) {
   if (it == links_.end()) {
     Link l;
     l.id = ln.id; l.kind = ln.kind; l.a = ln.a; l.b = ln.b; l.directed = ln.directed;
-    l.props = ln.props; l.order = (int)order_.size(); l.appear = opt_.instant ? 1 : 0;
+    l.props = ln.props; l.order = (int)order_.size(); l.appear = opt_.instant ? 1 : 0; l.enterIn = entranceDelay();
     order_.push_back(ln.id);
     links_.emplace(ln.id, l);
   } else {
@@ -907,7 +916,7 @@ void Engine::doGroup(const Line &ln) {
   if (it == groups_.end()) {
     Group g;
     g.id = ln.id; g.kind = "box"; g.members = ln.members; g.props = ln.props;
-    g.order = (int)order_.size(); g.appear = opt_.instant ? 1 : 0;
+    g.order = (int)order_.size(); g.appear = opt_.instant ? 1 : 0; g.enterIn = entranceDelay();
     order_.push_back(ln.id);
     groups_.emplace(ln.id, g);
   } else {
@@ -1310,10 +1319,12 @@ void Engine::update(float dt) {
     if (auto ofv = findProp(o.props, "of"); ofv && ofv->str == focus_) return 0.7f;
     return 0.2f;
   };
-  float appearRate = opt_.instant ? 1e9f : 1.f / 0.6f;
+  // an entrance takes 1 s (3Blue1Brown's fades run 1 to 2 s; docs/3b1b-habits.md)
+  float appearRate = opt_.instant ? 1e9f : 1.f / 1.0f;
   for (auto &id : order_) {
     Obj *o = find(id);
     if (!o) continue;
+    if (o->enterIn > 0 && !opt_.instant) { o->enterIn -= dt; continue; }
     o->appear = std::min(1.f, o->appear + dt * appearRate);
     o->lit = opt_.instant ? lit(*o) : smoothApproach(o->lit, lit(*o), dt, 7);
   }

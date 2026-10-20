@@ -64,6 +64,7 @@ struct Obj {
   Props props;
   int order = 0;
   float appear = 0;   // 0..1 entrance (Create-style)
+  float enterIn = 0;  // seconds until its entrance starts (things arriving together enter one after another)
   float lit = 1;      // focus brightness, eased
   float pulse = 0;    // indicate: 0..1..0
   std::string pulseRef; // what the pulse points at (the thing, or one cell: a[3])
@@ -470,6 +471,9 @@ private:
     ~DataScope() { e.useData(was); }
   };
   float lastDt_ = 0;
+  float entranceDelay();          // for a thing created now: after the others created at this moment
+  float staggerAt_ = -1;          // when the last thing was created
+  int staggerN_ = 0;              // how many were created at that moment
   std::map<std::string, int> pointerSide_;
   std::vector<int> sceneBlocks_;   // per scene: how many blocks its script declares
   // fit: a scene that outgrows the stage is drawn smaller (never below 0.6, so text stays legible).
