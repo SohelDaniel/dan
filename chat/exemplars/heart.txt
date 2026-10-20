@@ -9,19 +9,18 @@ mark rv rect chamber x=3.2 y=2.4 w=2.2 h=1.6 label="right ventricle"
 mark la rect chamber x=6.8 y=4.1 w=2.2 h=1.4 label="left atrium"
 mark lv rect chamber x=6.8 y=2.4 w=2.2 h=1.6 label="left ventricle"
 mark body rect organ x=5 y=0.6 w=6 h=0.9 label="the body"
-mark blood dot x=1.4 y=0.6 r=9 trail=1.2s color=blue label="blood"
+mark blood dot x=1.4 y=0.35 r=9 trail=1.2s color=blue label="blood"
 Say: "Used blood comes back from the |body|body into the right atrium."
 @body morph blood.x -> 3.2 1s
-with morph blood.y -> 4.1 1s
+with morph blood.y -> 3.7 1s
 Say: "The right ventricle |pumps|pumps it up to the lungs."
-@pumps morph blood.y -> 2.4 0.8s
-mark blood y=2.4
-morph blood.y -> 6.2 1.2s
+@pumps morph blood.y -> 1.95 0.8s
+morph blood.y -> 5.85 1.2s
 Say: "There it picks up |oxygen|oxygen."
 @oxygen mark blood color=red
 Say: "Back it comes to the |left|left side, and the strong left ventricle sends it out to the body."
 @left morph blood.x -> 6.8 1s
-with morph blood.y -> 4.1 1s
-morph blood.y -> 2.4 0.8s
-morph blood.y -> 0.6 1s
+with morph blood.y -> 3.7 1s
+morph blood.y -> 1.95 0.8s
+morph blood.y -> 0.35 1s
 Say: "Two pumps side by side: the right one feeds the lungs, the left one feeds everything else."

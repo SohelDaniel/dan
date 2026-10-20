@@ -173,7 +173,8 @@ place::Picture Engine::picture() {
     std::vector<int> strokes, data;
     for (int i = 0; i < (int)p.ink.size(); i++) {
       const place::Ink &k = p.ink[i];
-      if (k.kind == place::Ink::Link && k.owner < 0 && k.other < 0) strokes.push_back(i);
+      bool trail = k.id.size() > 6 && k.id.compare(k.id.size() - 6, 6, "~trail") == 0; // a data thing's path is data too
+      if (k.kind == place::Ink::Link && ((k.owner < 0 && k.other < 0) || trail)) strokes.push_back(i);
       if (k.kind == place::Ink::Body)
         if (Mark *m = mark(k.id); m && m->direct) data.push_back(i);
     }

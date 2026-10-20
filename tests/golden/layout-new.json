@@ -24,10 +24,10 @@
   "maxOverlaps": 1
  },
  "chat/exemplars/heart.txt": {
-  "mean": 82.1,
-  "worst": 32.8,
-  "final": 95,
-  "maxOverlaps": 3
+  "mean": 96.8,
+  "worst": 68.2,
+  "final": 100,
+  "maxOverlaps": 2
  },
  "chat/exemplars/median.txt": {
   "mean": 100,
