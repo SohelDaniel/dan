@@ -188,8 +188,11 @@ place::Picture Engine::picture() {
   }
   for (const Rectangle &f : furniture()) p.add({place::Ink::Furniture, "axes", "the axis numbers", toRect(f)});
   // reserved screen zones
-  if (!title_.empty()) p.add({place::Ink::Zone, "title", "title", {24, 10, measure(title_, 24).x + 4, 32}});
-  if (say_.active || say_.lingering > 0) p.add({place::Ink::Zone, "subtitle", "subtitle", {120, 586, 1040, 100}});
+  // reserved screen zones, in layout coordinates (the stage may be zoomed out)
+  if (!title_.empty()) p.add({place::Ink::Zone, "title", "title", toRect(toStage({24, 10, measure(title_, 24).x + 4, 32}))});
+  if (say_.active || say_.lingering > 0) p.add({place::Ink::Zone, "subtitle", "subtitle", toRect(toStage({120, 586, 1040, 100}))});
+  p.canvas = toRect(toStage({0, 0, (float)W, (float)H}));
+  p.stage = toRect(stageRect());
   return p;
 }
 
@@ -648,8 +651,8 @@ bool Engine::movableLabel(const Mark &m, const TextLabel &l) {
 
 void Engine::placeAllLabels(float dt) {
   place::LabelWorld world;
-  world.bounds = {16, 44, 1248, 540};
   auto R = [](Rectangle r) { return place::Rect{r.x, r.y, r.width, r.height}; };
+  world.bounds = R(toStage({16, 44, 1248, 540}));
   std::map<std::string, int> obstacle;
   // things are obstacles; a label may sit on its own thing
   for (auto &id : order_) {
@@ -798,9 +801,9 @@ void Engine::placeAllLabels(float dt) {
   // axis furniture: tick numbers along the axes and the axis titles
   for (const Rectangle &f : furniture()) world.obstacles.push_back(R(f));
   // reserved screen areas
-  if (!title_.empty()) world.zones.push_back({24, 10, measure(title_, 24).x + 4, 32});
-  world.zones.push_back({(float)W - 380, 4, 376, 24}); // key hints
-  if (say_.active || say_.lingering > 0) world.zones.push_back({120, 586, 1040, 100});
+  if (!title_.empty()) world.zones.push_back(R(toStage({24, 10, measure(title_, 24).x + 4, 32})));
+  world.zones.push_back(R(toStage({(float)W - 380, 4, 376, 24}))); // key hints
+  if (say_.active || say_.lingering > 0) world.zones.push_back(R(toStage({120, 586, 1040, 100})));
 
   std::vector<place::LabelReq> reqs;
   for (auto &p : pending) {

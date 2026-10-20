@@ -138,8 +138,8 @@
   "maxOverlaps": 1
  },
  "scripts/pointers.txt": {
-  "mean": 99.1,
-  "worst": 71.3,
+  "mean": 98.6,
+  "worst": 54,
   "final": 100,
   "maxOverlaps": 2
  },

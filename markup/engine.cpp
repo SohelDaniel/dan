@@ -256,6 +256,7 @@ void Engine::reset() {
   graphPos_.clear();
   flowMemo_ = {};
   bandH_ = -1;
+  zoom_ = zoomT_ = 1;
   linkRoute_.clear();
   cam_ = Camera{};
   hist_.clear();
@@ -444,6 +445,20 @@ bool Engine::related(const std::string &a, const std::string &b) {
   return false;
 }
 
+std::vector<std::string> Engine::boxNameLines(const Mark &m) { return wrap(displayName(m), 22, 260); }
+
+std::vector<std::pair<std::string, std::string>> Engine::boxRows(const Mark &m) {
+  static const std::set<std::string> notContent = {"label", "name", "color", "unit", "shape", "ease", "style", "cmap",
+                                                   "tex", "text", "fn", "of", "note", "title"};
+  std::vector<std::pair<std::string, std::string>> rows;
+  for (auto &p : m.props) {
+    if (notContent.count(p.key) || isPlacementKey(p.key) || (kPositional.count(p.key) && p.key != "m")) continue;
+    if (p.key == "m" && p.val.type == Value::LIST) continue; // a matrix (on a grid), not a magnitude
+    rows.push_back({p.key, p.val.isNumeric() ? valueText(m, p.key) : p.val.type == Value::STR ? p.val.str : p.val.markup()});
+  }
+  return rows;
+}
+
 std::string Engine::displayName(const Obj &o) const {
   if (auto v = findProp(o.props, "label"); v && v->type == Value::STR) return v->str;
   if (auto v = findProp(o.props, "name"); v && v->type == Value::STR) return v->str;
@@ -563,12 +578,14 @@ void Engine::clearStage() {
   graphPos_.clear();
   flowMemo_ = {};
   bandH_ = -1;
+  zoom_ = zoomT_ = 1;
   linkRoute_.clear();
   rangeSig_.clear();
   rangesInit_ = false;
   cam_ = Camera{};
   blockRows_ = false;
   bandH_ = -1;
+  zoom_ = zoomT_ = 1;
   pointerSide_.clear();
   crossedSince_.clear();
   clearFieldCaches();

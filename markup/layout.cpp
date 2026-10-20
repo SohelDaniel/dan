@@ -24,14 +24,6 @@ static bool listRange(const Value *v, float &lo, float &hi) {
   return hi > lo;
 }
 
-static bool kPositionalForBox(const std::string &k) {
-  if (isPlacementKey(k)) return true;
-  static const std::set<std::string> skip = {"x",    "y",       "t",    "at",   "year", "r",  "w",  "fn",    "of",
-                                             "domain", "pos",  "shape", "bend", "range", "xt", "yt", "opacity", "side",
-                                             "to",   "dx",     "dy",    "h",    "size", "line", "n", "m"};
-  return skip.count(k) > 0;
-}
-
 static float easeOut(float t) { return 1 - (1 - t) * (1 - t) * (1 - t); }
 
 // ================================================================ sizes
@@ -61,17 +53,14 @@ std::string Engine::valueText(const Mark &m, const std::string &key) {
 }
 
 Vector2 Engine::boxSize(const Mark &m) {
-  float w = measure(displayName(m), 22).x;
-  int lines = 0;
-  for (auto &p : m.props) {
-    if (p.key == "label" || p.key == "name" || p.key == "color" || p.key == "unit") continue;
-    if (kPositionalForBox(p.key)) continue;
-    std::string t = p.key + " " + (p.val.isNumeric() ? valueText(m, p.key) : p.val.markup());
-    w = std::max(w, measure(t, 17).x);
-    lines++;
-  }
-  if (!m.category.empty()) { w = std::max(w, measure(m.category, 15).x); lines++; }
-  return {w + 32, 44.f + 22.f * lines};
+  float w = 0;
+  auto name = boxNameLines(m);
+  for (auto &l : name) w = std::max(w, measure(l, 22).x);
+  auto rows = boxRows(m);
+  for (auto &[k, v] : rows) w = std::max(w, measure(k + " " + v, 17).x + 12);
+  int lines = (int)rows.size() + !m.category.empty();
+  if (!m.category.empty()) w = std::max(w, measure(m.category, 15).x);
+  return {w + 32, 44.f + 26.f * (name.size() - 1) + 22.f * lines};
 }
 
 Rectangle Engine::bodyBounds(const Mark &m) {
@@ -482,7 +471,8 @@ void Engine::layout(float dt) {
 
   // blocks (formulas, cards, code, arrays, tables) with no place of their own stack in a band at the
   // top, and the schema gets the rest. With nothing else on a free stage, the stack is centred.
-  Rectangle stage = kStage;
+  const Rectangle S = stageRect(); // the stage in layout coordinates (larger when zoomed out)
+  Rectangle stage = S;
   {
     std::vector<Mark *> blocks, arriving;
     float total = 0;
@@ -497,48 +487,49 @@ void Engine::layout(float dt) {
     }
     bool alone = body.empty() && (s == "free" || s == "graph");
     int declared = sceneIdx_ < sceneBlocks_.size() ? sceneBlocks_[sceneIdx_] : 0;
-    if (blocks.size() > 1 && ((!alone && total > kStage.height * 0.4f) || (alone && total > kStage.height - 8))) blockRows_ = true;
+    if (blocks.size() > 1 && ((!alone && total > S.height * 0.4f) || (alone && total > S.height - 8))) blockRows_ = true;
     if (declared >= 4) blockRows_ = true; // many blocks coming: rows from the start
     if (blockRows_ && blocks.size() > 1) {
       // a tall stack would leave the picture no room: flow the blocks in rows, side by side
-      float x = 0, rowH = 0, y = kStage.y + 4;
+      float x = 0, rowH = 0, y = S.y + 4;
       std::vector<std::pair<Mark *, Vector2>> row;
       auto flush = [&] {
-        float w = x - 24, x0 = kStage.x + (kStage.width - w) / 2;
+        float w = x - 24, x0 = S.x + (S.width - w) / 2;
         for (auto &[bm, sz] : row) { bm->tpos = {x0 + sz.x / 2, y + rowH / 2}; bm->positioned = true; x0 += sz.x + 24; }
         y += rowH + 14;
         row.clear(); x = 0; rowH = 0;
       };
       for (Mark *m : blocks) {
         Rectangle b = bodyBounds(*m);
-        if (!row.empty() && x + b.width > kStage.width) flush();
+        if (!row.empty() && x + b.width > S.width) flush();
         row.push_back({m, {b.width, b.height}});
         x += b.width + 24;
         rowH = std::max(rowH, b.height);
       }
       if (!row.empty()) flush();
-      total = y - kStage.y - 4;
+      total = y - S.y - 4;
       if (alone) { // centre the rows vertically, as the column would be
-        float off = std::max(0.f, (kStage.height - total) / 2 - 4);
+        float off = std::max(0.f, (S.height - total) / 2 - 4);
         for (auto &id : order_) if (Mark *bm = mark(id); bm && std::find(blocks.begin(), blocks.end(), bm) != blocks.end()) bm->tpos.y += off;
       }
       blocks.clear(); // placed
     }
-    float y = alone ? kStage.y + std::max(4.f, (kStage.height - total) / 2) : kStage.y + 4;
+    float y = alone ? S.y + std::max(4.f, (S.height - total) / 2) : S.y + 4;
     for (Mark *m : blocks) {
       float h = bodyBounds(*m).height;
-      m->tpos = {kStage.x + kStage.width / 2, y + h / 2};
+      m->tpos = {S.x + S.width / 2, y + h / 2};
       m->positioned = true;
       y += h + 14;
     }
-    // the picture below the band moves with it, eased (a new formula never snaps a plot aside),
-    // and always keeps a good part of the stage
-    float want = total > 0 && !alone ? std::min(total + 6, kStage.height * 0.6f) : 0;
+    // the picture below the band moves with it, eased (a new formula never snaps a plot aside), and
+    // keeps a good part of the stage: plots get at least 40% (the band is capped); anything else may
+    // run past the bottom, and then the whole stage is drawn smaller to fit (fitStage)
+    float want = total > 0 && !alone ? (isAxes(s) ? std::min(total + 6, S.height * 0.6f) : total + 6) : 0;
     bandH_ = opt_.instant || bandH_ < 0 ? want : smoothApproach(bandH_, want, dt, 9);
     if (bandH_ < want - 4) // room first, then the newcomer: a block arriving in a growing band waits for it
       for (Mark *m : arriving) m->appear = 0;
     stage.y += bandH_;
-    stage.height -= bandH_;
+    stage.height = std::max(S.height - bandH_, S.height * 0.4f);
   }
 
   if (s != "graph" || body.empty()) linkRoute_.clear();
@@ -604,7 +595,7 @@ void Engine::layout(float dt) {
     auto clash = [&](Vector2 c) {
       Rectangle r = rectAt(c);
       float bad = 0;
-      if (r.x < kStage.x || r.y < kStage.y - 20 || r.x + r.width > kStage.x + kStage.width || r.y + r.height > 586) bad += 1000;
+      if (r.x < S.x || r.y < S.y - 20 || r.x + r.width > S.x + S.width || r.y + r.height > S.y + S.height + 26 / zoom_) bad += 1000;
       for (auto &oid : order_) {
         Mark *o = mark(oid);
         if (!o || o == m || !o->positioned || ghost(*o)) continue;
@@ -636,6 +627,7 @@ void Engine::layout(float dt) {
     takenPointers.push_back(rectAt(cand[side]));
   }
 
+  fitStage(dt);
   for (auto &[id, m] : marks_) {
     if (!m.positioned) continue;
     if (!m.placed || m.direct) { m.pos = m.tpos; m.placed = true; }
@@ -654,6 +646,38 @@ void Engine::layout(float dt) {
   }
   for (auto &[id, m] : marks_) if (m.culled) m.positioned = false; // out of the camera's view: not drawn, no labels
   if (opt_.newPlacer) placeAllLabels(opt_.instant ? 1.f : dt);
+}
+
+Rectangle Engine::toStage(Rectangle r) const {
+  Vector2 c{kStage.x + kStage.width / 2, kStage.y + kStage.height / 2};
+  return {c.x + (r.x - c.x) / zoom_, c.y + (r.y - c.y) / zoom_, r.width / zoom_, r.height / zoom_};
+}
+Rectangle Engine::stageRect() const { return toStage(kStage); }
+
+// The extent of what was laid out this frame (where things are going, not where they are drawn yet);
+// if it outgrew the stage, the target scale drops so it fits. Axes and planes always fit their area.
+void Engine::fitStage(float dt) {
+  if (isAxes(schemaNow())) { zoom_ = zoomT_ = 1; return; }
+  float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
+  auto add = [&](Rectangle b) {
+    x0 = std::min(x0, b.x); y0 = std::min(y0, b.y);
+    x1 = std::max(x1, b.x + b.width); y1 = std::max(y1, b.y + b.height);
+  };
+  for (auto &[id, m] : marks_) {
+    if (!m.positioned) continue;
+    std::string k = effectiveKind(m);
+    if (k != "box" && k != "dot" && k != "bar" && k != "label" && !isBlockKind(k)) continue;
+    Rectangle b = bodyBounds(m);
+    b.x += m.tpos.x - m.pos.x;
+    b.y += m.tpos.y - m.pos.y;
+    if (b.width > 0) add(b);
+  }
+  for (auto &[gid, g] : groups_) if (Rectangle b = groupBounds(g); b.width > 0) add(b);
+  if (x0 > x1) return;
+  Rectangle S = stageRect();
+  float need = std::max((x1 - x0) / S.width, (y1 - y0) / S.height);
+  if (need > 1.01f) zoomT_ = std::max(0.6f, std::min(zoomT_, zoom_ / need));
+  zoom_ = opt_.instant ? zoomT_ : smoothApproach(zoom_, zoomT_, dt, 6);
 }
 
 const Value *Engine::attachment(const Mark &m) const {
@@ -809,7 +833,8 @@ void Engine::layoutGraph(Rectangle area, const std::vector<std::string> &ids) {
   std::map<std::string, int> idx, cats, lanes;
   for (auto &id : order_) // lanes in the order the groups were declared
     if (groups_.count(id) && groupOf(id).empty()) lanes.insert({id, (int)lanes.size()});
-  std::string sig = std::to_string((int)area.y) + "x" + std::to_string((int)area.height) + "|";
+  std::string sig = std::to_string((int)area.x) + "," + std::to_string((int)area.y) + ":" + std::to_string((int)area.width) + "x" +
+                    std::to_string((int)area.height) + "|";
   for (auto &id : ids) {
     Mark &m = marks_[id];
     Rectangle b = bodyBounds(m);

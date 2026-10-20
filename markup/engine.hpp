@@ -282,6 +282,10 @@ private:
   float footprint(const Mark &m);
   float dotRadius(const Mark &m);
   Vector2 boxSize(const Mark &m);
+  // what a box shows, used by both its size and its drawing: the name (wrapped), then one row per
+  // property that is content (not position, style or structure)
+  std::vector<std::string> boxNameLines(const Mark &m);
+  std::vector<std::pair<std::string, std::string>> boxRows(const Mark &m);
   Rectangle bodyBounds(const Mark &m);
   Rectangle fullBounds(const Mark &m);   // incl. name labels
   Rectangle groupBounds(const Group &g, int depth = 0);
@@ -416,6 +420,12 @@ private:
   float lastDt_ = 0;
   std::map<std::string, int> pointerSide_;
   std::vector<int> sceneBlocks_;   // per scene: how many blocks its script declares
+  // fit: a scene that outgrows the stage is drawn smaller (never below 0.6, so text stays legible).
+  // Layout, labels and the checker work in the enlarged layout stage; drawing scales it back.
+  float zoom_ = 1, zoomT_ = 1;          // drawn and target scale; only shrinks within a scene
+  Rectangle stageRect() const;           // the stage in layout coordinates (the screen's at zoom 1)
+  Rectangle toStage(Rectangle screen) const; // a screen rectangle (a reserved zone) in layout coordinates
+  void fitStage(float dt);               // after layout: shrink if what's laid out outgrew the stage
   float bandH_ = -1;                // the block band's height, eased (-1: not laid out yet)
   bool blockRows_ = false;         // this scene's blocks flow in rows (once chosen, kept: no mid-scene reshuffle)
   std::map<std::string, float> crossedSince_; // label key -> when a line started crossing it

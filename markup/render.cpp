@@ -484,18 +484,12 @@ void Engine::drawMark(const Mark &mc) {
     Rectangle rr{r.x + r.width * (1 - sc) / 2, r.y + r.height * (1 - sc) / 2, r.width * sc, r.height * sc};
     roundedBox(rr, 10, 2.5f, fade(c, a), fade(c, a * 0.14f));
     float y = rr.y + 10;
-    text(name, {rr.x + rr.width / 2, y}, 22, fg, 0.5f, 0);
-    y += 30;
+    for (auto &l : boxNameLines(m)) { text(l, {rr.x + rr.width / 2, y}, 22, fg, 0.5f, 0); y += 26; }
+    y += 4;
     if (!m.category.empty()) { blendText(m, "@category", m.category, {rr.x + rr.width / 2, y}, 15, mutedC, 0.5f, 0); y += 22; }
-    for (auto &p : m.props) {
-      static const std::set<std::string> skip = {
-          "label", "name",  "color", "unit", "x",     "y",     "t",     "at",    "year",  "r",     "w",    "pos",
-          "shape", "bend",  "range", "opacity", "side", "to",  "dx",    "dy",    "h",     "size",  "line", "items",
-          "cells", "pts",   "cols",  "grid", "axes",  "equal", "index", "n",     "m",     "xlabel", "ylabel", "tex", "text"};
-      if (skip.count(p.key) || isPlacementKey(p.key)) continue;
-      std::string v = p.val.isNumeric() ? valueText(m, p.key) : p.val.type == Value::STR ? p.val.str : p.val.markup();
-      text(p.key, {rr.x + 14, y}, 17, mutedC, 0, 0);
-      if (p.val.type == Value::STR) blendText(m, p.key, v, {rr.x + rr.width - 14, y}, 17, fg, 1, 0);
+    for (auto &[key, v] : boxRows(m)) {
+      text(key, {rr.x + 14, y}, 17, mutedC, 0, 0);
+      if (const Value *pv = findProp(m.props, key); pv && pv->type == Value::STR) blendText(m, key, v, {rr.x + rr.width - 14, y}, 17, fg, 1, 0);
       else text(v, {rr.x + rr.width - 14, y}, 17, fg, 1, 0);
       y += 22;
     }
@@ -703,6 +697,10 @@ void Engine::draw() {
   ClearBackground(col::bg);
   std::string s = schemaNow();
   if (!title_.empty()) text(title_, {24, 14}, 24, col::muted, 0, 0);
+  // the stage, scaled when the scene outgrew it; title, subtitles and hints stay at screen size
+  Rectangle S = stageRect();
+  Vector2 c{S.x + S.width / 2, S.y + S.height / 2}; // the stage's centre is the same at every scale
+  BeginMode2D(Camera2D{c, c, 0, zoom_});
 
   // schema furniture
   const float F = stageFade_;
@@ -794,6 +792,7 @@ void Engine::draw() {
     }
   drawPulses();
   drawInfo();
+  EndMode2D();
   drawSubtitle();
   drawHud();
 }
