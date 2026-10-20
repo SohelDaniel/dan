@@ -386,6 +386,7 @@ std::vector<TextLabel> Engine::markLabelsAt(const Mark &m) {
       if (!mp.empty()) { add(valueText(m, mp), {m.pos.x, y}, 17, 0.5f, 0, TextLabel::Muted, "value"); y += 20; }
       category({m.pos.x, y}, 0.5f, 0);
     } else if (s == "numberline") {
+      if (findProp(schemaProps_, "bin") && !findProp(m.props, "label")) return out; // a sample in a histogram: no name
       TextLabel &l = add(name, {ctr.x, ctr.y - r - 8 - m.labelLift}, 17, 0.5f, 1, TextLabel::Fg, "name");
       if (m.labelLift > 0) {
         l.leader = true;

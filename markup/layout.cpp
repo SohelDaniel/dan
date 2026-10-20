@@ -36,7 +36,8 @@ static float easeOut(float t) { return 1 - (1 - t) * (1 - t) * (1 - t); }
 float Engine::dotRadius(const Mark &m) {
   std::string s = schemaOf(m);
   if (auto r = findProp(m.props, "r")) return std::max(2.0, num(*r));
-  if (s == "numberline" || s == "timeline") return 10;
+  if (s == "numberline") return findProp(schemaProps_, "bin") ? binR_ : 10;
+  if (s == "timeline") return 10;
   if (isAxes(s)) return 7;
   std::string k = magProp(m);
   if (k.empty()) return 16;
@@ -994,6 +995,11 @@ void Engine::layoutNumberline(Rectangle area) {
   nl_.step = 0;
   std::vector<std::pair<float, std::string>> pts;
   std::vector<std::string> rest;
+  // bin=w: each value falls into its bin, and a bin's samples stack into a column (a histogram of dots);
+  // a new sample drops in from above
+  const Value *bv = findProp(schemaProps_, "bin");
+  double bin = bv && bv->isNumeric() && num(*bv) > 0 ? num(*bv) : 0;
+  std::map<long, int> perBin;
   for (auto &id : order_) {
     Mark *m = mark(id);
     if (!m || !inDataView(*m)) continue;
@@ -1002,13 +1008,21 @@ void Engine::layoutNumberline(Rectangle area) {
     double v = num(*m, nlProp_, &ok);
     if (isBlockKind(k)) continue;
     if (ok && std::isfinite(v) && k != "path" && k != "region") {
+      if (bin > 0 && k == "dot") { long b = (long)std::floor(v / bin + 0.5); perBin[b]++; v = b * bin; } // bins centred on multiples of bin
       m->tpos = {nl_.toScreen((float)v).x, lineY};
       m->positioned = true;
-      m->direct = true;
+      m->direct = !(bin > 0 && k == "dot");
+      if (bin > 0 && k == "dot" && !m->placed) { m->pos = {m->tpos.x, area.y}; m->placed = true; }
       if (k != "label") pts.push_back({m->tpos.x, id});
     } else if (k != "label" && k != "path" && k != "region") {
       rest.push_back(id);
     }
+  }
+  if (bin > 0) { // dots small enough that the tallest column fits above the line, and wide enough to fill a bin
+    int tallest = 1;
+    for (auto &[b, c] : perBin) tallest = std::max(tallest, c);
+    float binW = std::fabs(nl_.toScreen((float)bin).x - nl_.toScreen(0).x);
+    binR_ = std::clamp(std::min((lineY - area.y - 30) / (tallest * 2.4f), binW / 2 - 2), 2.5f, 10.f);
   }
   // equal values stack upward instead of hiding each other
   std::stable_sort(pts.begin(), pts.end());
@@ -1023,7 +1037,7 @@ void Engine::layoutNumberline(Rectangle area) {
         if (pl == level && std::fabs(px - x) < 2 * r + 4) { clash = true; level++; break; }
     }
     placed.push_back({x, level});
-    m.tpos.y = lineY - level * (2 * r + 6);
+    m.tpos.y = lineY - r - 2 - level * (bin > 0 ? 2 * r + 0.8f * r : 2 * r + 6) + (bin > 0 ? 0 : r + 2);
   }
   // name labels: lift any that would overlap a neighbour's
   std::vector<Rectangle> labels;

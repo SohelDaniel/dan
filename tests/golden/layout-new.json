@@ -137,6 +137,12 @@
   "final": 100,
   "maxOverlaps": 0
  },
+ "scripts/histogram.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
  "scripts/integral.txt": {
   "mean": 100,
   "worst": 100,

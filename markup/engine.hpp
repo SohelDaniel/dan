@@ -386,6 +386,7 @@ private:
   int nextSlot_ = 0;
 
   // ranges for schemas, eased
+  float binR_ = 10;         // number line with bin=: the dot size that lets its tallest column fit
   float nlMin_ = 0, nlMax_ = 10, axX0_ = -1, axX1_ = 5, axY0_ = -1, axY1_ = 10, tlMin_ = 0, tlMax_ = 10;
   bool rangesInit_ = false;
   float nlTarget_[2] = {0, 10}, axTarget_[4] = {-1, 5, -1, 10}, tlTarget_[2] = {0, 10}; // eased towards
