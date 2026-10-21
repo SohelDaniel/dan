@@ -201,11 +201,11 @@ function runTutor(text, name, flag) {
   fs.writeFileSync(file(name), text);
   return new Promise((done) => {
     const p = spawn(TUTOR, [file(name), flag], { cwd: ROOT });
-    let out = '';
+    let out = '', err = '';
     p.stdout.on('data', (d) => (out += d));
-    p.stderr.on('data', (d) => (out += d));
-    p.on('close', (code) => done({ code, out }));
-    p.on('error', () => done({ code: -1, out }));
+    p.stderr.on('data', (d) => (err += d)); // lints and parse errors: never part of the scene text
+    p.on('close', (code) => done({ code, out, err }));
+    p.on('error', () => done({ code: -1, out, err }));
   });
 }
 
@@ -223,7 +223,8 @@ function snapshotFrame(text) {
 }
 
 async function check(text) {
-  const { code, out } = await runTutor(text, '.check.txt', '--check');
+  const { code, out: o, err } = await runTutor(text, '.check.txt', '--check');
+  const out = o + err;
   const lints = [...new Set(out.split('\n').filter((l) => l.startsWith('  ') || l.startsWith('parse:')).map((l) => l.trim()))];
   return { ok: code === 0, lints };
 }
