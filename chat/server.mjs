@@ -38,8 +38,9 @@ const PORT = Number(flag('--port', 4747));
 let mute = argv.includes('--mute');
 const VOICE = flag('--voice', process.env.TUTOR_VOICE || ''); // an Inworld voice id; empty: the engine's default
 let defaultModel = flag('--model', 'sonnet');
-// low effort: measured the same first-token time with no visible thinking lost, and it keeps turns short
-const EFFORT = flag('--effort', 'low');
+// how long Claude thinks before it answers: low is quickest (the default); the console can raise it per turn
+const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
+let defaultEffort = EFFORTS.includes(flag('--effort', 'low')) ? flag('--effort', 'low') : 'low';
 
 if (!fs.existsSync(TUTOR)) { console.error(`no ${TUTOR}: run make first`); process.exit(1); }
 if (process.env.ANTHROPIC_API_KEY)
@@ -231,13 +232,13 @@ const CLEAN_ENV = Object.fromEntries(Object.entries(process.env)
   .filter(([k]) => !/^CLAUDECODE$|^CLAUDE_CODE_|^CLAUDE_PID$|^CLAUDE_EFFORT$/.test(k)));
 let claude = null; // { p, model, onEvent, err }
 
-function startClaude(model) {
+function startClaude(model, effort) {
   const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
-    '--include-partial-messages', '--tools', '', '--strict-mcp-config', '--model', model, '--effort', EFFORT,
+    '--include-partial-messages', '--tools', '', '--strict-mcp-config', '--model', model, '--effort', effort,
     '--append-system-prompt', SYSTEM];
   if (S.sid) args.push('--resume', S.sid);
   const p = spawn('claude', args, { cwd: S.dir, env: CLEAN_ENV });
-  const c = { p, model, onEvent: null, err: '' };
+  const c = { p, model, effort, onEvent: null, err: '' };
   let buf = '';
   p.stdout.on('data', (d) => {
     buf += d;
@@ -261,7 +262,7 @@ function startClaude(model) {
 function stopClaude() { if (claude) { claude.onEvent = null; claude.p.kill(); claude = null; } }
 
 // ------------------------------------------------------------ pause and ask (chat/explain.mjs)
-const explainer = createExplainer({ tutor: TUTOR, root: ROOT, system: SYSTEM, model: () => defaultModel, effort: EFFORT,
+const explainer = createExplainer({ tutor: TUTOR, root: ROOT, system: SYSTEM, model: () => defaultModel, effort: () => defaultEffort,
   env: CLEAN_ENV, voiceArgs: () => [...(mute ? ['--mute'] : []), ...(VOICE ? ['--voice-id', VOICE] : [])] });
 const captureWaiters = new Map(); // dir -> resolve: the stage wrote that frame and its state
 const captured = (dir) => new Promise((resolve) => {
@@ -440,7 +441,8 @@ function runTurn(text, source, model = defaultModel) {
     if (S.pending) { const p = S.pending; S.pending = null; runTurn(p.text, p.source); }
   };
 
-  if (!claude || claude.model !== model) { stopClaude(); claude = startClaude(model); }
+  // the model and the thinking level are fixed per process: a change starts a new one (the session carries on)
+  if (!claude || claude.model !== model || claude.effort !== defaultEffort) { stopClaude(); claude = startClaude(model, defaultEffort); }
   claude.onEvent = (e) => {
     if (e.type === 'stream_event') {
       const ev = e.event;
@@ -481,7 +483,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (url.pathname === '/api/info') {
-    return json(res, { session: S.id, title: S.title, state: read('state.txt'), turn: S.turn, mute, model: defaultModel,
+    return json(res, { session: S.id, title: S.title, state: read('state.txt'), turn: S.turn, mute, model: defaultModel, effort: defaultEffort,
       busy: S.busy, messages: messages(), sessions: listSessions(), library: libraryNames() });
   }
   if (req.method === 'GET' && url.pathname === '/api/memory') return json(res, { text: fs.readFileSync(MEMORY, 'utf8'), path: MEMORY });
@@ -490,6 +492,7 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === '/api/send') {
     if (b.model) defaultModel = b.model;
+    if (EFFORTS.includes(b.effort)) defaultEffort = b.effort;
     submit(b.text, 'browser');
     return json(res, { ok: true });
   }

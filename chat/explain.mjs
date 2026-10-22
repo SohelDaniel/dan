@@ -65,7 +65,7 @@ export function createExplainer({ tutor, root, system, model, effort, env, voice
     await captured;
     const atPause = fs.readFileSync(path.join(dir, 'stage.txt'), 'utf8');
 
-    const reply = await askFork({ sid: session.sid, system, model: model(), effort, cwd: session.dir, env,
+    const reply = await askFork({ sid: session.sid, system, model: model(), effort: effort(), cwd: session.dir, env,
       frame: path.join(dir, 'frame.png'), text: ASK({ question, heard, stage: atPause }) });
     fs.writeFileSync(path.join(dir, 'reply.txt'), reply);
     const { scene, problems } = await expandReply(reply);

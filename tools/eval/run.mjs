@@ -21,7 +21,8 @@ const argv = process.argv.slice(2);
 const flag = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : d; };
 const variant = flag('--variant', 'full');
 const model = flag('--model', 'sonnet');
-const OUT = path.resolve(flag('--out', path.join(HERE, 'out')), variant + (model === 'sonnet' ? '' : '-' + model));
+const effort = flag('--effort', 'low'); // how long it thinks: low medium high xhigh max
+const OUT = path.resolve(flag('--out', path.join(HERE, 'out')), variant + (model === 'sonnet' ? '' : '-' + model) + (effort === 'low' ? '' : '-' + effort));
 const jobs = Number(flag('--jobs', 4));
 const only = flag('--only', '');
 let prompts = JSON.parse(fs.readFileSync(path.resolve(HERE, flag('--prompts', 'prompts.json')), 'utf8'));
@@ -47,7 +48,7 @@ function generate(p) {
     const ctx = (p.prior ? `<history>\nLearner: ${p.prior}\n(you answered it on the stage below)\n</history>\n\n` : '') +
       `<stage>\n${p.stage || '(empty)'}\n</stage>\n\nLearner: ${p.q}`;
     const c = spawn('claude', ['-p', ctx, '--output-format', 'json',
-      '--tools', '', '--strict-mcp-config', '--model', model, '--effort', 'low', '--append-system-prompt', SYSTEM],
+      '--tools', '', '--strict-mcp-config', '--model', model, '--effort', effort, '--append-system-prompt', SYSTEM],
     { cwd: dir, env: ENV });
     let out = '';
     c.stdout.on('data', (d) => (out += d));
@@ -78,7 +79,7 @@ function generate(p) {
       let layout = null;
       try { layout = JSON.parse(lr.stdout.trim().split('\n').pop()); fs.writeFileSync(path.join(dir, 'layout.json'), JSON.stringify(layout)); } catch {}
       const says = scene.split('\n').filter((l) => l.trim().startsWith('Say:'));
-      const meta = { id: p.id, subject: p.subject, type: p.type, q: p.q, prior: p.prior, variant, model, secs, ok: chk.status === 0,
+      const meta = { id: p.id, subject: p.subject, type: p.type, q: p.q, prior: p.prior, variant, model, effort, secs, ok: chk.status === 0,
         says: says.length, lastSay: says.at(-1) || '', lines: scene.split('\n').filter((l) => l.trim()).length,
         layoutGeom: layout ? layout.mean : null, layoutWorst: layout ? layout.worst : null,
         usesPos: /\bpos=/.test(scene), usesNew: (scene.match(/\b(camera|trail=|field|slope|solution|heat|contour)\b/g) || []).filter((v, i, a) => a.indexOf(v) === i), yourTurn: /your turn/i.test(scene), binding: ((chk.stdout || '').match(/^  binding:/gm) || []).length, python: /```python/.test(reply), computeProblems: problems.length, usesWords: /\b(region|below|above|left-of|right-of|near|align|on|in|over)=/.test(scene) };

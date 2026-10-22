@@ -103,6 +103,14 @@
       <option value="sonnet">Sonnet · fast</option>
       <option value="opus">Opus · best</option>
       <option value="haiku">Haiku · fastest</option>
+      <option value="fable">Fable · newest</option>
+    </select>
+    <select id="effort" title="How long it thinks before answering: longer is slower to start">
+      <option value="low">thinks: quick</option>
+      <option value="medium">thinks: medium</option>
+      <option value="high">thinks: long</option>
+      <option value="xhigh">thinks: longer</option>
+      <option value="max">thinks: longest</option>
     </select>
     <label style="font-size:13px"><input type="checkbox" id="voice"> voice</label>
     <button id="replay" title="Play the last answer again on the stage">Replay</button>
@@ -214,7 +222,7 @@ function sidebar(r) {
 async function load() {
   const r = await (await fetch('/api/info')).json();
   current = r.session;
-  $('#model').value = r.model; $('#voice').checked = !r.mute;
+  $('#model').value = r.model; $('#effort').value = r.effort || 'low'; $('#voice').checked = !r.mute;
   sidebar(r);
   log.innerHTML = ''; block = null;
   if (!r.messages.length) emptyState(r.library);
@@ -287,7 +295,7 @@ $('#f').onsubmit = (e) => {
   const t = input.value.trim(); if (!t) return;
   input.value = ''; input.style.height = '';
   if (t.startsWith('?')) post('/api/explain', { text: t.slice(1).trim() }); // about the paused moment, beside the lesson
-  else post('/api/send', { text: t, model: $('#model').value });
+  else post('/api/send', { text: t, model: $('#model').value, effort: $('#effort').value });
 };
 input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#f').requestSubmit(); } });
 input.addEventListener('input', () => { input.style.height = ''; input.style.height = input.scrollHeight + 'px'; });
