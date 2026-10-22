@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { claudeResult } from './claude-result.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../..');
@@ -60,8 +61,7 @@ function generate(p) {
     let out = '';
     c.stdout.on('data', (d) => (out += d));
     c.on('close', () => {
-      let reply = '';
-      try { reply = JSON.parse(out).result || ''; } catch { reply = out; }
+      const reply = claudeResult(out, `generate ${p.id}`);
       const secs = (Date.now() - t0) / 1000;
       fs.writeFileSync(path.join(dir, 'reply.txt'), reply);
       fs.writeFileSync(path.join(dir, 'plan.txt'), block(reply, 'plan'));

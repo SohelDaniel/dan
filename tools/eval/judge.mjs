@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { claudeResult } from './claude-result.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -79,8 +80,7 @@ function judge(dir) {
     let out = '';
     c.stdout.on('data', (d) => (out += d));
     c.on('close', () => {
-      let res = '';
-      try { res = JSON.parse(out).result || ''; } catch { res = out; }
+      const res = claudeResult(out, `judge ${meta.id}`);
       let score = null;
       const m = res.match(/\{[\s\S]*\}/);
       try { score = JSON.parse(m[0]); } catch { score = { error: res.slice(0, 300) }; }

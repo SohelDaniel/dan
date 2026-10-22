@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { claudeResult } from './claude-result.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../..');
@@ -74,8 +75,7 @@ function judge(dir) {
     let out = '';
     c.stdout.on('data', (d) => (out += d));
     c.on('close', () => {
-      let res = '';
-      try { res = JSON.parse(out).result || ''; } catch { res = out; }
+      const res = claudeResult(out, `sentences ${name}`);
       let j;
       try { j = JSON.parse(res.match(/\{[\s\S]*\}/)[0]); } catch { j = { error: res.slice(0, 300) }; }
       fs.writeFileSync(path.join(dir, 'sentences.json'), JSON.stringify(j, null, 1));
