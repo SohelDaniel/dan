@@ -60,3 +60,29 @@ Each scene's structural closeness to its nearest example (pairs of verbs and kin
    stays for everything else.
 6. **Training only if step 1 shows the gap is learnable,** and then reinforcement learning (not fine-tuning on examples)
    on a narrow job, with a held-out judge to catch reward hacking.
+
+## Results (same day, after building and testing)
+
+On 60 new-topic questions (`tools/eval/prompts-novel.json`), two runs per arm, scored per sentence and by the scene judge:
+
+| | today's prompt (A) | docs-first prompt (B) |
+|---|---|---|
+| claims fully shown | 57.8% | 60.3% (+2.5, 95% CI −1.9 to +6.7) |
+| picture / layout / accuracy / teaching | 3.38 / 3.33 / 3.60 / 3.62 | 3.34 / 3.26 / 3.57 / 3.61 |
+
+- **Docs-first (step 2 and the plan-in-thinking of step 3):** neutral on quality. Adopted anyway, for structural reasons: no half or contradictory examples, one checked source of moves (`chat/toolbox.md`), and a prompt 35% smaller. On unfamiliar topics B's scenes use the same moves as A's, which agrees with the earlier finding that examples are not what drives quality there.
+- **Per-beat coverage check with repair (step 4, tested offline on B's scenes):** the engine flagged 59 beats and 50 were repaired, but claims shown only moved from 61.5% to 62.3%. The deterministic checks catch only a small slice of what the judge counts as not shown. Not built into the server.
+- **Training gate (step 6).** On 12 new topics, Qwen3 8B scored:
+  - first try: 18% of claims shown, picture 1.5;
+  - best of 4 tries: 33%, picture 2.0;
+  - Claude's first try: 55%, picture 3.4.
+
+  Reinforcement learning can at most lift the first try toward best-of-N, and that ceiling is far below Claude. Training stays off.
+- **Semantic operations (step 5):** not built as engine verbs. The toolbox's complete moves cover them, and none of the measured gaps pointed at a missing operation.
+- **Engine fixes found along the way:**
+  - the voice never reads code aloud;
+  - list readback is spaced;
+  - the thousands-comma lint fires only on glued text;
+  - cell colours count for sameness.
+
+What still limits quality: choosing the right picture for an unfamiliar idea (picture 3.3–3.4 on new topics against about 3.6 on familiar ones), not copying and not the markup.

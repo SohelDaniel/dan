@@ -344,6 +344,31 @@ Also new:
 Wanted later (the user's idea): pause the lesson and ask about what is on screen. A second tab explains the current frame,
 and the lesson resumes where it paused.
 
+## 8g. 2026-10-22 (late): docs-first prompt, python blocks, pause and ask
+
+- **Prompt:**
+  - `chat/system-prompt.mjs` builds it for both the server and the eval;
+  - `chat/toolbox.md` holds 27 moves, each a complete scene checked by `tests/toolbox.mjs`;
+  - `chat/examples/` holds 4 annotated scenes;
+  - there's a plan-in-thinking step.
+  - The 9 old exemplars stay as regression scenes, and the mined idioms are no longer in the prompt.
+  - Measured neutral on 60 new topics (`reports/Copying vs composing.md`); adopted for structure.
+- **Python blocks** (`chat/compute.mjs`, `tests/compute.mjs`): sandboxed (`sandbox-exec`: no network, no home folder, no other programs, CPU and time limits), with data written into the scene lines before the engine sees them, so the axioms hold.
+  - `each` makes lines; a cue or `with` prefix carries through; loop arithmetic is computed.
+  - Generated marks share a category and carry no automatic names.
+  - The eval runs blocks the same way (`expandReply`).
+  - `tools/eval/prompts-compute.json` is the check set: 7–8 of 10 lessons use Python, with no syntax errors.
+- **Pause and ask** (`chat/explain.mjs`; `#!pause`, `#!capture`, `--window-pos` in `main.cpp`): `?…` on the paused stage or in the browser.
+  1. The stage captures the frame and the scene as of the playhead.
+  2. A fork of the lesson session answers.
+  3. A second window plays the answer.
+  4. The lesson hears about it next turn.
+
+  Tested end to end: about 9 s.
+- **Tested and not adopted:**
+  - gated per-beat repair: +0.8 points;
+  - training a local model: Qwen3 8B's best of 4 is far below Claude's first try.
+
 ## 9. Known loose ends
 
 - A loophole in "position comes from structure": `schema plane … axes=false` used as a free canvas to place boxes by
