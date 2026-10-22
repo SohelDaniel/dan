@@ -1,0 +1,68 @@
+20261017-045709/001.txt	number	binding: line 15 says "five", but no 5 is on stage and nothing visible counts 5 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "The square became a parallelogram. Its area is three times two, minus one times one: five. That number is the determinant."
+20261019-100105/001.txt	action	binding: line 19 says something slide, but nothing on stage changes during this sentence (show it happening, on that word)
+		> Say: "Slide again: still six. Then once more, and it's |flat|flat again, zero."
+20261019-100105/001.txt	sameness	binding: line 24 says things are the same / shared, but nothing it shows shares a colour (give exactly those things one colour: color=yellow on links, a shared category on marks)
+		> Say: "The output lights up exactly where the edge is. And the |same|same three weights were used at every stop."
+20261019-100105/001.txt	number	binding: line 6 says "six", but no 6 is on stage and nothing visible counts 6 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "Here is a row of six pixels. Dark on the left, bright on the right, with a |jump|jump in the middle."
+20261019-100252/001.txt	each-own	binding: line 28 says each has its own, but none of the 15 arrows carries a name or value (label a few: label="w₁₁", or w=0.5 to show the value)
+		> Say: "Each of those fifteen links has its |own|own weight to learn."
+20261019-100252/001.txt	sameness	binding: line 57 says things are the same / shared, but nothing it shows shares a colour (give exactly those things one colour: color=yellow on links, a shared category on marks)
+		> Say: "And here is the trick: all three outputs |share|share the same three weights, the kernel you saw sliding before."
+20261019-100252/001.txt	number	binding: line 59 says "fifteen", but no 15 is on stage and nothing visible counts 15 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "So the dense layer needs fifteen weights, and the conv layer needs |three|three."
+20261019-100252/001.txt	sameness	binding: line 62 says things are the same / shared, but nothing it shows shares a colour (give exactly those things one colour: color=yellow on links, a shared category on marks)
+		> Say: "Shared weights also mean a pattern like an edge is spotted anywhere in the input, not just in one place."
+20261019-100252/002.txt	number	binding: line 65 says "four", but no 4 is on stage and nothing visible counts 4 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "Eta is the step size. Here it was one half, so a slope of minus four moved us by two."
+20261019-100252/002.txt	number	binding: line 65 says "two", but no 2 is on stage and nothing visible counts 2 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "Eta is the step size. Here it was one half, so a slope of minus four moved us by two."
+20261019-125515/003.txt	number	binding: line 35 says "hundred", but no 100 is on stage and nothing visible counts 100 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "Each neuron adds up a hundred terms, so the spread of the sum depends on both the weights and how many there are. He picks sigma so that it |stays|stays about one."
+20261019-125515/003.txt	sameness	binding: line 39 says things are the same / shared, but nothing it shows shares a colour (give exactly those things one colour: color=yellow on links, a shared category on marks)
+		> Say: "And never start every weight at zero: all neurons would be identical and get identical updates, forever."
+20261020-083536/001.txt	number	binding: line 10 says "seven hundred", but no 700 is on stage and nothing visible counts 700 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "Your MNIST network [px]flattens the picture into one long row of seven hundred eighty-four numbers."
+20261020-151655/001.txt	number	binding: line 15 says "300", but no 300 is on stage and nothing visible counts 300 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "So pixel 300 always matters the same amount, whatever digit you show it."
+20261020-151655/003.txt	sameness	binding: line 22 says things are the same / shared, but nothing it shows shares a colour (give exactly those things one colour: color=yellow on links, a shared category on marks)
+		> Say: "Start |cold|colder and the same rule gives a different story, but still settling at room temperature."
+20261020-171259/003.txt	sameness	binding: line 32 says things are the same / shared, but nothing it shows shares a colour (give exactly those things one colour: color=yellow on links, a shared category on marks)
+		> Say: "The formula reads the same number as the picture, so they stay in step."
+20261020-171259/003.txt	action	binding: line 33 says something swap, but nothing on stage changes during this sentence (show it happening, on that word)
+		> Say: "I can also show arrays, swap cells, point at them, and morph formulas into each other."
+20261020-184851/001.txt	number	binding: line 16 says "two", but no 2 is on stage and nothing visible counts 2 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "Roll two dice and add them. Watch where the totals |land|land."
+20261020-184851/001.txt	number	binding: line 34 says "two", but no 2 is on stage and nothing visible counts 2 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "Seven is the favourite, because six different pairs make it, and only one pair makes a two."
+20261020-184851/001.txt	action	binding: line 35 says something add, but nothing on stage changes during this sentence (show it happening, on that word)
+		> Say: "Add up enough small random things and a bell shape appears on its own."
+20261020-184851/001.txt	number	binding: line 66 says "hundred", but no 100 is on stage and nothing visible counts 100 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "One person in a hundred has a rare |illness|illness."
+20261020-184851/001.txt	number	binding: line 68 says "ninety percent", but no 90 is on stage and nothing visible counts 90 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "The test catches ninety percent of the sick, but also flags five percent of the |healthy|healthy."
+20261020-185457/002.txt	action	binding: line 23 says something shrinks, but nothing on stage changes during this sentence (show it happening, on that word)
+		> Say: "The leak is what makes it hard: left alone, it shrinks the water by a factor e to the minus x."
+20261020-185457/002.txt	action	binding: line 30 says something divide, but nothing on stage changes during this sentence (show it happening, on that word)
+		> Say: "Then divide by e to the x to switch back to normal units. The integrating factor is just that leak-cancelling ruler."
+20261020-201152/001.txt	number	binding: line 7 says "ten", but no 10 is on stage and nothing visible counts 10 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "Push one input through ten ReLU layers and watch how spread out the numbers stay."
+20261020-223156/001.txt	number	binding: line 15 says "four", but no 4 is on stage and nothing visible counts 4 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "So sigma is the square root of two over n, about |flat|zero point one four here, and the line goes flat."
+20261020-223156/001.txt	number	binding: line 18 says "eight", but no 8 is on stage and nothing visible counts 8 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "That also settles your old question: most weights land within two sigma, so roughly between minus zero point two eight and plus zero point two eight."
+20261020-223156/001.txt	number	binding: line 6 says "hundred", but no 100 is on stage and nothing visible counts 100 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "Take a ReLU network where every neuron has a hundred inputs, and start the weights with spread sigma."
+20261020-223156/002.txt	number	binding: line 39 says "two", but no 2 is on stage and nothing visible counts 2 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "Each shirt goes with either of two |pants|pants."
+20261021-003930/001.txt	number	binding: line 10 says "thirty", but no 30 is on stage and nothing visible counts 30 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "Same throwing speed every time; only the |go|angle changes. Here's thirty degrees."
+20261021-003930/001.txt	number	binding: line 21 says "sixty", but no 60 is on stage and nothing visible counts 60 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "Watch sixty: it lands |same|exactly where thirty did. Angles that pair up around forty-five tie."
+20261021-003930/001.txt	number	binding: line 21 says "thirty", but no 30 is on stage and nothing visible counts 30 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "Watch sixty: it lands |same|exactly where thirty did. Angles that pair up around forty-five tie."
+20261021-003930/001.txt	number	binding: line 23 says "20", but no 20 is on stage and nothing visible counts 20 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "Your turn: drag the angle slider and watch the landing spot. Try 20 and 70."
+20261021-003930/001.txt	number	binding: line 23 says "70", but no 70 is on stage and nothing visible counts 70 (put the number where it happens: a label, a value on a link, a \val{} in a formula)
+		> Say: "Your turn: drag the angle slider and watch the landing spot. Try 20 and 70."

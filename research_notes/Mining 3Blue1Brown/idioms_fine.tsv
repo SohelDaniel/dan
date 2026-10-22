@@ -1,0 +1,61 @@
+lead_word	category	n_blocks	top3_excl_FadeIn/Out	distinctive
+show	show	1308	ShowCreation 29%, Write 27%, frame.animate.* 18%	GrowFromEdge x1.9, animate.flip x1.9, CountInFrom x1.9
+add	add	256	Write 26%, frame.animate.* 22%, ShowCreation 22%	VFadeIn x2.3, FadeTransformPieces x1.9, MoveAlongPath x1.8
+highlight	highlight	140	ShowCreation 33%, LaggedStartMap 18%, animate.set_opacity 14%	Indicate x6.2, ShowCreationThenFadeOut x4.7, animate.surround x4.0
+move	move	95	ValueTracker.set_value 33%, frame.animate.* 22%, animate.move_to 13%	animate.set_y x10.3, ValueTracker.set_value x3.2, Rotate x2.7
+zoom	zoom	75	frame.animate.* 75%, animate.set_opacity 17%, animate.scale 16%	animate.set_radius x24.5, frame.animate.* x4.6, animate.set_stroke x3.1
+ask	talk	73	Write 42%, ShowCreation 38%, Blink 21%	TransformMatchingStrings x5.6, Blink x5.5, PiCreature.change x5.2
+write	write	71	Write 61%, ShowCreation 18%, TransformFromCopy 17%	FadeInFrom x34.5, FadeInFromDown x3.7, TransformMatchingShapes x3.5
+label	label	57	Write 40%, ShowCreation 25%, GrowFromCenter 21%	GrowFromCenter x3.6, Write x1.6, ReplacementTransform x1.5
+change	transform	53	ValueTracker.set_value 36%, frame.animate.* 19%, Transform 15%	ValueTracker.set_value x3.5, UpdateFromFunc x3.3, AnimationGroup x2.9
+transition	transform	43	LaggedStart 33%, LaggedStartMap 28%, Write 26%	animate.center x12.6, FadeTransform x2.7, ReplacementTransform x2.6
+draw	add	41	ShowCreation 63%, Write 29%, LaggedStartMap 15%	DrawBorderThenFill x9.0, ShowIncreasingSubsets x2.7, ShowCreation x2.6
+emphasize	highlight	40	ShowCreation 40%, LaggedStartMap 25%, Write 22%	VShowPassingFlash x8.7, animate.surround x6.2, FlashAround x2.8
+make	add	37	ShowCreation 27%, TransformFromCopy 19%, LaggedStart 19%	animate.set_height x6.5, animate.scale x2.0
+go	move	35	frame.animate.* 31%, ShowCreation 23%, LaggedStart 23%	FlashAround x4.2, animate.restore x3.2, frame.animate.* x1.9
+set	add	35	LaggedStart 26%, Write 20%, LaggedStartMap 20%	FadeInFromPoint x7.0, TransformMatchingTex x3.4, VFadeIn x2.5
+bring	move	31	Write 23%, ShowCreation 19%, animate.scale 16%	animate.center x17.5, animate.to_edge x5.6, animate.restore x4.7
+name	label	31	Write 71%, ShowCreation 26%, GrowArrow 23%	FlashAround x4.7, GrowArrow x3.2, Write x2.9
+introduce	show	30	Write 47%, ShowCreation 30%, LaggedStart 30%	FadeInFromDown x6.5, Restore x4.3, animate.set_color x3.3
+animate	flow	30	Write 37%, ShowCreation 30%, LaggedStart 23%	Restore x3.2, FadeTransform x2.2, Transform x2.1
+focus	highlight	29	animate.set_opacity 28%, frame.animate.* 28%, MoveToTarget 17%	animate.fade x7.6, animate.set_opacity x3.5, AnimationGroup x3.3
+count	count	29	Write 28%, LaggedStartMap 24%, ShowIncreasingSubsets 24%	ShowIncreasingSubsets x8.7, animate.set_fill x4.8, UpdateFromFunc x4.6
+back	restore	29	MoveToTarget 17%, LaggedStartMap 17%, Restore 14%	PiCreature.change x2.6, Restore x2.2
+put	move	27	MoveToTarget 30%, frame.animate.* 19%, Write 15%	animate.set_x x17.5, animate.move_to x2.3, MoveToTarget x2.3
+fade	remove	26	LaggedStartMap 23%, animate.set_opacity 15%, Write 12%	animate.fade x6.3, animate.set_opacity x1.9, animate.shift x1.7
+comment	talk	25	ShowCreation 64%, Write 36%, LaggedStart 24%	ShowCreation x2.6, GrowArrow x2.2, Restore x1.9
+replace	transform	24	LaggedStartMap 21%, Transform 21%, LaggedStart 17%	TransformMatchingShapes x6.2, Transform x2.7, FadeIn x1.6
+first	other	21	ShowCreation 38%, Write 29%, GrowFromCenter 19%	GrowFromCenter x3.2, animate.set_opacity x1.8, ShowCreation x1.5
+new	add	21	Write 33%, FadeTransform 24%, GrowFromCenter 14%	FadeTransform x4.0, animate.move_to x2.9, GrowFromCenter x2.4
+create	add	21	AnimationGroup 29%, Write 24%, ReplacementTransform 19%	AnimationGroup x5.5, ReplacementTransform x2.4, ValueTracker.set_value x1.9
+play	flow	21	ValueTracker.set_value 43%, ShowCreation 19%, animate.move_to 14%	ValueTracker.set_value x4.2, animate.move_to x2.9
+compare	compare	21	ShowCreation 43%, MoveToTarget 29%, frame.animate.* 19%	AnimationGroup x3.6, GrowFromCenter x3.2, MoveToTarget x2.2
+mention	talk	20	ShowCreation 35%, Write 30%, GrowArrow 20%	GrowArrow x2.8, animate.scale x2.7, GrowFromCenter x2.6
+isolate	highlight	19	LaggedStartMap 26%, MoveToTarget 26%, animate.set_opacity 26%	animate.set_opacity x3.3, MoveToTarget x2.0, LaggedStartMap x1.8
+circle	highlight	19	ShowCreation 79%, Write 16%, animate.set_stroke 11%	ShowCreation x3.2
+setup	add	19	Write 42%, ShowCreation 26%, GrowFromCenter 16%	GrowFromCenter x2.7, Transform x2.0, Write x1.7
+reference	talk	19	Write 37%, PiCreature.change 37%, Blink 32%	PiCreature.change x9.4, Blink x8.4, animate.next_to x3.1
+more	other	18	ValueTracker.set_value 22%, animate.shift 17%, Blink 11%	animate.shift x2.5, ValueTracker.set_value x2.2
+shift	move	18	frame.animate.* 44%, animate.shift 33%, MoveToTarget 17%	animate.shift x4.9, animate.scale x3.0, frame.animate.* x2.7
+talk	talk	18	ShowCreation 61%, Write 44%, ReplacementTransform 22%	animate.surround x13.8, animate.next_to x4.3, animate.move_to x3.4
+describe	talk	18	Write 50%, LaggedStart 22%, frame.animate.* 22%	FlashAround x6.1, GrowArrow x2.3, Write x2.0
+do	other	16	animate.restore 38%, animate.set_opacity 38%, animate.set_color 31%	animate.restore x13.8, animate.set_color x10.2, AnimationGroup x6.0
+final	other	16	Write 44%, ShowCreation 25%, Restore 19%	Restore x3.0, Transform x2.4, Write x1.8
+pull	move	15	MoveToTarget 33%, LaggedStartMap 27%, Write 27%	animate.scale x4.9, MoveToTarget x2.5, LaggedStartMap x1.9
+clear	remove	15	LaggedStartMap 40%, LaggedStart 20%, animate.set_opacity 20%	LaggedStartMap x2.8, animate.set_opacity x2.5, FadeOut x2.3
+initial	add	14	ReplacementTransform 43%, Write 36%, ShowCreation 36%	animate.rotate x29.1, ReplacementTransform x5.3, GrowArrow x5.0
+calculate	count	14	AnimationGroup 71%, TransformFromCopy 50%, Write 50%	TransformMatchingShapes x25.0, AnimationGroup x13.6, GrowFromCenter x4.9
+swap	swap	13	ShowCreation 38%, LaggedStartMap 23%, Write 23%	ReplacementTransform x2.9, LaggedStart x1.8, MoveToTarget x1.8
+the	other	13	AnimationGroup 38%, TransformFromCopy 23%, Write 15%	AnimationGroup x7.3, TransformFromCopy x1.8
+plug	transform	13	FadeTransform 46%, LaggedStart 46%, Write 31%	TransformMatchingTex x9.3, FadeTransform x7.7, LaggedStart x3.6
+expand	grow	13	TransformFromCopy 54%, ShowCreation 46%, MoveToTarget 38%	TransformMatchingShapes x15.4, TransformFromCopy x4.2, animate.shift x3.4
+break	split	12	Write 33%, MoveToTarget 33%, ShowCreation 25%	MoveToTarget x2.5, LaggedStart x2.0, TransformFromCopy x2.0
+just	other	12	MoveToTarget 33%, animate.move_to 33%, frame.animate.* 25%	animate.move_to x6.8, MoveToTarget x2.5, frame.animate.* x1.5
+find	other	12	ShowCreation 25%, Write 25%, frame.animate.* 25%	animate.shift x3.7, frame.animate.* x1.5
+question	talk	12	Write 33%, ShowCreation 25%, animate.change 25%	ShowCreationThenFadeOut x20.7, animate.change x12.5, animate.next_to x4.9
+preview	show	12	ShowCreation 50%, MoveToTarget 25%, LaggedStart 25%	ShowCreation x2.0, LaggedStart x2.0, MoveToTarget x1.9
+remove	remove	12	animate.restore 25%, Transform 25%, MoveToTarget 17%	animate.restore x9.2, Transform x3.2, FadeOut x1.9
+define	define	12	Write 67%, ShowCreation 33%, MoveToTarget 25%	Write x2.7, TransformFromCopy x2.0, FadeOut x1.9
+second	other	11	Write 45%, Transform 36%, LaggedStart 27%	Transform x4.7, LaggedStart x2.1, Write x1.8
+rotate	move	11	Rotate 55%, ValueTracker.set_value 27%, MoveToTarget 18%	Rotate x13.8, ValueTracker.set_value x2.7
+indicate	highlight	11	Indicate 45%, AnimationGroup 36%, GrowArrow 27%	Indicate x65.4, AnimationGroup x6.9, GrowArrow x3.8

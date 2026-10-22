@@ -1,0 +1,70 @@
+{
+ "totalSays": 305,
+ "withPointer": 15,
+ "withCue": 191,
+ "res": {
+  "comparison": {
+   "n": 16,
+   "withCueOrPointer": 13,
+   "noCueNoPointer": 3,
+   "ex": [
+    "20261017-045709/002.txt:15  \"Two wide, three tall: area six. So the determinant is six. It's just: how many times bigger did the area get?\"",
+    "20261019-125515/004.txt:11  \"So with ordinary-sized weights, the output is about ten times bigger than the inputs. Stack layers and it explodes, whi",
+    "20261020-171259/001.txt:11  \"Start a bit higher, and the curve climbs faster.\""
+   ]
+  },
+  "multiplicative": {
+   "n": 32,
+   "withCueOrPointer": 23,
+   "noCueNoPointer": 9,
+   "ex": [
+    "20261017-045709/001.txt:8  \"A two by two matrix is just two arrows: its columns. Here they start as a unit square, with area one.\"",
+    "20261017-045709/001.txt:15  \"The square became a parallelogram. Its area is three times two, minus one times one: five. That number is the determina",
+    "20261017-045709/002.txt:10  \"The square is now two wide, one tall. Area two. The determinant is two: area doubled.\"",
+    "20261017-045709/003.txt:19  \"and the pull drops to a quarter. That's the famous inverse square law.\""
+   ]
+  },
+  "deictic": {
+   "n": 35,
+   "withCueOrPointer": 19,
+   "noCueNoPointer": 16,
+   "ex": [
+    "20261017-045709/001.txt:15  \"The square became a parallelogram. Its area is three times two, minus one times one: five. That number is the determina",
+    "20261017-045709/002.txt:15  \"Two wide, three tall: area six. So the determinant is six. It's just: how many times bigger did the area get?\"",
+    "20261019-081124/001.txt:20  \"Your turn: if the rule were d y d t equals minus k y, what would the curve do?\"",
+    "20261019-081305/002.txt:26  \"Backprop runs your chain rule backward along every one of these arrows.\""
+   ]
+  },
+  "process": {
+   "n": 40,
+   "withCueOrPointer": 31,
+   "noCueNoPointer": 9,
+   "ex": [
+    "20261019-125515/003.txt:18  \"In C++, it is a few lines. First, hide the table.\"",
+    "20261020-151655/003.txt:18  \"So ODEs are how you turn how it changes into what happens next.\"",
+    "20261020-151655/004.txt:4  \"Just multiply it out: each entry is a row of the first matrix times a column of the second.\"",
+    "20261020-171259/002.txt:20  \"We need two picks, from one or three, that total four. Go down the left branch first: pick one.\""
+   ]
+  },
+  "causal": {
+   "n": 6,
+   "withCueOrPointer": 4,
+   "noCueNoPointer": 2,
+   "ex": [
+    "20261019-130321/001.txt:20  \"The usual bug is passing n_out instead of n_in. Check which way your matrix is laid out, because n_in is the count of c",
+    "20261020-184851/001.txt:34  \"Seven is the favourite, because six different pairs make it, and only one pair makes a two.\""
+   ]
+  },
+  "extreme": {
+   "n": 6,
+   "withCueOrPointer": 2,
+   "noCueNoPointer": 4,
+   "ex": [
+    "20261019-081305/001.txt:8  \"Here is the smallest network: an input x, a weight w, and an output y equals w times x.\"",
+    "20261019-125515/004.txt:23  \"Quick check: with a hundred inputs, sigma is about 0.14. Roughly where would you expect most of the weights to land?\"",
+    "20261020-201152/001.txt:20  \"So with σ about 0.14, roughly where do most of your weights land?\"",
+    "20261020-223156/001.txt:18  \"That also settles your old question: most weights land within two sigma, so roughly between minus zero point two eight "
+   ]
+  }
+ }
+}

@@ -264,6 +264,61 @@ verified identical against the previous binary.
 
 Next: 3D, then the taste scorer (3b1b priors, an AI judge, a few clicks from the user).
 
+## 8e. 2026-10-22: spoken but not shown
+
+The user picked "the tutor says things it never shows" (binding) as the top problem. The research, plan and every
+experiment are in `reports/Fixing spoken but not shown.md` and `research_notes/Spoken but not shown/`.
+
+**The measure.** `tools/eval/sentences.mjs` takes a frame at the end of every Say, and a judge marks each sentence's
+claim as shown, partly shown or not. The scene judge sees 3 frames and can't tell. Baseline: 50% / 53% fully shown
+(two runs); numbers are 53% of claims.
+
+**Tested and rejected:**
+- *A second model editing each beat before it plays.* It bound more (63%), but layout fell −0.44 and accuracy also
+  dropped: additions made after the composition don't fit it.
+- *A storyboard in the plan.* 55–60%, but it costs +1.4 to 2.6 s before the first word, and the gain is near chance.
+
+**Built: `{expr}` in Say** (axiom-safe):
+- What it does:
+  - speaks a stage value as the word is reached, after the lines cued on that word; a morph counts at its end value;
+  - pulses the thing;
+  - `{a[3]}` / `{M[r][c]}` speak a cell's item.
+- The live engine keeps an instant **shadow** engine (`EngineOptions::shadow`: no layout, no TeX, silent), fed the
+  same text, so values are known before the voice is requested.
+- `#!voice` prefetch skips Says with refs; they're requested when the beat arrives.
+- The learner's slider release updates the shadow.
+- The binding checker reads the spoken text, so a value read off the stage but not readable on it is still flagged.
+- Readback is unchanged, which is tested; so is streamed playback against whole playback.
+- Gotcha: after `git stash pop`, `make` may not rebuild (same-second mtimes). `touch` the sources first.
+
+## 8f. 2026-10-22 (evening): visual moves mined from 3Blue1Brown
+
+`chat/idioms.md` holds 50 short idioms in our markup, covering 32 kinds of visual move. The chat server and
+`tools/eval/run.mjs` append it after the worked examples; `--no-idioms` leaves it out. Each idiom is also in
+`chat/idioms/`, which `make check` covers.
+
+How they were made: `tools/mine/` (its README is the datasheet).
+1. 3Blue1Brown's step comments, filtered.
+2. A taxonomy proposed by Claude, then hand-edited.
+3. Labels from Sonnet and Opus; only blocks both agree on are used (κ 0.63).
+4. k-center selection.
+5. Translation with engine-checked repair.
+6. A pass/fail vision judge: 102 of 180 passed.
+7. One per kind first.
+
+The pre-registered A/B test (`reports/Idioms A-B preregistration.md`):
+- claims fully shown went from 55.3% to 59.4% (+4.2 points, 95% CI +0.2 to +8.2), just short of the +5 bar set beforehand;
+- no cost to layout, accuracy, teaching or latency (+0.6 s);
+- the user tried it live and found it "way better", so it was adopted.
+
+Also new:
+- **Symbol rule:** the binding checker flags a symbol said as a name (f, P, α) that nothing on stage carries. The prompt asks for `label="f(x, y) = …"`, and `label=` on a field is its legend.
+- **Cache guard:** `tools/mine` never caches a failed or limit-hit model call. The eval scripts don't check for this, so scan their outputs for "session limit" before trusting a run.
+- Possible cuts from the idioms (weak end frames): "Slide a value, watch followers", "Park it aside", "Let time pass", "Dim the claim aside".
+
+Wanted later (the user's idea): pause the lesson and ask about what is on screen. A second tab explains the current frame,
+and the lesson resumes where it paused.
+
 ## 9. Known loose ends
 
 - Voice: the user hasn't picked a voice from the samples (Brian is the default).
