@@ -1,6 +1,6 @@
 // Generate one first-turn scene per prompt with a given prompt variant, then check and render it.
 //
-//   node tools/eval/run.mjs --variant full|method|base --out DIR [--only a,b] [--model sonnet] [--jobs 4] [--prompts prompts-2d.json] [--prompt chat/prompt.md] [--no-idioms]
+//   node tools/eval/run.mjs --variant full|method|base --out DIR [--only a,b] [--model sonnet] [--jobs 4] [--prompts prompts-2d.json] [--prompt F] [--examples DIR|none] [--toolbox F|none]
 //
 // Variants: base   = format + scene rules only (no plan, no teaching method, no examples)
 //           method = chat/prompt.md without the worked examples
@@ -11,6 +11,8 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { claudeResult } from './claude-result.mjs';
+import { buildSystem, systemFromArgs } from '../../chat/system-prompt.mjs';
+import { expandReply } from '../../chat/compute.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../..');
@@ -25,21 +27,10 @@ const only = flag('--only', '');
 let prompts = JSON.parse(fs.readFileSync(path.resolve(HERE, flag('--prompts', 'prompts.json')), 'utf8'));
 if (only) prompts = prompts.filter((p) => only.split(',').includes(p.id));
 
-function system() {
-  const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
-  const lang = readme.slice(readme.indexOf('## The language'), readme.indexOf('## The dictionary'));
-  const ex = path.join(ROOT, 'chat', 'exemplars');
-  let examples = '';
-  if (variant === 'full')
-    for (const f of fs.readdirSync(ex).filter((f) => f.endsWith('.txt')).sort())
-      examples += `\n### ${f.slice(0, -4)}\n\n\`\`\`scene\n${fs.readFileSync(path.join(ex, f), 'utf8').trim()}\n\`\`\`\n`;
-  // the visual moves mined from 3Blue1Brown, as the chat server adds them (--no-idioms leaves them out)
-  if (variant === 'full' && !argv.includes('--no-idioms') && fs.existsSync(path.join(ROOT, 'chat', 'idioms.md')))
-    examples += '\n' + fs.readFileSync(path.join(ROOT, 'chat', 'idioms.md'), 'utf8') + '\n';
-  const file = variant === 'base' ? path.join(HERE, 'variants', 'base.md') : path.resolve(flag('--prompt', path.join(ROOT, 'chat', 'prompt.md')));
-  return fs.readFileSync(file, 'utf8').replace('{{EXAMPLES}}', examples) + lang;
-}
-const SYSTEM = system();
+// base: format and scene rules only; method: the protocol without worked examples or toolbox; full: what the chat uses
+const SYSTEM = variant === 'base' ? buildSystem({ prompt: path.join(HERE, 'variants', 'base.md'), examples: null, toolbox: null })
+  : variant === 'method' ? systemFromArgs(argv, { examples: null, toolbox: null })
+  : systemFromArgs(argv);
 const ENV = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^CLAUDECODE$|^CLAUDE_CODE_|^CLAUDE_PID$|^CLAUDE_EFFORT$/.test(k)));
 
 function block(reply, name) {
@@ -60,13 +51,15 @@ function generate(p) {
     { cwd: dir, env: ENV });
     let out = '';
     c.stdout.on('data', (d) => (out += d));
-    c.on('close', () => {
+    c.on('close', async () => {
       const reply = claudeResult(out, `generate ${p.id}`);
       const secs = (Date.now() - t0) / 1000;
       fs.writeFileSync(path.join(dir, 'reply.txt'), reply);
       fs.writeFileSync(path.join(dir, 'plan.txt'), block(reply, 'plan'));
-      const scene = block(reply, 'scene');
+      // python blocks run and their data is written into the scene, as the chat server does
+      const { scene, problems } = await expandReply(reply);
       fs.writeFileSync(path.join(dir, 'scene.txt'), scene);
+      if (problems.length) fs.writeFileSync(path.join(dir, 'compute.txt'), problems.join('\n') + '\n');
       // what plays: a follow-up is appended to the stage it started from
       const played = p.stage ? p.stage + '\n' + scene : scene;
       fs.writeFileSync(path.join(dir, 'played.txt'), played);
@@ -88,7 +81,7 @@ function generate(p) {
       const meta = { id: p.id, subject: p.subject, type: p.type, q: p.q, prior: p.prior, variant, model, secs, ok: chk.status === 0,
         says: says.length, lastSay: says.at(-1) || '', lines: scene.split('\n').filter((l) => l.trim()).length,
         layoutGeom: layout ? layout.mean : null, layoutWorst: layout ? layout.worst : null,
-        usesPos: /\bpos=/.test(scene), usesNew: (scene.match(/\b(camera|trail=|field|slope|solution|heat|contour)\b/g) || []).filter((v, i, a) => a.indexOf(v) === i), yourTurn: /your turn/i.test(scene), binding: ((chk.stdout || '').match(/^  binding:/gm) || []).length, usesWords: /\b(region|below|above|left-of|right-of|near|align|on|in|over)=/.test(scene) };
+        usesPos: /\bpos=/.test(scene), usesNew: (scene.match(/\b(camera|trail=|field|slope|solution|heat|contour)\b/g) || []).filter((v, i, a) => a.indexOf(v) === i), yourTurn: /your turn/i.test(scene), binding: ((chk.stdout || '').match(/^  binding:/gm) || []).length, python: /```python/.test(reply), computeProblems: problems.length, usesWords: /\b(region|below|above|left-of|right-of|near|align|on|in|over)=/.test(scene) };
       fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(meta, null, 1));
       console.log(`${variant}/${p.id}: ${secs.toFixed(1)}s, check ${meta.ok ? 'ok' : 'FAIL'}, ${meta.says} Say`);
       resolve(meta);

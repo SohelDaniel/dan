@@ -230,8 +230,8 @@ const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
 const LANG = readme.slice(readme.indexOf('## The language'), readme.indexOf('## The dictionary'));
 const AXIOMS = readme.slice(readme.indexOf('## The dictionary'), readme.indexOf('## raymanim directly'));
 let EXEMPLARS = '';
-for (const f of fs.readdirSync(path.join(ROOT, 'chat/exemplars')).filter((f) => f.endsWith('.txt')).sort())
-  EXEMPLARS += `\n### ${f.slice(0, -4)}\n\`\`\`\n${fs.readFileSync(path.join(ROOT, 'chat/exemplars', f), 'utf8').trim()}\n\`\`\`\n`;
+for (const f of fs.readdirSync(path.join(ROOT, 'chat/examples')).filter((f) => f.endsWith('.txt')).sort())
+  EXEMPLARS += `\n### ${f.slice(0, -4)}\n\`\`\`\n${fs.readFileSync(path.join(ROOT, 'chat/examples', f), 'utf8').trim()}\n\`\`\`\n`;
 
 const TRANSLATE_SYSTEM = `You turn one move from 3Blue1Brown's animation code (Manim) into a reusable *idiom* for a live
 tutor engine that plays a small declarative markup. An idiom is a tiny, self-contained, playable scene: a few set-up

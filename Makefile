@@ -17,7 +17,8 @@ manim_demo: examples/manim_demo.cpp $(LIB_SRC) rm/raymanim.hpp
 	$(CXX) $(CXXFLAGS) examples/manim_demo.cpp $(LIB_SRC) -o $@ $(RAYLIB) $(FRAMEWORKS)
 
 check: tutor
-	@for f in scripts/*.txt chat/idioms/*.txt; do printf "%-36s " $$f; ./tutor $$f --check > /dev/null 2>&1 && echo ok || echo FAIL; done
+	@for f in scripts/*.txt chat/examples/*.txt chat/idioms/*.txt; do printf "%-36s " $$f; ./tutor $$f --check > /dev/null 2>&1 && echo ok || echo FAIL; done
+	@node tests/toolbox.mjs
 
 # the placement module on its own: no raylib on the include path, so it can't depend on the engine
 TEST_FLAGS := -std=c++20 -O1 -g -Wall -Wextra -Wno-unused-parameter -Ithird_party
@@ -39,6 +40,7 @@ test: tests/test_place tests/test_viz tests/test_script tests/test_engine
 	./tests/test_viz
 	./tests/test_script
 	./tests/test_engine
+	node tests/compute.mjs
 
 tests/bench_place: tests/bench_place.cpp $(PLACE_SRC) markup/place/*.hpp
 	$(CXX) -std=c++20 -O2 -Ithird_party tests/bench_place.cpp $(PLACE_SRC) -o $@

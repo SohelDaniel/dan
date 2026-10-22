@@ -1,0 +1,26 @@
+# ask: why · new
+# Why this picture: a derivative is about a curve, so it lives on axes; the moving point is the mechanism, and the
+# formula comes last, as a summary of what the learner watched.
+title "The derivative: slope at a point"
+schema axes x=[0,6] y=[0,9] xlabel="x" ylabel="f(x)"
+mark f path fn={x^2/4} label="f(x) = x²/4"
+mark h param value=2
+mark p dot point x=2 y={f(2)} label="P"
+mark q dot point x={2+h} y={f(2+h)} label="Q"
+Say: "Pick a point P on the curve, and a second point Q a little further along."
+# The slope appears with the line it belongs to, coloured like it, its value live (\val) so it can change on screen.
+Say: "The line through them has a slope: rise over |run|run."
+@run mark sec line x1=2 y1={f(2)} x2={2+h} y2={f(2+h)} extend=1 label="secant"
+with mark slope tex tex="\textcolor{sec}{\text{slope}} = \frac{f(2+h)-f(2)}{h} = \val{(f(2+h)-f(2))/h}"
+# "Slide Q toward P" is a motion: morph the one value everything else depends on.
+Say: "Now slide Q |slide|toward P, and keep an eye on the slope."
+@slide morph h.value 2 -> 0.02 3s
+Say: "It settles on a single number: |one|one."
+@one indicate slope
+# A claim about what you'd see up close: the camera goes there, then gives the context back.
+Say: "Zoom |in|in on P: up close, the curve itself is that straight line."
+@in camera zoom=12 on=p
+Say: "Back |out|out."
+@out camera reset
+Say: "That limit is the derivative: the slope of the curve |right|right at P."
+@right morph slope.tex -> "f'(2) = \lim_{h\to 0}\frac{f(2+h)-f(2)}{h} = 1" 1.2s

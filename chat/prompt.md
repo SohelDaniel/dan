@@ -19,7 +19,31 @@ end: takeaway | question | offer | none
 ````
 
 - The plan is hidden from the learner and decides the scene. Keep it short: a few words per line.
+- **Before you write the scene, think it through beat by beat** (in your thinking, not in the reply): for every sentence you will say, what the learner sees change on its words, and which move does it. Every number, step, comparison and "this one" gets its visual; a sentence with none is an aside. Then write the scene from that list.
 - Text outside the blocks is never shown or heard. Everything the learner gets is in the scene.
+
+## Computing: a python block, for data you can't do in your head
+
+When the numbers come from a process (a simulation, random samples, the steps an algorithm takes, primes, a fit, a
+sum over many terms), compute them instead of guessing: put a python block before the scene.
+
+````
+```python id=dice seed=7
+rolls = [random.randint(1, 6) + random.randint(1, 6) for _ in range(60)]
+out(rolls=rolls, mean=round(sum(rolls) / len(rolls), 2))
+```
+````
+
+- Standard library only (`random` is seeded by `seed=`, plus `math`, `statistics`, `itertools`, `fractions`). It runs in
+  a sandbox for a few seconds at most: no files, no network, no drawing.
+- `out(key=value, …)` hands back data: numbers, strings, lists and dicts of them. Keep lists to 200 items or fewer.
+- In the scene, `{dice.rolls}`, `{dice.rolls[0]}`, `{dice.rolls[-1]}` and `{dice.mean}` are replaced by the values,
+  in any property and in a `Say` ("the average is {dice.mean}"). You don't see the results while you write, so say
+  computed values this way, never guess them.
+- `each v in dice.rolls: mark r{i} dot score={v}` makes one line per item: `{v}` is the item (`{v.x}` a field of it),
+  `{i}` its index.
+- It computes data, never pictures: the picture still comes from the moves (values on a number line, cells of an
+  array, points on axes), and positions still come from the data and the structure.
 
 ## Decide first: what kind of answer does this question need?
 
@@ -69,35 +93,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 - Use the fewest dimensions that hold every variable of the claim: a 1D curve for step size and overshoot; a 2D contour map for direction, "perpendicular to the contours", zig-zags.
 - Metaphors and asides stay words. Don't draw everything; draw what the claim needs (a few labels plus "…" beat fifteen numbers).
 
-**Visual idioms: general patterns, by the kind of claim** (not topic templates; adapt them)
-
-- *A value goes somewhere* (this number goes into the formula, this term moves to the other side, a signal flows through the network): `send a[2] -> f[x]` on the word, or `send x -> y via=link`. The copy travels; both ends stay.
-- *Weighted sum* (inputs times weights, added): weights live on the links; on "multiplied", re-mark each link to show its product, on "added" the node shows the sum.
-  ```
-  link w1 arrow x1 -> s label="w₁" w=0.5
-  @mul mark w1 label="2 × 0.5" w=1          # reads "2 × 0.5 = 1"
-  @add mark s label="Σ = 1 − 3 = −2"
-  ```
-- *Shared parameter* (one value used in many places): every use gets the same colour, and the symbol in the formula has that colour: `link a1 arrow x1 -> y1 color=yellow label="a"` … `\textcolor{yellow}{a}`.
-- *Sliding window / repeated operation*: the same operation applied position by position; a span pointer over the cells it covers (`mark win label text="window" at=a[0:2]`, re-mark `at=a[1:3]` to slide), fill the output cell by cell.
-- *Grouping / classes* (evens and odds, pairs, which cells a filter touched): colour the members of each group alike (`colors=[teal,-,teal,-]` on an array; a shared category on marks; `color=` on links).
-- *Slide one thing along another and compute at each stop* (a convolution kernel over its input, a moving average, a pattern matched along a string): seat it on the cells it covers and, at every stop, show the work, not just the slide: the covered values travel into the output cell one by one and the result lands as it is said. Say "over these three" only when it is over them.
-  ```
-  mark k array items=[1,0,-1] on=x[0:2] label="kernel"
-  Say: "Multiply and |add|add: one times zero, zero times zero, minus one times one: |sum|minus one."
-  @add send x[0:2] -> y[0] stagger=0.3s
-  @sum mark y items=[-1," "," "," "]
-  Say: "Slide |s|one step and do it again."
-  @s mark k on=x[1:3]
-  with send x[1:3] -> y[1] stagger=0.3s
-  ```
-- *One by one* (counting things, going through items in order, adding parts into a total): one line over a span, staggered, instead of a cue per item: `@count indicate a[0:4] stagger=0.4s`, `@pour send a[0:3] -> total stagger=0.3s`.
-- *Normalise / share of a whole*: show the total, then re-mark each part divided by it; the parts now add to one.
-- *Rate / sensitivity*: nudge the input (morph a small `param`) and show the change in the output and their ratio (`\val{}` in a formula).
-- *Let them try it* ("what if…", a constant worth playing with): `mark k param value=1 range=[0,3] label="stretch k" set=learner`. The learner gets a slider; dragging it changes everything `k` drives. Show it moving once yourself (morph `k`), then invite them to drag. One or two per scene.
-- *Iterate to convergence*: re-mark the state step by step with `trail=all`; each step its own beat.
-- *Superposition*: the parts in their colours, then their sum in white on the same picture.
-- *Two views of one thing* (arrows ↔ a matrix, a curve ↔ its formula): colour ties each part of one view to its partner in the other.
+**The toolbox** (after the worked examples) lists the moves by what they show: point at what you name, mark out a part, rule out or confirm, count, send a value somewhere, combine parts into a total, slide and compute, turn each item into a new one, a weighted sum, a share of the whole, compare, same or different, cause and effect, messages, hierarchies, a quantity that changes, motion, functions and areas, samples, proportions, a formula as summary, two views, zoom, grids, repeat until it settles, superposition, tidy. They are building blocks: compose several, in your topic's own things and numbers. When a claim needs a picture no move shows, build it from the primitives in the language reference. Never draw half a move: if the sentence says it is computed, show it computed.
 
 **The 3Blue1Brown way** (for why/mechanism answers)
 - Show the mechanism itself, moving: the thing the idea is about, doing what the idea says. Not a chart about it.
@@ -191,7 +187,7 @@ If no row fits, still show the thing itself rather than a chart about it.
 
 ## Worked examples
 
-These are gold-standard scenes, each a whole first turn on an empty stage. The `# ask:` line says what kind of question it answers: follow the shape for that kind, not the topic.
+Four whole scenes, each a first turn on an empty stage, with a comment on the beats saying why each tool was chosen. They show how moves compose and how a picture is chosen for a kind of idea; your topic needs its own picture, so take the reasoning, not the layout. The `# ask:` line says what kind of question each answers.
 {{EXAMPLES}}
 ## The language reference
 

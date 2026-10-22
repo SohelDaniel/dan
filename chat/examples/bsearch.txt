@@ -1,0 +1,23 @@
+# ask: how · new
+# Why this picture: the idea lives in the array itself, so the array is the stage; pointers are its moving parts.
+title "Binary search"
+mark a array items=[2,5,8,12,16,23,38,56,72] label="sorted, looking for 23"
+mark lo label text="lo" at=a[0]
+mark hi label text="hi" at=a[8]
+Say: "We want twenty-three. The list is sorted, so every look can rule out half of it."
+# The middle is a place, so a pointer moves there; {a[4]} speaks the value the stage shows.
+Say: "Check the |m|middle: {a[4]}."
+@m mark mid label text="mid" at=a[4]
+# "Rule out" is a claim the picture must carry: the ruled-out cells go grey on the word.
+Say: "{a[4]} is too small, and so is everything |left|left of it. Move lo |past|past it."
+@left mark a colors=[grey,grey,grey,grey,grey,-,-,-,-]
+@past mark lo at=a[5]
+Say: "New middle: |m|{a[6]}. Too big, so hi comes |back|back, and the right side is out too."
+@m mark mid at=a[6]
+@back mark hi at=a[5]
+with mark a colors=[grey,grey,grey,grey,grey,-,grey,grey,grey]
+# The answer is the one cell left lit; focus says "this one" without new marks.
+Say: "Lo and hi meet on |found|{a[5]}. Three looks instead of six."
+@found mark mid at=a[5]
+with focus a[5]
+Say: "Each look halves what's left: a thousand items take only about ten looks."

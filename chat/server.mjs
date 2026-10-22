@@ -2,7 +2,7 @@
 // console); Claude answers by speaking and drawing on the stage. The browser shows a live transcript.
 // Separate from the engine: it drives `tutor --stdin` and listens to its "@ev" events.
 //
-//   node chat/server.mjs [--no-idioms] [--port 4747] [--mute] [--voice Brian] [--model sonnet] [--effort low] [--new] [--no-open]
+//   node chat/server.mjs [--prompt F] [--examples DIR|none] [--toolbox F|none] [--port 4747] [--mute] [--voice Brian] [--model sonnet] [--effort low] [--new] [--no-open]
 //
 // A turn:
 //   Claude (one persistent `claude -p` process per chat, no tools) answers with a hidden ```plan,
@@ -20,6 +20,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { systemFromArgs } from './system-prompt.mjs';
+import { runPython, substitute, blockHeader } from './compute.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -28,7 +30,6 @@ const LIBRARY = path.join(HERE, 'library');
 const SESSIONS = path.join(HERE, 'sessions');
 const MEMORY_DIR = path.join(HERE, 'memory');
 const MEMORY = path.join(MEMORY_DIR, 'learner.md');
-const EXEMPLARS = path.join(HERE, 'exemplars');
 
 const argv = process.argv.slice(2);
 const flag = (name, def) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : def; };
@@ -38,7 +39,6 @@ const VOICE = flag('--voice', process.env.TUTOR_VOICE || ''); // an Inworld voic
 let defaultModel = flag('--model', 'sonnet');
 // low effort: measured the same first-token time with no visible thinking lost, and it keeps turns short
 const EFFORT = flag('--effort', 'low');
-const PROMPT_FILE = flag('--prompt', path.join(HERE, 'prompt.md')); // for experiments
 
 if (!fs.existsSync(TUTOR)) { console.error(`no ${TUTOR}: run make first`); process.exit(1); }
 if (process.env.ANTHROPIC_API_KEY)
@@ -46,19 +46,9 @@ if (process.env.ANTHROPIC_API_KEY)
 for (const d of [LIBRARY, SESSIONS, MEMORY_DIR]) fs.mkdirSync(d, { recursive: true });
 if (!fs.existsSync(MEMORY)) fs.writeFileSync(MEMORY, '# Learner\n\n(Nothing yet.)\n');
 
-// A fixed system prompt (so it caches): the protocol, worked examples, and the language reference.
-function buildSystem(promptFile) {
-  const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
-  let examples = '';
-  if (fs.existsSync(EXEMPLARS))
-    for (const f of fs.readdirSync(EXEMPLARS).filter((f) => f.endsWith('.txt')).sort())
-      examples += `\n### ${f.slice(0, -4)}\n\n\`\`\`scene\n${fs.readFileSync(path.join(EXEMPLARS, f), 'utf8').trim()}\n\`\`\`\n`;
-  // the visual moves mined from 3Blue1Brown (tools/mine), after the worked examples; --no-idioms leaves them out
-  if (!argv.includes('--no-idioms') && fs.existsSync(path.join(HERE, 'idioms.md'))) examples += '\n' + fs.readFileSync(path.join(HERE, 'idioms.md'), 'utf8') + '\n';
-  return fs.readFileSync(promptFile, 'utf8').replace('{{EXAMPLES}}', examples) +
-    readme.slice(readme.indexOf('## The language'), readme.indexOf('## The dictionary'));
-}
-const SYSTEM = buildSystem(PROMPT_FILE);
+// A fixed system prompt (so it caches): the protocol, worked examples, the toolbox and the language reference
+// (chat/system-prompt.mjs; --prompt, --examples, --toolbox for experiments)
+const SYSTEM = systemFromArgs(argv);
 const libraryNames = () => fs.readdirSync(LIBRARY).filter((f) => f.endsWith('.txt')).map((f) => f.slice(0, -4));
 
 // ------------------------------------------------------------ live events to every open page (SSE)
@@ -325,11 +315,30 @@ function runTurn(text, source, model = defaultModel) {
   const times = S.turnTimes = { first: null, stage: null, voice: null, done: null }; // seconds after send
   const msg = { role: 'assistant', spoken: [], plan: '', memory: false, stage: null, meta: null, error: null, cut: false };
 
-  // ---- the reply stream: a fence parser (plan / scene / memory), then beats to the stage
+  // ---- the reply stream: a fence parser (plan / python / scene / memory), then beats to the stage
   const stateBefore = read('state.txt');
   fs.writeFileSync(file('turn.txt'), '');
   fs.appendFileSync(file('live.txt'), `# --- turn ${S.turn + 1} ---\n`);
   let mode = 'none', partial = '', memText = '', beat = [], seenSay = false;
+  // python blocks run as they close; scene lines wait in order behind them, then get their data written in
+  let block = null, ready = Promise.resolve();
+  const computeIssues = [];
+  S.data = S.data || {}; // a chat's computed data, by block id: later turns may use it too
+  const runBlock = ({ id, seed, code }) => {
+    if (!id) { computeIssues.push('python: a block needs an id= (```python id=walk)'); return; }
+    ready = ready.then(async () => {
+      const r = await runPython(code, { seed, cacheDir: path.join(ROOT, '.tutor_cache', 'compute') });
+      if (r.error) computeIssues.push(`python ${id}: ${r.error}`);
+      else S.data[id] = r.data;
+    });
+  };
+  const queueScene = (line) => {
+    ready = ready.then(() => {
+      const r = substitute(line, S.data);
+      computeIssues.push(...r.problems.map((p) => 'python: ' + p));
+      for (const l of r.lines) sceneLine(l);
+    });
+  };
   const toStage = (lines) => {
     if (!lines.length || S.cut) return; // after an interrupt, nothing more is shown
     if (times.stage === null) { times.stage = S.turnAt(); broadcast({ t: 'drawing' }); }
@@ -351,12 +360,19 @@ function runTurn(text, source, model = defaultModel) {
   const fullLine = (line) => {
     const t = line.trim();
     if (mode === 'none') {
-      const m = t.match(/^```\s*(scene|memory|plan)\b/);
+      const m = t.match(/^```\s*(scene|memory|plan|python)\b/);
       if (m) mode = m[1];
+      if (mode === 'python') block = { ...blockHeader(t), code: '' };
       return; // anything outside the blocks isn't shown: the stage is the only voice
     }
-    if (t.startsWith('```')) { if (mode === 'scene') endScene(); mode = 'none'; return; }
-    if (mode === 'scene') sceneLine(line);
+    if (t.startsWith('```')) {
+      if (mode === 'scene') ready = ready.then(endScene);
+      if (mode === 'python') runBlock(block);
+      mode = 'none';
+      return;
+    }
+    if (mode === 'scene') queueScene(line);
+    else if (mode === 'python') block.code += line + '\n';
     else if (mode === 'memory') memText += line + '\n';
     else if (mode === 'plan') msg.plan += line + '\n';
   };
@@ -373,7 +389,8 @@ function runTurn(text, source, model = defaultModel) {
     if (finished) return;
     finished = true;
     if (partial) { fullLine(partial); partial = ''; }
-    if (mode === 'scene') endScene();
+    if (mode === 'scene') ready = ready.then(endScene);
+    await ready; // every line, after the python it waits for
     if (error) { msg.error = error; broadcast({ t: 'error', v: error }); }
     times.done = S.turnAt();
     msg.cut = S.cut;
@@ -383,12 +400,12 @@ function runTurn(text, source, model = defaultModel) {
       fs.writeFileSync(path.join(S.dir, 'turns', String(S.turn).padStart(3, '0') + '.txt'), turn);
       const live = stateBefore + (stateBefore.endsWith('\n') || !stateBefore ? '' : '\n') + turn;
       const [c, state] = await Promise.all([check(live), readback(live)]);
-      S.lints = c.lints;
+      S.lints = [...c.lints, ...computeIssues];
       fs.writeFileSync(file('state.txt'), state);
       snapshotFrame(live);
       msg.stage = { ok: c.ok, lints: c.lints, turn, state: read('state.txt') };
       broadcast({ t: 'stage', ...msg.stage });
-    } else S.lints = [];
+    } else S.lints = computeIssues;
     if (memText.trim()) {
       fs.writeFileSync(MEMORY, memText.trim() + '\n');
       msg.memory = true;

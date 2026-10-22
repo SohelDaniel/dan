@@ -1,4 +1,28 @@
 {
+ "chat/examples/bsearch.txt": {
+  "mean": 99.6,
+  "worst": 75,
+  "final": 100,
+  "maxOverlaps": 1
+ },
+ "chat/examples/compare.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "chat/examples/derivative.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "chat/examples/heart.txt": {
+  "mean": 98.7,
+  "worst": 68.2,
+  "final": 100,
+  "maxOverlaps": 3
+ },
  "chat/exemplars/bsearch.txt": {
   "mean": 99.6,
   "worst": 75,
@@ -181,7 +205,7 @@
  },
  "scripts/pointers.txt": {
   "mean": 100,
-  "worst": 99.2,
+  "worst": 99.3,
   "final": 100,
   "maxOverlaps": 1
  },

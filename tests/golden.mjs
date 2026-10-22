@@ -14,7 +14,7 @@ const GOLDEN = path.join(ROOT, 'tests', 'golden', placer === 'old' ? 'layout-old
 const TOL = 2; // score points of slack (sampling is time-based)
 
 const files = [...fs.readdirSync(path.join(ROOT, 'scripts')).filter((f) => f.endsWith('.txt')).map((f) => 'scripts/' + f),
-  ...fs.readdirSync(path.join(ROOT, 'chat', 'exemplars')).filter((f) => f.endsWith('.txt')).map((f) => 'chat/exemplars/' + f)].sort();
+  ...['exemplars', 'examples'].flatMap((d) => fs.readdirSync(path.join(ROOT, 'chat', d)).filter((f) => f.endsWith('.txt')).map((f) => `chat/${d}/${f}`))].sort();
 const results = {};
 for (const f of files) {
   const args = [f, '--layout-report', '-', '--placer', placer];

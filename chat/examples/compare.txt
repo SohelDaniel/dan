@@ -1,0 +1,28 @@
+# ask: compare · some
+# Why this picture: two processes compared, so two lanes (groups) on one flow; links make the stages, so matching
+# stages line up and the difference is the only thing that differs.
+title "RNN vs transformer"
+schema graph
+mark seq box input label="the sentence"
+mark r1 box rnn label="word 1"
+mark r2 box rnn label="word 2"
+mark r3 box rnn label="word 3"
+link s1 arrow seq -> r1
+link h1 arrow r1 -> r2 label="memory"
+link h2 arrow r2 -> r3 label="memory"
+group rnn part-of=[r1,r2,r3] label="RNN: one word at a time"
+# "Passes its memory on" is something travelling: send it along the link, on the word.
+Say: "An RNN reads one [r1]word, passes its |mem|memory on, and only then reads the next."
+@mem send r1 -> r2 via=h1
+mark t1 box attn label="word 1"
+mark t2 box attn label="word 2"
+mark t3 box attn label="word 3"
+link s2 arrow seq -> t1
+link a2 arrow t1 -> t2 label="0.6" color=orange
+link a3 arrow t1 -> t3 label="0.3" color=orange
+group tf part-of=[t1,t2,t3] label="transformer: all at once"
+# "Weighs the others" is a claim with numbers: the weights are on the links, coloured as one kind of thing.
+Say: "A transformer looks at every word |all|at once, and each word weighs the others."
+@all indicate a2
+with indicate a3
+Say: "So the transformer never has to squeeze a long sentence through one memory."
