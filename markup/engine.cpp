@@ -733,25 +733,37 @@ void Engine::execLine(const Line &ln) {
                            : "the voice is about " + focus_ + " -> focus: it stays lit, the rest dims (axiom 5)");
     break;
   case Verb::INDICATE: { // a target that isn't on stage yet gets up to 2 s to appear (lines arrive in beats)
-    Active a;
-    a.kind = Active::PULSE;
-    a.id = baseId(ln.id);
-    a.prop = ln.id;
-    a.dur = opt_.instant ? 0 : 1.1f;
-    a.blocking = false;
-    actives_.push_back(a);
-    caption("pointing -> " + ln.id + " pulses (signaling: the eye goes where the voice is)");
+    auto targets = staggerTargets(ln.id, ln.stagger);
+    for (size_t k = 0; k < targets.size(); k++) {
+      Active a;
+      a.kind = Active::PULSE;
+      a.id = baseId(targets[k]);
+      a.prop = targets[k];
+      a.dur = opt_.instant ? 0 : 1.1f;
+      a.delay = opt_.instant ? 0 : (float)k * ln.stagger;
+      a.blocking = false;
+      actives_.push_back(a);
+    }
+    caption("pointing -> " + ln.id + (targets.size() > 1 ? " pulses cell by cell" : " pulses") +
+            " (signaling: the eye goes where the voice is)");
     break;
   }
   case Verb::SEND: { // a copy travels from one thing (or part) to another, then the target pulses
-    Active a;
-    a.kind = Active::FLIGHT;
-    a.prop = ln.a;
-    a.dest = ln.b;
-    a.via = ln.id;
-    a.dur = opt_.instant ? 0 : ln.dur;
-    a.blocking = false;
-    actives_.push_back(a);
+    // the source is what is staggered; a target span as long as it receives cell by cell, anything else all of it
+    auto from = staggerTargets(ln.a, ln.stagger);
+    auto to = ln.b.find(':') != std::string::npos ? staggerTargets(ln.b, ln.stagger) : std::vector<std::string>{ln.b};
+    bool pairwise = from.size() > 1 && to.size() == from.size(); // a span onto a span as long: cell by cell
+    for (size_t k = 0; k < from.size(); k++) {
+      Active a;
+      a.kind = Active::FLIGHT;
+      a.prop = from[k];
+      a.dest = pairwise ? to[k] : ln.b;
+      a.via = ln.id;
+      a.dur = opt_.instant ? 0 : ln.dur;
+      a.delay = opt_.instant ? 0 : (float)k * ln.stagger;
+      a.blocking = false;
+      actives_.push_back(a);
+    }
     caption("send " + ln.a + " -> " + ln.b + ": a copy travels there (where a value comes from, where it goes)");
     break;
   }
@@ -1230,14 +1242,21 @@ void Engine::tickActives(float dt) {
   std::vector<Active> landed; // flights that arrived: their target pulses next
   for (size_t i = 0; i < actives_.size();) {
     Active &a = actives_[i];
-    a.t += dt;
+    float step = dt; // this frame's time for this animation
+    if (a.delay > 0) { // one of a staggered set: it starts when its delay runs out, with whatever of the frame is left
+      a.delay -= dt;
+      if (a.delay > 0) { i++; continue; }
+      step = -a.delay;
+      a.delay = 0;
+    }
+    a.t += step;
     float k = a.dur > 0 ? std::clamp(a.t / a.dur, 0.f, 1.f) : 1.f;
     float e = a.ease ? a.ease(k) : k;
     Obj *o = a.id.empty() ? nullptr : find(a.id);
     if (a.kind == Active::PULSE && !o) {
-      a.from += dt;                // waiting for the target
+      a.from += step;              // waiting for the target
       if (a.from > 2 || opt_.instant) { warn("indicate: '" + a.prop + "' never appeared"); actives_.erase(actives_.begin() + (long)i); continue; }
-      a.t -= dt;
+      a.t -= step;
       i++;
       continue;
     }

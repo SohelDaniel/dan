@@ -135,13 +135,15 @@ std::vector<Engine::SpokenNum> Engine::readNumbers(const std::vector<std::string
   return out;
 }
 
-// a number worth pointing at: not a small count of things ("two groups", "four ways") nor an ordinal ("step two")
+// a number worth pointing at: not a small count of things ("two groups", "four ways", "five of them") nor an
+// ordinal ("step two")
 bool Engine::pointable(const SpokenNum &n, const std::vector<std::string> &toks) {
   static const std::set<std::string> ordinal = {"step", "part", "stage", "phase", "round", "case", "line", "chapter", "level", "option"};
   static const std::set<std::string> notPlural = {"is", "was", "has", "as", "us", "its", "this", "thus", "yes", "plus", "minus", "times", "less"};
   if (n.first > 0 && ordinal.count(toks[n.first - 1])) return false;
   if (n.v < 10 && n.v == std::floor(n.v) && n.last + 1 < toks.size()) {
     // the next word, or the one after an adjective ("two smaller questions")
+    if (toks[n.last + 1] == "of") return false; // "five of them", "two of the three"
     for (size_t k = n.last + 1; k < std::min(toks.size(), n.last + 3); k++) {
       const std::string &t = toks[k];
       if (t.size() > 2 && t.back() == 's' && !notPlural.count(t)) return false;
@@ -234,6 +236,11 @@ void Engine::applyPointers() {
         if (std::find(hooks.begin(), hooks.end(), "@pt:" + target) == hooks.end()) hooks.push_back("@pt:" + target);
       }
   }
+}
+
+std::string Engine::pulsing(const std::string &id) {
+  Obj *o = find(id);
+  return o && o->pulse > 0 ? (o->pulseRef.empty() ? id : o->pulseRef) : "";
 }
 
 std::string Engine::pointingReport() const {

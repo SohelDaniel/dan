@@ -69,6 +69,7 @@ struct Line {
   Value from, to;
   bool hasFrom = false;
   float dur = 1.0f;
+  float stagger = 0;            // indicate/send over a span: one cell after another, this many seconds apart
   std::string ease = "smooth";
   // say
   std::vector<SayWord> words;

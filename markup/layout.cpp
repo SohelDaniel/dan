@@ -362,6 +362,22 @@ std::vector<int> Engine::cellsOf(const Mark &m, const std::string &ref) {
   return out;
 }
 
+std::vector<std::string> Engine::staggerTargets(const std::string &ref, float stagger) {
+  if (stagger <= 0) return {ref};
+  Mark *m = mark(baseId(ref));
+  std::vector<int> cells = m && ref.find(':') != std::string::npos ? cellsOf(*m, ref) : std::vector<int>{};
+  if (cells.size() < 2) {
+    warn("stagger: '" + ref + "' is not a span of cells (a[0:3]), so it happens at once");
+    return {ref};
+  }
+  int cols = arrayCols(*m);
+  bool grid = std::count(ref.begin(), ref.end(), '[') > 1;
+  std::vector<std::string> out;
+  for (int k : cells)
+    out.push_back(baseId(ref) + (grid ? "[" + std::to_string(k / cols) + "][" + std::to_string(k % cols) + "]" : "[" + std::to_string(k) + "]"));
+  return out;
+}
+
 Rectangle Engine::cellRect(const Mark &m, int k) {
   Vector2 sz = blockSize(m);
   int cols = arrayCols(m);
@@ -385,6 +401,10 @@ bool Engine::anchorBox(const std::string &ref, Rectangle &out) {
       out.x = std::min(out.x, r.x); out.y = std::min(out.y, r.y);
       out.width = x1 - out.x; out.height = y1 - out.y;
     }
+  } else if (isCurveKind(effectiveKind(*t))) { // a curve is pointed at where it visibly ends (where its name is)
+    Vector2 p;
+    if (!curveEnd(*t, p)) return false;
+    out = {p.x - 6, p.y - 6, 12, 12};
   } else {
     out = bodyBounds(*t);
   }

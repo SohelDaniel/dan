@@ -75,6 +75,9 @@ indicate <id> | <array>[k]     a ring pulses on it: point at what the voice name
 send <from> -> <to> [1s]       a copy travels from one thing (a cell a[2], a formula part f[x], a thing) to another,
                                which pulses as it lands: where a value comes from and where it goes
 send x -> y via=<link>         the copy travels along that link (a token through a network)
+indicate a[0:4] stagger=0.4s   the cells pulse one after another: counting, going through items in order
+send a[0:3] -> t stagger=0.3s  each cell's copy goes in turn (parts poured into a total); onto a span as long
+                               (send a[0:3] -> b[0:3] stagger=0.3s) each goes to its own cell
 hide <id> [0.6s]               fade it to a faint ghost (it stays a thing: opacity=0.12)
 show <id> [0.6s]               bring it back (opacity=1)
 ```

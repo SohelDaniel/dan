@@ -75,3 +75,13 @@ TEST_CASE("{expr} in a Say: one word however it is spaced; a plain {id} points a
   CHECK(std::find(w[5].hooks.begin(), w[5].hooks.end(), "@pt:a") != w[5].hooks.end());
   CHECK(!w[0].ref);
 }
+
+TEST_CASE("stagger= on indicate and send: a duration, anything else is an error") {
+  Script s;
+  REQUIRE(s.parse("indicate a[0:4] stagger=0.45s\nsend a[0:2] -> t stagger=300ms 0.8s\n"));
+  CHECK(s.steps[0].main.stagger == doctest::Approx(0.45));
+  CHECK(s.steps[1].main.stagger == doctest::Approx(0.3));
+  CHECK(s.steps[1].main.dur == doctest::Approx(0.8));
+  Script bad;
+  CHECK(!bad.parse("indicate a[0:4] stagger=fast\n"));
+}

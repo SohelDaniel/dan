@@ -128,6 +128,7 @@ struct Active {
   double from = 0, to = 0;
   Value finalVal;           // what the prop becomes when done (keeps expressions)
   float t = 0, dur = 1;
+  float delay = 0;          // waits this long before it starts (one of a staggered set), neither moving nor drawn
   rm::RateFunc ease = rm::rate::smooth;
   bool blocking = true;
   std::string log;          // for readback "since:"
@@ -173,6 +174,7 @@ public:
   // start synthesising a Say line before its beat arrives (the server sends it as soon as it is written)
   void prefetchVoice(const std::string &sayLine);
   std::vector<std::string> spokenLines();   // every Say as it will be spoken, {expr} read off the stage
+  std::string pulsing(const std::string &id); // what of this thing pulses right now ("a[2]", "a"), "" if nothing
   // numbers and names said aloud: how many, how many on stage at their word, pointed by the script, pointed ahead
   std::string pointingReport() const;
   // numbers said aloud with the words they span ("seven hundred eighty-four", "zero point one four"); pure, for tests too
@@ -236,6 +238,8 @@ public:
   std::vector<std::string> flipLog;     // which, when (the first 40), for the layout report
   // curve and line geometry shared by drawing and labels
   std::vector<Vector2> curvePoints(const Mark &m);
+  bool curveEnd(const Mark &m, Vector2 &p);  // where a curve visibly ends: its last point inside its plot
+  size_t visibleEnd(const std::vector<Vector2> &pts); // index of that point in pts (pts.size() if none is inside)
   bool lineEnds(const Mark &m, Vector2 &a, Vector2 &b, bool &hasSlope);
   bool vectorEnds(const Mark &m, Vector2 &from, Vector2 &to);
   place::Report layoutCheck(std::vector<std::string> *messages = nullptr);
@@ -326,6 +330,8 @@ private:
   // arrays: cols= makes a grid (rows of that many cells, row-major). A reference names cells:
   // a[3], a[1:3] (a span), and on a grid M[1][2], M[1][:] (a row), M[:][2] (a column)
   int arrayCols(const Mark &m);
+  // the targets of a staggered line: each cell of a span, in order ("a[0:2]" -> a[0] a[1] a[2]); one target otherwise
+  std::vector<std::string> staggerTargets(const std::string &ref, float stagger);
   std::vector<int> cellsOf(const Mark &m, const std::string &ref);
   // what a box shows, used by both its size and its drawing: the name (wrapped), then one row per
   // property that is content (not position, style or structure)

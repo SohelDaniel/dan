@@ -387,15 +387,20 @@ static bool readFocus(Reading &r) {
 }
 
 // pointing: a pulse and a ring on a thing (or one cell: a[3]); transient, not part of the model
+// indicate a[2] | indicate a[0:4] stagger=0.3s: the cells pulse one after another (counting along them)
 static bool readIndicate(Reading &r) {
   r.ln.verb = Verb::INDICATE;
   if (r.toks.size() < 2) return r.fail(r.verb + " needs a thing");
   r.ln.id = r.toks[1];
+  for (size_t i = 2; i < r.toks.size(); i++)
+    if (r.toks[i].rfind("stagger=", 0) == 0 && !isDuration(r.toks[i].substr(8), r.ln.stagger))
+      return r.fail("indicate: stagger takes a duration (stagger=0.3s)");
   return true;
 }
 
-// send a[2] -> f[x] [1s] [via=l1]: a copy of a thing (a cell, a formula part) travels to another and lands
-// there (3Blue1Brown's TransformFromCopy); via= takes it along a link. Like indicate, it isn't part of the model.
+// send a[2] -> f[x] [1s] [via=l1] [stagger=0.3s]: a copy of a thing (a cell, a formula part) travels to another and
+// lands there (3Blue1Brown's TransformFromCopy); via= takes it along a link. With stagger=, each cell of a span
+// goes in turn (to the same target, or cell by cell to a span as long). Like indicate, it isn't part of the model.
 static bool readSend(Reading &r) {
   auto &[toks, verb, raw, ln, err] = r;
   ln.verb = Verb::SEND;
@@ -407,7 +412,8 @@ static bool readSend(Reading &r) {
     float d;
     if (isDuration(toks[i], d)) ln.dur = d;
     else if (toks[i].rfind("via=", 0) == 0) ln.id = toks[i].substr(4);
-    else return r.fail("send: unexpected '" + toks[i] + "' (a duration like 1s, or via=<link>)");
+    else if (toks[i].rfind("stagger=", 0) == 0 && isDuration(toks[i].substr(8), ln.stagger)) continue;
+    else return r.fail("send: unexpected '" + toks[i] + "' (a duration like 1s, via=<link>, or stagger=0.3s)");
   }
   return true;
 }

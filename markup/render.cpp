@@ -446,7 +446,7 @@ bool Engine::refBox(const std::string &ref, Rectangle &out) {
 // value, or the thing
 void Engine::drawFlights() {
   for (auto &a : actives_) {
-    if (a.kind != Active::FLIGHT || a.dur <= 0) continue;
+    if (a.kind != Active::FLIGHT || a.dur <= 0 || a.delay > 0) continue; // a staggered copy that hasn't left yet
     Rectangle A, B;
     if (!refBox(a.prop, A) || !refBox(a.dest, B)) continue;
     float k = std::clamp(a.t / a.dur, 0.f, 1.f), e = rate::smooth(k);

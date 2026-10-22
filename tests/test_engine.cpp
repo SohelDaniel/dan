@@ -226,3 +226,44 @@ TEST_CASE("pointing ahead: a number said aloud pulses the one cell that shows it
                      "Say: \"We want twenty-three, and the middle is sixteen.\"\nSay: \"Both are here.\"\n"));
   CHECK(e.pointingReport().find("2 pointed ahead") != std::string::npos);
 }
+
+TEST_CASE("stagger: the cells of a span pulse one after another, and it changes nothing in the scene") {
+  EngineOptions o; // live: staggering is timing, so it needs a clock
+  o.quiet = true;
+  Engine e(o);
+  REQUIRE(e.loadText("mark a array items=[3,1,4]\nindicate a[0:2] stagger=0.5s\n"));
+  e.update(0.1f);
+  CHECK(e.pulsing("a") == "a[0]");
+  e.update(0.5f); // 0.6 s: the second cell has started
+  CHECK(e.pulsing("a") == "a[1]");
+  e.update(0.5f); // 1.1 s: the third
+  CHECK(e.pulsing("a") == "a[2]");
+  Engine plain(instant()), staggered(instant());
+  played(plain, "mark a array items=[3,1,4]\nmark t box label=\"total\"\nsend a[0:2] -> t\n");
+  played(staggered, "mark a array items=[3,1,4]\nmark t box label=\"total\"\nsend a[0:2] -> t stagger=0.3s\n");
+  CHECK(plain.readback(false) == staggered.readback(false));
+}
+
+TEST_CASE("a curve that leaves its plot is named where it leaves, not in the corner at the end of its range") {
+  Engine e(instant());
+  played(e, "schema axes x=[0,6] y=[0,40]\nmark g path fn={exp(x)} label=\"e^x\"\n");
+  place::Picture p = e.picture();
+  const place::Ink *name = nullptr;
+  for (auto &i : p.ink) if (i.kind == place::Ink::Label && i.id == "g") name = &i;
+  REQUIRE(name);
+  float cx = name->box.x + name->box.w / 2;
+  CHECK(cx < 900); // e^x leaves the top of the plot near x = 3.7 (screen x ~ 770); the range ends at x = 6 (~1180)
+}
+
+TEST_CASE("stagger: a span sent onto a span as long goes cell by cell, each copy landing on its own cell") {
+  EngineOptions o;
+  o.quiet = true;
+  Engine e(o);
+  played(e, "mark a array items=[3,1]\nmark b array items=[0,0]\n");
+  REQUIRE(e.appendText("send a[0:1] -> b[0:1] stagger=0.5s 0.4s\n"));
+  auto run = [&](float secs) { for (int i = 0; i < (int)(secs * 60); i++) e.update(1.f / 60); };
+  run(0.6f); // the first copy landed at 0.4 s: its cell pulses
+  CHECK(e.pulsing("b") == "b[0]");
+  run(0.5f); // the second left at 0.5 s and landed at 0.9 s
+  CHECK(e.pulsing("b") == "b[1]");
+}

@@ -315,6 +315,25 @@ std::vector<Rectangle> Engine::furnitureHere() {
 }
 
 // ---------------------------------------------------------------- curve / line geometry
+// A curve that leaves its plot (e^x through the top) ends where it leaves, not at the end of its range (far above
+// the plot): its name goes there, and so does a pointer aimed at it.
+bool Engine::curveEnd(const Mark &m, Vector2 &p) {
+  std::vector<Vector2> pts = curvePoints(m);
+  DataScope dataScope(*this, dataViewOf(m)); // its own view's plot area
+  size_t i = visibleEnd(pts);
+  if (i == pts.size()) return false;
+  p = pts[i];
+  return true;
+}
+
+// screen points of a curve, in the current view: the last one inside the plot
+size_t Engine::visibleEnd(const std::vector<Vector2> &pts) {
+  const Rectangle &a = axes_.area;
+  for (size_t i = pts.size(); i-- > 0;)
+    if (pts[i].x >= a.x - 1 && pts[i].x <= a.x + a.width + 1 && pts[i].y >= a.y - 1 && pts[i].y <= a.y + a.height + 1) return i;
+  return pts.size();
+}
+
 std::vector<Vector2> Engine::curvePoints(const Mark &m) {
   DataScope dataScope(*this, dataViewOf(m));  // its own view's axes, ranges and camera
   if (effectiveKind(m) == "solution") return solutionPoints(m);
@@ -521,12 +540,11 @@ std::vector<TextLabel> Engine::markLabelsAt(const Mark &m) {
     return out;
   }
   if (isCurveKind(k) && m.appear > 0.95f) {
-    auto pts = curvePoints(m);
-    if (pts.empty()) return out;
+    Vector2 e;
+    if (!curveEnd(m, e)) return out; // nothing of it is in view
     if (isParametric(m) || k == "solution") {
-      add(name, pts.back() + Vector2{8, -8}, 19, 0, 1, TextLabel::Mark, "name");
+      add(name, e + Vector2{8, -8}, 19, 0, 1, TextLabel::Mark, "name");
     } else {
-      Vector2 e = pts.back();
       e.y = std::clamp(e.y, axes_.area.y + 10, axes_.area.y + axes_.area.height - 10);
       add(name, e + Vector2{-6, -8}, 19, 1, 1, TextLabel::Mark, "name");
     }
@@ -815,14 +833,16 @@ void Engine::labelSpots(const Mark &m, const std::string &k, const std::vector<V
     spot(bodyBounds(m));
     r.sides = isAxes(schemaOf(m)) ? std::vector<S>{S::NE, S::NW, S::SE, S::SW, S::E, S::W, S::N, S::S}
                                   : std::vector<S>{S::S, S::N, S::E, S::W, S::SE, S::SW, S::NE, S::NW};
-  } else if (isCurveKind(k) && !stroke.empty()) { // near the end of the curve (inside the axes), above or below it
-    Vector2 e = stroke.back();
+  } else if (isCurveKind(k) && !stroke.empty()) { // near where the curve visibly ends (inside the axes), above or below it
+    size_t end = visibleEnd(stroke);
+    if (end == stroke.size()) end = stroke.size() - 1; // nothing in view: its last point, clamped below
+    Vector2 e = stroke[end];
     e.x = std::clamp(e.x, axes_.area.x, axes_.area.x + axes_.area.width);
     e.y = std::clamp(e.y, axes_.area.y + 10, axes_.area.y + axes_.area.height - 10);
     spot({e.x - 3, e.y - 3, 6, 6});
     r.sides = {S::NW, S::SW, S::N, S::S, S::W, S::NE, S::SE};
-    for (float f : {0.92f, 0.82f, 0.7f}) {
-      Vector2 q = stroke[(size_t)(f * (stroke.size() - 1))];
+    for (float f : {0.92f, 0.82f, 0.7f}) { // or a little back along its visible part
+      Vector2 q = stroke[(size_t)(f * end)];
       r.along.push_back({q.x, q.y - box.height / 2 - 10});
       r.along.push_back({q.x, q.y + box.height / 2 + 10});
     }
