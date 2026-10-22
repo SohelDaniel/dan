@@ -19,6 +19,7 @@
 #include <objc/runtime.h>
 #endif
 #include <cstdio>
+#include <fstream>
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
@@ -66,6 +67,7 @@ static void wakeDisplay() {}
 
 int main(int argc, char **argv) {
   std::string path, record, font, key, snapshot, at = "end", layoutReport;
+  int windowX = -1, windowY = -1; // --window-pos X,Y: where the window opens (a side explanation beside the lesson)
   bool mute = false;
   bool readbackOnly = false, check = false, live = false;
   mk::EngineOptions opt;
@@ -89,6 +91,7 @@ int main(int argc, char **argv) {
     else if (a == "--layout-report" && i + 1 < argc) layoutReport = argv[++i];
     else if (a == "--placer" && i + 1 < argc) opt.newPlacer = std::string(argv[++i]) != "old";
     else if (a == "--font" && i + 1 < argc) font = argv[++i];
+    else if (a == "--window-pos" && i + 1 < argc) std::sscanf(argv[++i], "%d,%d", &windowX, &windowY);
     else if (a == "-h" || a == "--help") return usage();
     else if (path.empty() && a[0] != '-') path = a;
     else return usage();
@@ -269,6 +272,7 @@ int main(int argc, char **argv) {
   if (live) keepAwake();
   SetTraceLogLevel(LOG_WARNING);
   InitWindow(rm::W, rm::H, ("tutor — " + path).c_str());
+  if (windowX >= 0 && windowY >= 0) SetWindowPosition(windowX, windowY);
   SetTargetFPS(60);
   SetExitKey(live ? KEY_NULL : KEY_ESCAPE); // live: Esc cancels typing, it doesn't close the stage
   opt.events = live;
@@ -300,6 +304,7 @@ int main(int argc, char **argv) {
   // live: the learner can type on the stage itself; the server shows thinking / listening states
   bool typing = false, pausedForTyping = false;
   std::string typed, uiState = "idle", echo;
+  std::string captureDir; // #!capture <dir>: this frame and the stage as of now, written after it is drawn
   float uiT = 0;
   auto jsonStr = [](const std::string &s) {
     std::string o = "\"";
@@ -345,6 +350,10 @@ int main(int argc, char **argv) {
           eng.prefetchVoice(l.substr(8));
         } else if (l == "#!interrupt") {
           eng.interrupt();
+        } else if (l == "#!pause") { // the learner asked about this moment: hold it
+          if (!eng.paused()) eng.togglePause();
+        } else if (l.rfind("#!capture ", 0) == 0) {
+          captureDir = l.substr(10);
         } else if (l.rfind("#!state ", 0) == 0) { // "#!state thinking <question>" | listening | idle
           std::string rest = l.substr(8);
           size_t sp = rest.find(' ');
@@ -371,9 +380,17 @@ int main(int argc, char **argv) {
         if (pausedForTyping && eng.paused()) eng.togglePause();
       } else if (IsKeyPressed(KEY_ENTER) && !typed.empty()) {
         typing = false;
-        if (pausedForTyping && eng.paused()) eng.togglePause();
-        std::printf("@ev input %s\n", jsonStr(typed).c_str());
-        echo = typed;
+        if (typed[0] == '?') { // "?…": a question about this moment, answered beside the lesson, which stays paused
+          std::string q = typed.substr(1);
+          while (!q.empty() && q[0] == ' ') q.erase(0, 1);
+          if (!eng.paused()) eng.togglePause();
+          std::printf("@ev explain %s\n", jsonStr(q).c_str());
+          echo = q.empty() ? "explain this" : q;
+        } else {
+          if (pausedForTyping && eng.paused()) eng.togglePause();
+          std::printf("@ev input %s\n", jsonStr(typed).c_str());
+          echo = typed;
+        }
         uiState = "thinking";
         uiT = 0;
       }
@@ -431,7 +448,8 @@ int main(int argc, char **argv) {
         text(shown, {bar.x + 20, bar.y + bar.height / 2}, 24, col::fg, 0, 0.5f);
         float cx = bar.x + 22 + measure(shown, 24).x;
         if (std::fmod(uiT, 1.f) < 0.6f) DrawRectangle((int)cx, (int)bar.y + 13, 2, 24, col::fg);
-        text("Enter to ask  ·  Esc to cancel", {bar.x + bar.width, bar.y + bar.height + 8}, 14, col::muted, 1, 0);
+        text("Enter to ask  ·  start with ? to ask about this moment  ·  Esc to cancel", {bar.x + bar.width, bar.y + bar.height + 8}, 14,
+             col::muted, 1, 0);
       } else if (uiState == "thinking") { // your question, and a breathing dot while the answer is on its way
         if (!echo.empty()) text("\u201c" + echo + "\u201d", {W / 2.f, 600}, 22, fade(col::muted, 0.9f), 0.5f, 0.5f);
         for (int i = 0; i < 3; i++) {
@@ -446,6 +464,14 @@ int main(int argc, char **argv) {
     }
     EndDrawing();
     rec.frame();
+    if (!captureDir.empty()) { // what the learner sees, and the stage as of now (not the end of the turn)
+      Image img = LoadImageFromScreen();
+      ExportImage(img, (captureDir + "/frame.png").c_str());
+      UnloadImage(img);
+      std::ofstream(captureDir + "/stage.txt") << eng.readback(false);
+      std::printf("@ev captured %s\n", captureDir.c_str());
+      captureDir.clear();
+    }
 
     if (!record.empty()) {
       if (eng.finished()) endTimer += dt;

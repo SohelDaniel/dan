@@ -46,6 +46,9 @@
   .me .src { text-align: right; color: var(--muted); font-size: 11px; margin-top: 2px; }
   /* the tutor's spoken lines: a transcript, lit word by word as the stage says them */
   .ai .said { margin: 0 0 6px; font-size: 16.5px; line-height: 1.55; }
+  .aside { border-left: 3px solid var(--now); padding-left: 12px; }
+  .aside .q { color: var(--muted); margin-bottom: 4px; }
+  .aside p { margin: 0 0 6px; font-size: 15.5px; line-height: 1.5; }
   .ai .said .w { color: var(--faint); transition: color .12s; }
   .ai .said .w.on { color: var(--ink); }
   .ai .said .w.now { color: var(--now); }
@@ -115,7 +118,7 @@
       <textarea id="in" rows="1" placeholder="Ask anything… (or type straight onto the stage window)" autofocus></textarea>
       <button id="send">Send</button>
     </div>
-    <div class="hint" id="hint">The stage answers by speaking and drawing. Typing while it talks interrupts it.</div>
+    <div class="hint" id="hint">The stage answers by speaking and drawing. Typing while it talks interrupts it. Paused (space)? Type ? on the stage to ask about that moment.</div>
   </form>
 </div>
 
@@ -228,6 +231,20 @@ async function load() {
 }
 async function refreshSidebar() { sidebar(await (await fetch('/api/info')).json()); }
 
+// ---- pause and ask: a side answer about a paused moment, kept apart from the lesson's own lines
+let aside = null;
+function explainEvent(e) {
+  if (e.state === 'asking')
+    aside = add('aside', `<div class="q">? ${esc(e.q || 'explain this')}</div><div class="lines"><div class="thinking">looking at the paused stage</div></div>`);
+  if (!aside) return;
+  const lines = aside.querySelector('.lines');
+  if (e.state === 'playing')
+    lines.innerHTML = e.spoken.map((t) => `<p>${esc(t)}</p>`).join('') +
+      '<div class="hint">playing in a second window · close it, then press space on the stage to go on</div>';
+  else if (e.state === 'failed') lines.innerHTML = `<div class="error">No answer${e.error ? ': ' + esc(e.error) : ''}</div>`;
+  else if (e.state === 'done') aside.querySelector('.hint')?.replaceChildren('back to the lesson · press space on the stage to go on');
+}
+
 // ---- live: everything the stage and the tutor do arrives here
 const es = new EventSource('/api/events');
 let turnMeta = {};
@@ -237,10 +254,11 @@ es.onmessage = (msg) => {
     userMsg(e.text, e.source);
     block = newBlock(); turnMeta = {};
     thinking(block, true);
-    $('#hint').textContent = 'The stage answers by speaking and drawing. Typing while it talks interrupts it.';
+    $('#hint').textContent = 'The stage answers by speaking and drawing. Typing while it talks interrupts it. Paused (space)? Type ? on the stage to ask about that moment.';
     $('#hint').classList.remove('turn');
     return;
   }
+  if (e.t === 'explain') return explainEvent(e);
   if (!block) block = newBlock();
   if (e.t === 'drawing') chip(block, 'draw', '● drawing on stage');
   else if (e.t === 'say') { thinking(block, false); spokenLine(block, e.text, e.uid, false); }
@@ -268,7 +286,8 @@ $('#f').onsubmit = (e) => {
   e.preventDefault();
   const t = input.value.trim(); if (!t) return;
   input.value = ''; input.style.height = '';
-  post('/api/send', { text: t, model: $('#model').value });
+  if (t.startsWith('?')) post('/api/explain', { text: t.slice(1).trim() }); // about the paused moment, beside the lesson
+  else post('/api/send', { text: t, model: $('#model').value });
 };
 input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#f').requestSubmit(); } });
 input.addEventListener('input', () => { input.style.height = ''; input.style.height = input.scrollHeight + 'px'; });

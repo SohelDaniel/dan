@@ -22,6 +22,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { systemFromArgs } from './system-prompt.mjs';
 import { runPython, substitute, blockHeader } from './compute.mjs';
+import { createExplainer } from './explain.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -165,6 +166,10 @@ function onStageEvent(ev) {
     broadcast({ t: 'idle' });
   } else if (kind === 'input') {
     submit(JSON.parse(rest), 'stage');
+  } else if (kind === 'explain') { // "?…" typed on the paused stage: a side answer about this moment
+    explainMoment(JSON.parse(rest));
+  } else if (kind === 'captured') {
+    captureWaiters.get(rest)?.();
   } else if (kind === 'set') { // the learner dragged a slider: the stage's model has the new value now
     const [id, v] = rest.split(' ');
     if (!/^[\w.-]+$/.test(id) || !Number.isFinite(+v)) return;
@@ -254,6 +259,21 @@ function startClaude(model) {
   return c;
 }
 function stopClaude() { if (claude) { claude.onEvent = null; claude.p.kill(); claude = null; } }
+
+// ------------------------------------------------------------ pause and ask (chat/explain.mjs)
+const explainer = createExplainer({ tutor: TUTOR, root: ROOT, system: SYSTEM, model: () => defaultModel, effort: EFFORT,
+  env: CLEAN_ENV, voiceArgs: () => [...(mute ? ['--mute'] : []), ...(VOICE ? ['--voice-id', VOICE] : [])] });
+const captureWaiters = new Map(); // dir -> resolve: the stage wrote that frame and its state
+const captured = (dir) => new Promise((resolve) => {
+  const done = () => { captureWaiters.delete(dir); resolve(); };
+  captureWaiters.set(dir, done);
+  setTimeout(done, 5000); // a stage that doesn't answer doesn't hold the question up
+});
+function explainMoment(question) {
+  explainer.explain({ session: S, question, heard: heardSoFar(), stage: { send: stageSend, captured },
+    ui: { broadcast, note: (t) => { S.note = S.note ? S.note + '\n' + t : t; } } })
+    .catch((e) => broadcast({ t: 'explain', state: 'failed', q: question, error: String(e) }));
+}
 
 // ------------------------------------------------------------ input: from the stage or the browser
 function heardSoFar() {
@@ -473,6 +493,10 @@ const server = http.createServer(async (req, res) => {
     submit(b.text, 'browser');
     return json(res, { ok: true });
   }
+  if (url.pathname === '/api/explain') { // "?…" typed in the browser: a side answer about the paused moment
+    explainMoment(String(b.text || ''));
+    return json(res, { ok: true });
+  }
   if (S.busy) return json(res, { error: 'busy' }, 409);
   if (url.pathname === '/api/replay-turn') {
     // the stage as it was before the last turn, then the last turn plays again
@@ -513,6 +537,6 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log('type on the stage window, or in the browser console');
   if (!argv.includes('--no-open')) spawn('open', [`http://localhost:${PORT}`], { stdio: 'ignore' });
 });
-const quit = () => { stopClaude(); if (stageAlive()) stage.kill(); process.exit(0); };
+const quit = () => { stopClaude(); explainer.close(); if (stageAlive()) stage.kill(); process.exit(0); };
 process.on('SIGINT', quit);
 process.on('SIGTERM', quit);
