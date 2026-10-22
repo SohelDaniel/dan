@@ -1,0 +1,12 @@
+[
+ {"id":"walk","subject":"math","type":"why","q":"if I flip a coin and step left or right 100 times, where do I end up?"},
+ {"id":"dicesum","subject":"math","type":"why","q":"roll two dice 100 times: why do sevens come up most?"},
+ {"id":"montepi","subject":"math","type":"how","q":"how can throwing random darts estimate pi?"},
+ {"id":"sieve","subject":"math","type":"how","q":"show me the sieve of Eratosthenes finding the primes up to 50"},
+ {"id":"bubbletrace","subject":"cs","type":"how","q":"trace bubble sort on 5 1 4 2 8, every swap"},
+ {"id":"collatz","subject":"math","type":"why","q":"what happens to 27 in the Collatz sequence?"},
+ {"id":"lln","subject":"math","type":"why","q":"why does the fraction of heads get closer to one half the more I flip?"},
+ {"id":"cooling","subject":"physics","type":"how","q":"a cup of coffee at 90 degrees in a 20 degree room: how does it cool over an hour?"},
+ {"id":"birthdaycurve","subject":"math","type":"how","q":"how does the chance of a shared birthday grow as the group gets bigger?"},
+ {"id":"fibratio","subject":"math","type":"why","q":"show the ratios of consecutive Fibonacci numbers settling down"}
+]
