@@ -41,7 +41,14 @@ same('mark w array items={walk.steps}', ['mark w array items=[0, 1, 41, 124]']);
 same('Say: "It ends at {walk.end}, after {walk.steps[-2]}."', ['Say: "It ends at 124, after 41."']);
 same('mark f tex tex="x = \\val{walk.end} + \\val{k*2}"', ['mark f tex tex="x = 124 + \\val{k*2}"']);
 same('mark f path fn={k*x^2}', ['mark f path fn={k*x^2}']); // the engine's own expressions are left alone
-same('each r in walk.rows: mark p{i} dot x={r.x} y={r.y}', ['mark p0 dot x=1 y=2', 'mark p1 dot x=3 y=4']);
+// made by one each-line: one category (the list's name unless given) and no names from their ids
+same('each r in walk.rows: mark p{i} dot x={r.x} y={r.y}', ['mark p0 dot rows x=1 y=2 label=""', 'mark p1 dot rows x=3 y=4 label=""']);
+same('@go each r in walk.rows: mark p{i} dot pt x={r.x}', ['@go mark p0 dot pt x=1 label=""', '@go mark p1 dot pt x=3 label=""']); // cued: all on that word
+same('with each v in walk.rows: mark q{i} dot pt y={walk.steps[i]} label="q"', ['with mark q0 dot pt y=0 label="q"', 'with mark q1 dot pt y=1 label="q"']); // [i] indexes
+same('each v in walk.steps: mark s{i} dot pt x={i+1} y={v*2}', ['mark s0 dot pt x=1 y=0 label=""', 'mark s1 dot pt x=2 y=2 label=""',
+  'mark s2 dot pt x=3 y=82 label=""', 'mark s3 dot pt x=4 y=248 label=""']); // loop arithmetic becomes the number
+same('each r in walk.rows: mark q{i+4} dot x={r.x} y={k*r.y} ratio', ['mark q4 dot x=1 y={k*2} ratio label=""',
+  'mark q5 dot x=3 y={k*4} ratio label=""']); // a category given late counts; an id computed; the engine keeps {k*…}
 const missing = substitute('mark z array items={walk.nope}', data);
 check('a missing value drops the line and says why', missing.lines.length === 0 && missing.problems.length === 1, missing);
 

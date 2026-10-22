@@ -40,8 +40,12 @@ out(rolls=rolls, mean=round(sum(rolls) / len(rolls), 2))
 - In the scene, `{dice.rolls}`, `{dice.rolls[0]}`, `{dice.rolls[-1]}` and `{dice.mean}` are replaced by the values,
   in any property and in a `Say` ("the average is {dice.mean}"). You don't see the results while you write, so say
   computed values this way, never guess them.
-- `each v in dice.rolls: mark r{i} dot score={v}` makes one line per item: `{v}` is the item (`{v.x}` a field of it),
-  `{i}` its index.
+- `each v in dice.rolls: mark r{i} dot roll score={v}` makes one line per item: `{v}` is the item (`{v.x}` a field of it),
+  `{i}` its index. Things made together are one kind of thing: give them one category word (`roll` here), so they
+  share a colour instead of each taking its own.
+- Random data won't always do what you expect. Anything you will say about the data (which value is biggest, how
+  many, where it settles), compute it in the block too and say it with `{…}`: `out(rolls=rolls, most=mode)`, then
+  "the most common sum was {dice.most}".
 - It computes data, never pictures: the picture still comes from the moves (values on a number line, cells of an
   array, points on axes), and positions still come from the data and the structure.
 

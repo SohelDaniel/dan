@@ -48,7 +48,28 @@ Measured (Sonnet, muted): visuals in about 2.5–5 s, voice right after.
 | --- | --- |
 | `server.mjs` | Node, no dependencies: input from stage and console, persistent claude, block parser and beats, stage events → SSE, interrupts, state folding, memory |
 | `index.html` | the console: live transcript, sessions, memory |
-| `prompt.md` | the protocol and the teaching method (`{{EXAMPLES}}` is filled from `exemplars/`) |
-| `exemplars/` | worked examples: Newton's second law, derivative, vectors, binary search, photosynthesis |
+| `prompt.md` | the protocol and the teaching method (`{{EXAMPLES}}` is filled from `examples/` and `toolbox.md`) |
+| `system-prompt.mjs` | builds the system prompt the same way for the server and the eval |
+| `examples/` | four whole scenes, each beat annotated with why its tool was chosen |
+| `toolbox.md` | the moves, by what they show; each a complete, checked scene (`tests/toolbox.mjs`) |
+| `exemplars/` | the earlier nine examples, kept as regression scenes (golden, append), no longer in the prompt |
+| `idioms.md`, `idioms/` | moves mined from 3Blue1Brown (`tools/mine`), kept as data and checked scenes |
+| `compute.mjs`, `explain.mjs` | python blocks; pause and ask |
 | `sessions/<id>/` | `state.txt`, `turn.txt`, `live.txt`, `turns/NNN.txt`, `lesson.txt`, transcript |
 | `library/`, `memory/` | saved scenes, learner memory |
+
+## Pause and ask
+
+Pause the lesson (space), then type a line starting with `?` on the stage (or in the browser): `?why is that 6`.
+The stage keeps what you see and the scene as of that moment; a fork of the lesson's Claude session answers with a short
+scene that continues from it, in a second window, while the lesson stays paused. Close the window and press space to go
+on; the lesson hears what you asked on its next turn. Code: `chat/explain.mjs`, `#!capture` / `#!pause` in `main.cpp`.
+
+## Computing: python blocks
+
+A reply may carry ` ```python id=walk seed=7 ` blocks that compute data (standard library only) and hand it back with
+`out(key=value)`. The server runs each in a sandbox (macOS `sandbox-exec`: no network, no reading the home folder, no
+other programs; CPU and time limits; results cached by code and seed) and writes the values into the scene lines that
+use them (`items={walk.steps}`, `Say: "… {walk.end}"`, `each v in walk.steps: mark s{i} dot …`) before the engine sees
+them, so the engine only ever gets literal data and every axiom holds. Marks made by one `each` share one category and
+carry no names from their ids. Code: `chat/compute.mjs`; tests: `tests/compute.mjs`.

@@ -124,6 +124,7 @@ export function substitute(line, data) {
   const problems = [];
   const fill = (text, scope, inSay) =>
     text.replace(/(\\val)?\{([\w.[\]-]+)\}/g, (whole, val, ref) => {
+      ref = ref.replace(/\[([A-Za-z_]\w*)\]/g, (b, v) => (typeof scope[v] === 'number' ? `[${scope[v]}]` : b)); // walk.x[i]
       const [head] = ref.split(/[.[]/);
       const pool = head in scope ? scope : head in data ? data : null;
       if (!pool) return whole; // an engine expression ({k*x^2}, {a[2]})
@@ -132,18 +133,51 @@ export function substitute(line, data) {
       if (missing || lit === null) { problems.push(`{${ref}}: ${missing ? 'no such value' : 'not a single value here'}`); return whole; }
       return lit;
     });
-  const each = line.match(/^\s*each\s+(\w+)\s+in\s+([\w.[\]-]+)\s*:\s*(.+)$/);
+  // each v in walk.steps: <line>, possibly cued or alongside: "@go each …", "with each …" (every line it makes is too)
+  const each = line.match(/^(\s*(?:@\w+\s+)?(?:with\s+)?)each\s+(\w+)\s+in\s+([\w.[\]-]+)\s*:\s*(.+)$/);
   if (!each) {
     const isSay = line.trim().startsWith('Say:');
     const out = fill(line, {}, isSay);
     return { lines: problems.length ? [] : [out], problems };
   }
-  const [, name, ref, template] = each;
+  const [, prefix, name, ref, raw] = each;
+  const template = generated(raw, ref.split(/[.[]/).filter(Boolean).pop());
   const { value } = lookup(data, ref);
   if (!Array.isArray(value)) return { lines: [], problems: [`each: ${ref} is not a list`] };
   if (value.length > LIMITS.eachMax) problems.push(`each: ${ref} has ${value.length} items, only the first ${LIMITS.eachMax} are drawn`);
-  const lines = value.slice(0, LIMITS.eachMax).map((item, i) => fill(template, { [name]: item, i }, false));
+  const lines = value.slice(0, LIMITS.eachMax).map((item, i) => {
+    const scope = { [name]: item, i };
+    return prefix + fill(withLoopValues(template, scope), scope, false);
+  });
   return { lines: problems.some((p) => !p.startsWith('each:')) ? [] : lines, problems };
+}
+
+// Marks made by one each-line are one kind of thing (the dictionary's rule: same kind, same colour): they get one
+// category, the list's name, when the line gives none; and no name drawn from their made-up ids (s0, s1, …).
+function generated(template, listName) {
+  const t = template.trim().match(/(?:[^\s"]+|"[^"]*")+/g) || []; // words, a quoted value staying whole
+  if (t[0] !== 'mark' || t.length < 3 || t[2].includes('=')) return template; // not a mark with a kind
+  const hasCategory = t.slice(3).some((w) => !w.includes('=') && !w.startsWith('"'));
+  if (!hasCategory) t.splice(3, 0, listName.replace(/\W/g, '') || 'item');
+  if (!t.some((w) => w.startsWith('label='))) t.push('label=""');
+  return t.join(' ');
+}
+
+// inside an engine expression, the loop's numbers are written in: {i+1} -> {3+1}, {v.x*2} -> {0.5*2}
+function withLoopValues(template, scope) {
+  return template.replace(/\{([^{}]*)\}/g, (whole, inner) => {
+    if (/^[\w.[\]-]+$/.test(inner)) return whole; // a plain reference: fill() reads it
+    const filled = inner.replace(/\b([A-Za-z_]\w*)(?:\.(\w+))?/g, (m, n, field) => {
+      const v = field !== undefined ? scope[n]?.[field] : scope[n];
+      return typeof v === 'number' ? String(v) : m;
+    });
+    // only numbers and arithmetic left: the number itself (an id like q{i+4} must be one)
+    if (/^[\d\s.+\-*/()]+$/.test(filled)) {
+      const n = Function(`return (${filled})`)();
+      if (Number.isFinite(n)) return fmtNum(n);
+    }
+    return '{' + filled + '}';
+  });
 }
 
 // a block's fence line: ```python id=walk seed=7

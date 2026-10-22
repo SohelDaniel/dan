@@ -61,6 +61,15 @@ function frames(dir) {
   return ss.map((s) => ({ ...s, frame: path.join(out, `f_${s.at}.png`) }));
 }
 
+// the JSON object in a reply that may wrap it in prose or a code fence: the first '{' to the last '}' that parses
+function jsonIn(text) {
+  const start = text.indexOf('{');
+  for (let end = text.lastIndexOf('}'); start >= 0 && end > start; end = text.lastIndexOf('}', end - 1)) {
+    try { return JSON.parse(text.slice(start, end + 1)); } catch {}
+  }
+  return null;
+}
+
 function judge(dir) {
   return new Promise((resolve) => {
     const ss = frames(dir);
@@ -76,8 +85,7 @@ function judge(dir) {
     c.stdout.on('data', (d) => (out += d));
     c.on('close', () => {
       const res = claudeResult(out, `sentences ${name}`);
-      let j;
-      try { j = JSON.parse(res.match(/\{[\s\S]*\}/)[0]); } catch { j = { error: res.slice(0, 300) }; }
+      const j = jsonIn(res) || { error: res.slice(0, 300) };
       fs.writeFileSync(path.join(dir, 'sentences.json'), JSON.stringify(j, null, 1));
       const claims = (j.sentences || []).filter((x) => x.shown !== 'na');
       const n = (k) => claims.filter((x) => x.shown === k).length;
