@@ -81,7 +81,16 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 - *Shared parameter* (one value used in many places): every use gets the same colour, and the symbol in the formula has that colour: `link a1 arrow x1 -> y1 color=yellow label="a"` … `\textcolor{yellow}{a}`.
 - *Sliding window / repeated operation*: the same operation applied position by position; a span pointer over the cells it covers (`mark win label text="window" at=a[0:2]`, re-mark `at=a[1:3]` to slide), fill the output cell by cell.
 - *Grouping / classes* (evens and odds, pairs, which cells a filter touched): colour the members of each group alike (`colors=[teal,-,teal,-]` on an array; a shared category on marks; `color=` on links).
-- *Slide one thing along another* (a kernel over the input, a pattern over a string, a window of a moving average): seat it on the cells it covers, `mark k array items=[1,0,-1] on=x[0:2]`, and re-mark `on=x[1:3]` on the word "slides"; it glides there. Say "over these three" only when it is over them.
+- *Slide one thing along another and compute at each stop* (a convolution kernel over its input, a moving average, a pattern matched along a string): seat it on the cells it covers and, at every stop, show the work, not just the slide: the covered values travel into the output cell one by one and the result lands as it is said. Say "over these three" only when it is over them.
+  ```
+  mark k array items=[1,0,-1] on=x[0:2] label="kernel"
+  Say: "Multiply and |add|add: one times zero, zero times zero, minus one times one: |sum|minus one."
+  @add send x[0:2] -> y[0] stagger=0.3s
+  @sum mark y items=[-1," "," "," "]
+  Say: "Slide |s|one step and do it again."
+  @s mark k on=x[1:3]
+  with send x[1:3] -> y[1] stagger=0.3s
+  ```
 - *One by one* (counting things, going through items in order, adding parts into a total): one line over a span, staggered, instead of a cue per item: `@count indicate a[0:4] stagger=0.4s`, `@pour send a[0:3] -> total stagger=0.3s`.
 - *Normalise / share of a whole*: show the total, then re-mark each part divided by it; the parts now add to one.
 - *Rate / sensitivity*: nudge the input (morph a small `param`) and show the change in the output and their ratio (`\val{}` in a formula).
