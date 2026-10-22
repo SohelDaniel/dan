@@ -43,7 +43,7 @@ TEST_CASE("re-marking updates the props it names and keeps the rest") {
   played(e, "mark k param value=1 range=[0,3] label=\"stretch\" set=learner\nmark k value=2.5\n");
   std::string rb = e.readback(false);
   CHECK(rb.find("value=2.5") != std::string::npos);
-  CHECK(rb.find("range=[0,3]") != std::string::npos);
+  CHECK(rb.find("range=[0, 3]") != std::string::npos);
   CHECK(rb.find("set=learner") != std::string::npos);
 }
 
@@ -297,4 +297,13 @@ TEST_CASE("a row of cells seated on= another's cells sits over them, aligned, cl
   CHECK(k->box.x == doctest::Approx(x->box.x + cell).epsilon(0.02)); // over cells 1..3
   CHECK(k->box.y + k->box.h <= x->box.y);  // above: its index row clear of x's name (each body includes both)
   CHECK(k->box.y >= 0);                                               // not pushed off the top
+}
+
+TEST_CASE("the voice never reads code aloud: a word property is spoken, a formula or nothing is left out") {
+  Engine e(instant());
+  played(e, "mark s box label=\"switch\" state=on\nmark f tex tex=\"y = 2x\"\nSay: \"It is {s.state}, see {f.tex} and {nope.v}.\"\n");
+  CHECK(e.spokenLines() == std::vector<std::string>{"It is on, see  and ."});
+  bool told = false;
+  for (auto &l : e.lintMessages()) if (l.find("{f.tex} is a formula") != std::string::npos) told = true;
+  CHECK(told);
 }

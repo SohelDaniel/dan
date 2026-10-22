@@ -374,6 +374,10 @@ void Engine::checkBinding(size_t sayIdx, size_t nextIdx) {
       if (Mark *m = mark(id)) {
         if (!m->category.empty()) cats[m->category]++;
         if (auto c = findProp(m->props, "color"); c && c->type == Value::STR) cols[c->str]++;
+        if (auto cc = findProp(m->props, "colors"); cc && cc->type == Value::LIST) { // cells coloured alike: a group
+          std::map<std::string, int> cells;
+          for (auto &c : cc->list) if (c != "-" && ++cells[c] >= 2) group = true;
+        }
       } else if (auto lt = links_.find(id); lt != links_.end()) {
         if (auto c = findProp(lt->second.props, "color"); c && c->type == Value::STR) cols[c->str]++;
       }

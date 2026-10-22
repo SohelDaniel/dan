@@ -110,7 +110,7 @@ std::string Value::markup() const {
       const std::string &it = list[i];
       bool nested = !it.empty() && it.front() == '[';
       bool blank = it.empty() || std::isspace((unsigned char)it.front()) || std::isspace((unsigned char)it.back());
-      s += (i ? "," : "") + (!nested && (blank || it.find(',') != std::string::npos) ? "\"" + it + "\"" : it);
+      s += (i ? ", " : "") + (!nested && (blank || it.find(',') != std::string::npos) ? "\"" + it + "\"" : it);
     }
     return s + "]";
   }

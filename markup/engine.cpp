@@ -164,7 +164,9 @@ void Engine::analyze(bool fresh) {
         if (p.val.type == Value::LIST)
           for (size_t i = 1; i < p.val.list.size(); i++) {
             const std::string &a = p.val.list[i - 1], &b = p.val.list[i];
-            if (b.size() == 3 && std::all_of(b.begin(), b.end(), ::isdigit) && !a.empty() && std::all_of(a.begin(), a.end(), ::isdigit) && a.size() <= 3) {
+            // only when written glued, "1,000": "[41, 124]" (computed data) is two numbers
+            if (b.size() == 3 && std::all_of(b.begin(), b.end(), ::isdigit) && !a.empty() && std::all_of(a.begin(), a.end(), ::isdigit) && a.size() <= 3 &&
+                ln.raw.find(a + "," + b) != std::string::npos) {
               warn("list: line " + std::to_string(ln.lineNo) + ": " + ln.id + "." + p.key + " has '" + a + "' then '" + b +
                    "': a comma splits a number; write " + a + b + " or quote it (\"" + a + "," + b + "\")");
               break;
@@ -1660,6 +1662,18 @@ std::string Engine::cellText(const std::string &inner) {
   return k >= 0 && k < (int)items->list.size() ? items->list[(size_t)k] : "";
 }
 
+// {id.prop} that isn't a number: a word is spoken as it is (a label, a state); a formula, or nothing on stage, is
+// not read out at all (the voice never says "dy.tex"), and the checker says why
+std::string Engine::spokenProp(const std::string &inner) {
+  size_t dot = inner.find('.');
+  Mark *m = dot == std::string::npos ? nullptr : mark(inner.substr(0, dot));
+  const Value *v = m ? findProp(m->props, inner.substr(dot + 1)) : nullptr;
+  if (v && v->type == Value::STR && inner.substr(dot + 1) != "tex") return v->str;
+  warn(v ? "say: {" + inner + "} is a formula, which the voice can't read: say it in words"
+         : "say: {" + inner + "} has no value on stage when it is spoken, so nothing is said there");
+  return "";
+}
+
 std::string Engine::spokenWord(const std::string &w) {
   // a morph started on this word counts at its end value: land the values in flight while reading
   std::vector<std::tuple<Obj *, std::string, Value>> held;
@@ -1676,10 +1690,7 @@ std::string Engine::spokenWord(const std::string &w) {
     if (b == std::string::npos) break;
     std::string inner = w.substr(a + 1, b - a - 1), v = cellText(inner);
     if (v.empty()) v = valueText(inner);
-    if (v == "?") { // nothing to read: say what was written, and say why
-      warn("say: {" + inner + "} has no value on stage when it is spoken");
-      v = inner;
-    }
+    if (v == "?") v = spokenProp(inner);
     out += w.substr(i, a - i) + v;
     i = b + 1;
   }

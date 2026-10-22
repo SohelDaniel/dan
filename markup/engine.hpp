@@ -481,6 +481,7 @@ private:
   std::unique_ptr<Engine> shadow_;
   void startShadow(const std::string &text);
   std::string cellText(const std::string &inner);
+  std::string spokenProp(const std::string &inner);
   std::string spokenWord(const std::string &w);
   std::vector<std::string> spokenWords(const Line &ln);
   std::string spokenText(const Line &ln);
