@@ -95,8 +95,7 @@ Engine::StageFacts Engine::stageFacts() {
 
 void Engine::checkBinding(size_t sayIdx, size_t nextIdx) {
   const Line &say = script_.steps[sayIdx].main;
-  std::string text;
-  for (auto &w : say.words) text += (text.empty() ? "" : " ") + w.text;
+  std::string text = spokenText(say); // {expr} as spoken: a value read off the stage is checked like a typed one
   std::string low = lowerAscii(text);
   bool question = !text.empty() && text.find('?') != std::string::npos;
   bool last = true; // the closing sentence generalises past the picture ("a thousand items take ten looks")
@@ -200,7 +199,7 @@ void Engine::checkBinding(size_t sayIdx, size_t nextIdx) {
       // or as a count of what is visible
       if (counted((int)v)) shown = true;
       if (!shown) issue("says \"" + word + "\", but no " + fmtNum(v) + " is on stage and nothing visible counts " +
-                        fmtNum(v) + " (put the number where it happens: a label, a value on a link, a \\val{} in a formula)");
+                        fmtNum(v) + " (put the number where it happens: a label, a value on a link, a \\val{} in a formula; then say it as {id})");
     }
   }
 
@@ -263,6 +262,52 @@ void Engine::checkBinding(size_t sayIdx, size_t nextIdx) {
     };
     for (auto &[lid, l] : links_)
       if (auto lb = findProp(l.props, "label"); lb && lb->type == Value::STR) named(lid, lb->str);
+  }
+
+  // 6. a symbol said aloud as a name (f, g, P, theta) that nothing on stage carries: "picture f as a height"
+  //    over an unlabelled heat map. Letters are whole tokens of the stage's text (labels, formulas), any case;
+  //    on axes and a plane, x and y are the axes themselves
+  if (!question) {
+    static const std::map<std::string, std::string> greek = {
+        {"alpha", "α"}, {"beta", "β"}, {"gamma", "γ"}, {"delta", "δ"}, {"theta", "θ"}, {"lambda", "λ"}, {"mu", "μ"},
+        {"sigma", "σ"}, {"phi", "φ"}, {"omega", "ω"}, {"epsilon", "ε"}, {"rho", "ρ"}, {"tau", "τ"}, {"pi", "π"}};
+    std::set<std::string> onStage; // single letters and greek letters (as symbols or \names) on stage
+    std::string tok;
+    auto flush = [&] { if (!tok.empty()) { onStage.insert(lowerAscii(tok)); tok.clear(); } };
+    for (size_t i = 0; i < allText.size(); i++) {
+      unsigned char c = (unsigned char)allText[i];
+      if (std::isalpha(c)) tok += (char)c;
+      else if (c >= 0x80) { // a multi-byte character: greek letters count on their own
+        flush();
+        size_t n = (c >= 0xF0) ? 4 : (c >= 0xE0) ? 3 : 2;
+        onStage.insert(allText.substr(i, n));
+        i += n - 1;
+      } else flush();
+    }
+    flush();
+    for (auto &[name, sym] : greek)
+      if (onStage.count(name)) onStage.insert(sym); // \theta in a formula
+    if (isAxes(schemaNow())) { onStage.insert("x"); onStage.insert("y"); }
+    std::set<std::string> said;
+    std::string w;
+    auto word = [&](std::string t) {
+      if (t.size() == 1 && t != "a" && t != "A" && t != "I") said.insert(lowerAscii(t));
+      if (auto g = greek.find(lowerAscii(t)); g != greek.end() && t != "pi" && t != "Pi") said.insert(g->second);
+    };
+    std::string plain = text; // contractions are words: "that's", "doesn't" (and their curly apostrophe)
+    for (size_t p; (p = plain.find("\u2019")) != std::string::npos;) plain.replace(p, 3, "'");
+    // letters that aren't symbols: a language ("C++", "C#") and a list item ("part b", "option c")
+    static const std::regex notSymbol(R"(\b[Cc](\+\+|#)|\b(part|option|step|plan|type|vitamin|grade)\s+[A-Za-z]\b)", std::regex::icase);
+    plain = std::regex_replace(plain, notSymbol, " ");
+    for (char c : plain) {
+      if (std::isalpha((unsigned char)c) || (c == '\'' && !w.empty())) w += c;
+      else { if (!w.empty()) word(w); w.clear(); }
+    }
+    if (!w.empty()) word(w);
+    for (auto &s : said)
+      if (!onStage.count(s))
+        issue("says \"" + s + "\" as a name, but no " + s + " is on stage (the thing it stands for carries it: label=\"" + s +
+              " = …\" on the curve, field or point, or a formula that writes it)");
   }
 }
 

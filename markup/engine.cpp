@@ -4,8 +4,10 @@
 #include <cstdio>
 #include <fstream>
 #include <functional>
+#include <regex>
 #include <sstream>
 #include <sys/stat.h>
+#include <tuple>
 
 namespace mk {
 
@@ -55,6 +57,7 @@ bool Engine::loadText(const std::string &text) {
   script_.parse(text);
   for (auto &e : script_.errors) std::fprintf(stderr, "parse: %s\n", e.c_str());
   analyze(true);
+  startShadow(text);
   prepareVoice();
   reset();
   return script_.errors.empty();
@@ -74,8 +77,13 @@ bool Engine::appendText(const std::string &text) {
         execLine(ln);
       }
   }
-  for (size_t i = errs; i < script_.errors.size(); i++) std::fprintf(stderr, "parse: %s\n", script_.errors[i].c_str());
+  if (!opt_.shadow)
+    for (size_t i = errs; i < script_.errors.size(); i++) std::fprintf(stderr, "parse: %s\n", script_.errors[i].c_str());
   analyze(false);
+  if (shadow_) { // read this part's spoken values before its voice is asked for
+    shadow_->appendText(text);
+    shadow_->runToEnd();
+  }
   hookFired_.resize(script_.steps.size(), false);
   readbackPrinted_ = false; // report the scene again once this part has played
   idleSent_ = false;
@@ -229,6 +237,7 @@ void Engine::analyze(bool fresh) {
       size_t q = src.find('}', p);
       src.replace(p, q == std::string::npos ? std::string::npos : q - p + 1, "0");
     }
+    if (opt_.shadow) return;
     if (!opt_.instant) { tex::request(src); return; }
     if (!fresh) return; // appended live: the window shows TeX errors itself
     TexPtr L = tex::typeset(src);
@@ -353,7 +362,7 @@ void Engine::interrupt() {
 }
 
 void Engine::warn(const std::string &msg) {
-  if (lint_.insert(msg).second) std::fprintf(stderr, "lint: %s\n", msg.c_str());
+  if (lint_.insert(msg).second && !opt_.shadow) std::fprintf(stderr, "lint: %s\n", msg.c_str());
 }
 
 void Engine::caption(const std::string &rule) {
@@ -1010,12 +1019,11 @@ void Engine::startSay(const Line &ln) {
   say_ = SayRun{};
   say_.active = true;
   say_.uid = ln.uid;
-  if (opt_.events && !opt_.instant) {
-    std::string text;
-    for (auto &w : ln.words) text += (text.empty() ? "" : " ") + w.text;
-    emit("say " + std::to_string(ln.uid) + " " + jsonStr(text));
-  }
+  if (opt_.events && !opt_.instant) emit("say " + std::to_string(ln.uid) + " " + jsonStr(spokenText(ln)));
   say_.words = ln.words;
+  if (!opt_.instant)
+    if (auto said = spokenWords(ln); said.size() == say_.words.size())
+      for (size_t i = 0; i < said.size(); i++) say_.words[i].text = said[i];
   say_.trailing = ln.trailingHooks;
   // word timing: proportional to length, with pauses at punctuation
   std::vector<float> w;
@@ -1044,7 +1052,12 @@ void Engine::startSay(const Line &ln) {
     tts_->play(say_.utt);
   }
   if (opt_.instant) {
-    for (auto &sw : say_.words) for (auto &h : sw.hooks) fireHook(h);
+    std::vector<std::string> said; // each word as spoken: its value once the lines cued on it have run
+    for (auto &sw : say_.words) {
+      for (auto &h : sw.hooks) fireHook(h);
+      said.push_back(sw.ref ? spokenWord(sw.text) : sw.text);
+    }
+    spoken_[ln.uid] = said;
     for (auto &h : say_.trailing) fireHook(h);
     closeSentence();
     say_.active = false;
@@ -1336,7 +1349,7 @@ void Engine::update(float dt) {
     o->appear = std::min(1.f, o->appear + dt * appearRate);
     o->lit = opt_.instant ? lit(*o) : smoothApproach(o->lit, lit(*o), dt, 7);
   }
-  layout(opt_.instant ? 1.f : dt);
+  if (!opt_.shadow) layout(opt_.instant ? 1.f : dt);
 
   if (finished() && !idleSent_ && !opt_.instant) {
     idleSent_ = true;
@@ -1381,19 +1394,22 @@ std::string Engine::texSource(const std::string &raw) {
     size_t q = p + 5;
     int depth = 1;
     while (q < raw.size() && depth > 0) { if (raw[q] == '{') depth++; if (raw[q] == '}') depth--; q++; }
-    std::string inner = raw.substr(p + 5, q - p - 6);
-    auto it = texExpr_.find(inner);
-    if (it == texExpr_.end()) it = texExpr_.emplace(inner, Value::parse("{" + inner + "}")).first;
-    double v = num(it->second);
-    // integer-valued properties show as integers (as their labels do), even mid-morph
-    std::string prop = inner;
-    if (size_t dot = inner.find('.'); dot != std::string::npos) prop = inner.substr(dot + 1);
-    else if (Mark *mm = mark(inner)) prop = magProp(*mm);
-    bool isInt = propIsInt_.count(prop) && propIsInt_[prop];
-    out += std::isfinite(v) ? fmtNum(isInt ? std::round(v) : v) : "?";
+    out += valueText(raw.substr(p + 5, q - p - 6));
     i = q;
   }
   return out + raw.substr(i);
+}
+
+std::string Engine::valueText(const std::string &inner) {
+  auto it = texExpr_.find(inner);
+  if (it == texExpr_.end()) it = texExpr_.emplace(inner, Value::parse("{" + inner + "}")).first;
+  double v = num(it->second);
+  // integer-valued properties show as integers (as their labels do), even mid-morph
+  std::string prop = inner;
+  if (size_t dot = inner.find('.'); dot != std::string::npos) prop = inner.substr(dot + 1);
+  else if (Mark *mm = mark(inner)) prop = magProp(*mm);
+  bool isInt = propIsInt_.count(prop) && propIsInt_[prop];
+  return std::isfinite(v) ? fmtNum(isInt ? std::round(v) : v) : "?";
 }
 
 TexPtr Engine::texNow(const Mark &m) {
@@ -1523,7 +1539,10 @@ void Engine::prefetchVoice(const std::string &sayLine) {
   if (!s.parse(sayLine) || s.steps.empty() || s.steps[0].main.verb != Verb::SAY) return;
   if (!tts_) tts_ = std::make_unique<Tts>(opt_.tts);
   std::string text; // the same text queueVoice asks for, so the beat finds it cached or in flight
-  for (auto &w : s.steps[0].main.words) text += (text.empty() ? "" : " ") + w.text;
+  for (auto &w : s.steps[0].main.words) {
+    if (w.ref) return; // its values are read once its beat arrives
+    text += (text.empty() ? "" : " ") + w.text;
+  }
   tts_->request(text);
 }
 
@@ -1543,9 +1562,7 @@ void Engine::queueVoice(size_t fromStep, bool report) {
     for (auto &w : st.withs) lines.push_back(&w);
     for (const Line *ln : lines) {
       if (ln->verb != Verb::SAY) continue;
-      std::string text;
-      for (auto &w : ln->words) text += (text.empty() ? "" : " ") + w.text;
-      UttPtr u = tts_->request(text);
+      UttPtr u = tts_->request(spokenText(*ln));
       lineUtt_[ln->uid] = u;
       total++;
       std::lock_guard<std::mutex> l(u->mu);
@@ -1555,6 +1572,76 @@ void Engine::queueVoice(size_t fromStep, bool report) {
   if (report)
     std::fprintf(stderr, "voice: inworld %s, %d lines (%d cached, %d streaming)\n", opt_.tts.voiceId.c_str(), total,
                  total - fresh, fresh);
+}
+
+// ================================================================ values spoken off the stage ({expr} in Say)
+void Engine::startShadow(const std::string &text) {
+  if (opt_.instant) return;
+  EngineOptions o;
+  o.instant = o.shadow = o.quiet = true;
+  shadow_ = std::make_unique<Engine>(o);
+  shadow_->loadText(text);
+  shadow_->runToEnd();
+}
+
+// an array cell, {a[3]} or {M[1][2]} in a grid: its item as written ("" when inner is not a cell)
+std::string Engine::cellText(const std::string &inner) {
+  static const std::regex cell(R"(^\s*([A-Za-z_]\w*)\[(\d+)\](?:\[(\d+)\])?\s*$)");
+  std::smatch m;
+  if (!std::regex_match(inner, m, cell)) return "";
+  Mark *a = mark(m[1].str());
+  const Value *items = a ? findProp(a->props, "items") : nullptr;
+  if (!items || items->type != Value::LIST) return "";
+  int k = std::stoi(m[2].str());
+  if (m[3].matched) k = k * std::max(1, (int)num(*a, "cols")) + std::stoi(m[3].str());
+  return k >= 0 && k < (int)items->list.size() ? items->list[(size_t)k] : "";
+}
+
+std::string Engine::spokenWord(const std::string &w) {
+  // a morph started on this word counts at its end value: land the values in flight while reading
+  std::vector<std::tuple<Obj *, std::string, Value>> held;
+  for (auto &a : actives_)
+    if (Obj *o = a.kind == Active::NUM ? find(a.id) : nullptr)
+      if (const Value *v = findProp(o->props, a.prop)) {
+        held.emplace_back(o, a.prop, *v);
+        setProp(o->props, a.prop, Value::number(a.to));
+      }
+  std::string out;
+  size_t i = 0;
+  for (size_t a; (a = w.find('{', i)) != std::string::npos;) {
+    size_t b = w.find('}', a);
+    if (b == std::string::npos) break;
+    std::string inner = w.substr(a + 1, b - a - 1), v = cellText(inner);
+    if (v.empty()) v = valueText(inner);
+    if (v == "?") { // nothing to read: say what was written, and say why
+      warn("say: {" + inner + "} has no value on stage when it is spoken");
+      v = inner;
+    }
+    out += w.substr(i, a - i) + v;
+    i = b + 1;
+  }
+  for (auto it = held.rbegin(); it != held.rend(); ++it) setProp(std::get<0>(*it)->props, std::get<1>(*it), std::get<2>(*it));
+  return out + w.substr(i);
+}
+
+std::vector<std::string> Engine::spokenWords(const Line &ln) {
+  const auto &said = shadow_ ? shadow_->spoken_ : spoken_;
+  if (auto it = said.find(ln.uid); it != said.end() && it->second.size() == ln.words.size()) return it->second;
+  std::vector<std::string> out; // not run yet: the values now
+  for (auto &w : ln.words) out.push_back(w.ref ? spokenWord(w.text) : w.text);
+  return out;
+}
+
+std::vector<std::string> Engine::spokenLines() {
+  std::vector<std::string> out;
+  eachLine(script_, [&](const Line &ln) { if (ln.verb == Verb::SAY) out.push_back(spokenText(ln)); });
+  return out;
+}
+
+std::string Engine::spokenText(const Line &ln) {
+  std::string text;
+  for (auto &w : spokenWords(ln)) text += (text.empty() ? "" : " ") + w;
+  return text;
 }
 
 void Engine::alignWords() {

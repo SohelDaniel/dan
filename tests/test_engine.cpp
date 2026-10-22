@@ -108,3 +108,92 @@ TEST_CASE("the learner's slider sets the param it belongs to, and a morph in fli
   e.pointer({1279, 572}, false);
   CHECK(e.readback(false).find("value=2") != std::string::npos);
 }
+
+static const char *kRefs = "mark a bar value=3 label=\"a\"\nmark b bar value=4 label=\"b\"\n"
+                           "Say: \"A is {a} and b is {b}, so together {a + b}.\"\n"
+                           "Say: \"Now a |grow|grows to {a}.\"\n@grow morph a.value 3 -> 10 1s\n"
+                           "Say: \"Half of it is {a / 2}.\"\n";
+
+TEST_CASE("{expr} in a Say speaks the value on stage when the word is reached, a morph at its end value") {
+  Engine e(instant());
+  played(e, kRefs);
+  auto said = e.spokenLines();
+  REQUIRE(said.size() == 3);
+  CHECK(said[0] == "A is 3 and b is 4, so together 7.");
+  CHECK(said[1] == "Now a grows to 10.");
+  CHECK(said[2] == "Half of it is 5.");
+}
+
+TEST_CASE("live, the shadow reads the values before the beat plays, streamed or whole, as the instant run does") {
+  EngineOptions o; // a live engine without a window or a voice
+  o.quiet = true;
+  std::string text = kRefs;
+  size_t cut = text.find("Say: \"Now");
+  Engine whole(o), streamed(o);
+  REQUIRE(whole.loadText(text));
+  REQUIRE(streamed.loadText(text.substr(0, cut)));
+  REQUIRE(streamed.appendText(text.substr(cut)));
+  std::vector<std::string> want = {"A is 3 and b is 4, so together 7.", "Now a grows to 10.", "Half of it is 5."};
+  CHECK(whole.spokenLines() == want);
+  CHECK(streamed.spokenLines() == want);
+}
+
+TEST_CASE("{expr} changes only what is said: the scene and its readback are the same as with typed numbers") {
+  Engine a(instant()), b(instant());
+  played(a, kRefs);
+  std::string typed = kRefs;
+  for (auto [from, to] : std::vector<std::pair<std::string, std::string>>{{"{a + b}", "7"}, {"{a / 2}", "5"}, {"{a}", "3"}, {"{b}", "4"}})
+    for (size_t p; (p = typed.find(from)) != std::string::npos;) typed.replace(p, from.size(), to);
+  played(b, typed);
+  CHECK(a.readback(false) == b.readback(false));
+}
+
+TEST_CASE("{a[k]} speaks an array cell's item, {M[r][c]} a grid's, as written") {
+  Engine e(instant());
+  played(e, "mark a array items=[2,5,cat,12]\nmark M array cols=2 items=[1,2,3,4]\nSay: \"Slot {a[2]} holds {a[3]}; row one ends in {M[1][1]}.\"\n");
+  auto said = e.spokenLines();
+  REQUIRE(said.size() == 1);
+  CHECK(said[0] == "Slot cat holds 12; row one ends in 4.");
+}
+
+TEST_CASE("live, an array cell is read off the stage too (binary search: the middle is {a[4]})") {
+  EngineOptions o;
+  o.quiet = true;
+  Engine e(o);
+  REQUIRE(e.loadText("mark a array items=[2,5,8,12,16,23]\nmark mid label text=\"mid\" at=a[0]\n"
+                     "Say: \"Check the |m|middle: {a[4]}.\"\n@m mark mid at=a[4]\nSay: \"{a[4]} is too small.\"\n"));
+  std::vector<std::string> want = {"Check the middle: 16.", "16 is too small."};
+  CHECK(e.spokenLines() == want);
+}
+
+TEST_CASE("after the learner drags a slider, {k} says the value they set") {
+  EngineOptions o; // live: the shadow reads {k}, so it has to hear about the drag
+  o.quiet = true;
+  Engine e(o);
+  played(e, "mark k param value=1 range=[0,2] label=\"k\" set=learner\n");
+  for (float x = 0; x < 1280; x += 4) e.pointer({x, 572}, true);
+  e.pointer({1279, 572}, false);
+  REQUIRE(e.appendText("Say: \"Now k is {k}.\"\n"));
+  CHECK(e.spokenLines() == std::vector<std::string>{"Now k is 2."});
+}
+
+static bool hasLint(Engine &e, const std::string &part) {
+  for (auto &l : e.lintMessages()) if (l.find(part) != std::string::npos) return true;
+  return false;
+}
+
+TEST_CASE("binding: a symbol said as a name must be on stage (f over an unlabelled heat map), contractions and C++ aren't symbols") {
+  const char *field = "schema plane x=[-1,3] y=[-1,3]\nmark H heat fn={x^2 + y^2}%s\n"
+                      "Say: \"Picture f as a height. That's it, and it doesn't move.\"\nSay: \"In C++ it is one line.\"\nSay: \"Done.\"\n";
+  char bare[512], named[512];
+  std::snprintf(bare, sizeof bare, field, "");
+  std::snprintf(named, sizeof named, field, " label=\"f(x, y) = x² + y²\"");
+  Engine a(instant()), b(instant());
+  played(a, bare);
+  played(b, named);
+  CHECK(hasLint(a, "says \"f\" as a name"));
+  CHECK(!hasLint(b, "as a name"));
+  CHECK(!hasLint(a, "says \"s\"")); // that's
+  CHECK(!hasLint(a, "says \"t\"")); // doesn't
+  CHECK(!hasLint(a, "says \"c\"")); // C++
+}

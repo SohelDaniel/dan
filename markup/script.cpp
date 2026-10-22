@@ -3,6 +3,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
+#include <regex>
 #include <sstream>
 
 namespace mk {
@@ -184,6 +185,12 @@ static std::string cueName(std::string s) {
 // ------------------------------------------------------------------ Say
 static void parseSay(const std::string &body, Line &ln) {
   std::string text = stripQuotes(trim(body));
+  // {expr} speaks a value off the stage: its spaces don't split words ({a + b} is one word)
+  for (size_t i = 0, depth = 0; i < text.size(); i++) {
+    if (text[i] == '{') depth++;
+    else if (text[i] == '}' && depth) depth--;
+    else if (text[i] == ' ' && depth) text[i] = '\x01';
+  }
   std::istringstream in(text);
   std::string w;
   std::vector<std::string> pending; // silent markers waiting for the next word
@@ -221,12 +228,27 @@ static void parseSay(const std::string &body, Line &ln) {
       for (auto &h : hooks) pending.push_back(h);
       continue;
     }
+    std::replace(clean.begin(), clean.end(), '\x01', ' ');
     SayWord sw;
     sw.text = clean;
     sw.hooks = pending;
     pending.clear();
     // thirty|go| : marker glued to a word fires when that word is spoken
     for (auto &h : hooks) sw.hooks.push_back(h);
+    // {id} or {id.prop}: the value is spoken and its thing is pointed at on that word, as [id] does
+    for (size_t a = clean.find('{'); a != std::string::npos; a = clean.find('{', a + 1)) {
+      sw.ref = true;
+      size_t b = clean.find('}', a);
+      if (b == std::string::npos) break;
+      std::string inner = trim(clean.substr(a + 1, b - a - 1));
+      std::string id = inner.substr(0, inner.find('.'));
+      bool plain = !id.empty() && std::isalpha((unsigned char)id[0]) &&
+                   std::all_of(inner.begin(), inner.end(), [](char c) { return std::isalnum((unsigned char)c) || c == '_' || c == '.'; });
+      static const std::regex cell(R"(^[A-Za-z_]\w*(\[\d+\])+$)"); // a cell points at that cell
+      std::string target = plain ? id : std::regex_match(inner, cell) ? inner : "";
+      if (!target.empty() && std::find(sw.hooks.begin(), sw.hooks.end(), "@pt:" + target) == sw.hooks.end())
+        sw.hooks.push_back("@pt:" + target);
+    }
     ln.words.push_back(sw);
   }
   ln.trailingHooks = pending;

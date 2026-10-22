@@ -156,6 +156,7 @@ struct EngineOptions {
   bool events = false;      // live: print "@ev ..." lines on stdout (say / word / end / idle / reset)
   bool quiet = false;       // don't print or save the readback when the script finishes (snapshots)
   bool newPlacer = true;    // labels placed by the placement module (--placer old: the fixed offsets)
+  bool shadow = false;      // the instant copy a live engine keeps to read {expr} in Say ahead of play: no layout, no TeX, silent
   float wpm = 170;          // estimated timing when there is no voice
   TtsConfig tts;
 };
@@ -171,6 +172,7 @@ public:
   bool appendText(const std::string &text);
   // start synthesising a Say line before its beat arrives (the server sends it as soon as it is written)
   void prefetchVoice(const std::string &sayLine);
+  std::vector<std::string> spokenLines();   // every Say as it will be spoken, {expr} read off the stage
   bool speaking() const { return say_.active && say_.utt != nullptr; }
   // stop what is playing: the rest of the script so far runs instantly (state stays consistent), voice stops
   void interrupt();
@@ -357,6 +359,7 @@ private:
 
   // ---- formulas (tex marks)
   std::string texSource(const std::string &raw);   // \val{expr} -> the value now
+  std::string valueText(const std::string &expr);  // a value as shown and spoken: integers stay integers
   TexPtr texNow(const Mark &m);                     // current layout (last good one while typesetting)
   float texSize(const Mark &m);                     // font px
   std::map<std::string, TexPtr> lastTex_;
@@ -445,6 +448,15 @@ private:
   // voice
   std::unique_ptr<Tts> tts_;
   std::map<int, UttPtr> lineUtt_;          // by Line::uid
+  // {expr} in Say: each word as spoken, read off the stage when the word is reached (after the lines cued on it,
+  // a morph at its end value). Worked out by an instant run: this engine's own, or the shadow's when live
+  std::map<int, std::vector<std::string>> spoken_; // by Line::uid
+  std::unique_ptr<Engine> shadow_;
+  void startShadow(const std::string &text);
+  std::string cellText(const std::string &inner);
+  std::string spokenWord(const std::string &w);
+  std::vector<std::string> spokenWords(const Line &ln);
+  std::string spokenText(const Line &ln);
   void queueVoice(size_t fromStep, bool report);
   // hooks belong to the sentence they are spoken in
   size_t sayStep_ = 0;                     // step index of the current/last Say

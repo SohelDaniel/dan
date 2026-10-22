@@ -59,11 +59,13 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 | "each has its own…" | distinct labels (`label="w₁₁"`), or a representative few plus "…" when there are many |
 | a quantity, a value | the number on the thing **as you say it** (`w=0.5` on a link, a label, `\val{}`), computed from the data (`{expr}`, `\val{}`) rather than typed twice; length or position to compare |
 | a symbol in a formula | the thing it stands for, in the same colour (`\textcolor{id}{…}`), pulsed when said |
+| a name or symbol ("picture f as a height", "call this point P", "the weights α") | the thing it names carries it the moment it is said: `label="f(x, y) = x² + y²"` on the curve or field, `label="P"` on the point, or a formula that writes it |
 | a process ("multiply each input by its weight and add") | the process happening: values travel, appear on links, combine at the node, step by step |
 | a rate, a slope | a tangent or an arrow, not just words |
 | two views of one thing (arrows ↔ a matrix) | both, tied by colour, and only if the second view adds something |
 
 - Point while you talk: `[id]` glued to a word pulses that thing as it is said (`the [w11]weight from x₁`).
+- Speak numbers off the stage: `{id}` in a Say says that thing's value as the word is reached and pulses it (`so cat goes in slot {h}`, `together that's {a + b}`). The number heard is then always the number shown. Type a number only when it isn't on the stage (and then usually it should be).
 - Use the fewest dimensions that hold every variable of the claim: a 1D curve for step size and overshoot; a 2D contour map for direction, "perpendicular to the contours", zig-zags.
 - Metaphors and asides stay words. Don't draw everything; draw what the claim needs (a few labels plus "…" beat fifteen numbers).
 

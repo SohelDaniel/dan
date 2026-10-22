@@ -61,3 +61,17 @@ TEST_CASE("lists: quotes protect commas inside an item") {
   CHECK(row.list.size() == 2);
   CHECK(row.list[0] == "1,000");
 }
+
+TEST_CASE("{expr} in a Say: one word however it is spaced; a plain {id} points at its thing") {
+  Script s;
+  REQUIRE(s.parse("Say: \"Together |sum|{a + b}, and a is {a.value}.\"\n"));
+  const auto &w = s.steps[0].main.words;
+  REQUIRE(w.size() == 6);
+  CHECK(w[1].text == "{a + b},");
+  CHECK(w[1].ref);
+  CHECK(std::find(w[1].hooks.begin(), w[1].hooks.end(), "sum") != w[1].hooks.end());
+  CHECK(std::none_of(w[1].hooks.begin(), w[1].hooks.end(), [](const std::string &h) { return h.rfind("@pt:", 0) == 0; }));
+  CHECK(w[5].text == "{a.value}.");
+  CHECK(std::find(w[5].hooks.begin(), w[5].hooks.end(), "@pt:a") != w[5].hooks.end());
+  CHECK(!w[0].ref);
+}

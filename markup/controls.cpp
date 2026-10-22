@@ -51,7 +51,11 @@ std::vector<Engine::Control> Engine::controls() {
 void Engine::pointer(Vector2 p, bool down) {
   if (!down) {
     if (!dragging_.empty())
-      if (Mark *m = mark(dragging_)) emit("set " + dragging_ + " " + fmtNum(num(*m, "value")));
+      if (Mark *m = mark(dragging_)) {
+        emit("set " + dragging_ + " " + fmtNum(num(*m, "value")));
+        if (Mark *s = shadow_ ? shadow_->mark(dragging_) : nullptr) // {k} spoken later says what the learner set
+          setProp(s->props, "value", Value::number(num(*m, "value")));
+      }
     dragging_.clear();
     return;
   }

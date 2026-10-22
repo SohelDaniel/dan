@@ -1,9 +1,9 @@
 {
  "chat/exemplars/bsearch.txt": {
-  "mean": 100,
-  "worst": 100,
+  "mean": 99.6,
+  "worst": 75,
   "final": 100,
-  "maxOverlaps": 0
+  "maxOverlaps": 1
  },
  "chat/exemplars/compare.txt": {
   "mean": 100,

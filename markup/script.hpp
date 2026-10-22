@@ -46,8 +46,9 @@ void setProp(Props &p, const std::string &k, const Value &v);
 enum class Verb { MARK, LINK, GROUP, MORPH, FOCUS, SAY, WAIT, PAUSE, SCHEMA, TITLE, SCENE, INDICATE, CAMERA, SEND };
 
 struct SayWord {
-  std::string text;             // as displayed
+  std::string text;             // as displayed; {expr} parts are read off the stage when the word is reached
   std::vector<std::string> hooks; // fire when this word is reached
+  bool ref = false;             // text holds a {expr}
 };
 
 struct Line {

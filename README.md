@@ -83,6 +83,7 @@ Modifiers:
 - `with <line>` runs alongside the previous line.
 - `@hook <line>` waits until the voice reaches `|hook|`.
 - `[id]` glued to a word points at that thing as the word is spoken: `Say: "each [w11]weight is learned"` pulses `w11` on "weight". It is the cheapest way to point; use it whenever a sentence names something on stage.
+- `{expr}` in a Say speaks a value off the stage: `Say: "That gives |h|{h}, so cat goes in slot {h}."` says the value `h` has when the word is reached (after the lines cued on that word; a morph counts at its end value), and pulses `h` on that word. `{h.y}` reads a property, `{a + b}` an expression, as in properties and `\val{}`. The voice can't say a number the stage doesn't hold, so speak stage values this way rather than typing them. A value read off the stage still has to be readable on it: a label or a value on the thing.
 
 ### Annotations: point at a part
 
@@ -178,6 +179,7 @@ mark S slope fn={x - y}                                  # a slope field for dy/
 mark s1 solution of=S from=[0,1]                         # the solution curve through a point (also of=<field>: a particle's path)
 mark L heat fn={x^2 + 4*y^2}                             # colour for value: dark low, bright high (blue/red if it changes sign)
 mark C contour fn={x^2 + 4*y^2}                          # level curves, labelled; levels=log for valleys, levels=[1,2,4]
+mark L heat fn={x^2 + y^2} label="f(x, y) = x² + y²"     # label= on a field is its legend: name the function you talk about
 ```
 
 Heat and contour together make a landscape (a loss, a potential, a height map). A dot with `trail=all` walking downhill on it is gradient descent. `solution from=` morphs (`morph s1.from -> [0,2]`), so you can drag the starting point and watch the curve follow.
