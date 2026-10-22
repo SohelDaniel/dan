@@ -57,6 +57,7 @@ bool Engine::loadText(const std::string &text) {
   script_.parse(text);
   for (auto &e : script_.errors) std::fprintf(stderr, "parse: %s\n", e.c_str());
   analyze(true);
+  prefetched_.clear();
   startShadow(text);
   applyPointers();
   prepareVoice();
@@ -81,6 +82,9 @@ bool Engine::appendText(const std::string &text) {
   if (!opt_.shadow)
     for (size_t i = errs; i < script_.errors.size(); i++) std::fprintf(stderr, "parse: %s\n", script_.errors[i].c_str());
   analyze(false);
+  for (size_t i = from; i < script_.steps.size(); i++) // its Says have arrived: no longer only prefetched
+    if (script_.steps[i].main.verb == Verb::SAY && !prefetched_.empty() && prefetched_.front() == spokenText(script_.steps[i].main))
+      prefetched_.pop_front();
   if (shadow_) { // read this part's spoken values (and what to point at) before its voice is asked for
     shadow_->appendText(text);
     shadow_->runToEnd();
@@ -342,6 +346,7 @@ void Engine::emit(const std::string &ev) {
 void Engine::interrupt() {
   if (say_.active) emit("end " + std::to_string(say_.uid));
   if (tts_) tts_->stop();
+  prefetched_.clear(); // beats asked for ahead won't come now
   bool was = opt_.instant;
   opt_.instant = true;
   say_.active = false;
@@ -1578,17 +1583,30 @@ void Engine::prepareVoice() {
   queueVoice(0, true);
 }
 
-void Engine::prefetchVoice(const std::string &sayLine) {
-  if (!opt_.voice || opt_.instant || opt_.tts.apiKey.empty()) return;
+std::vector<std::string> Engine::prefetchVoice(const std::string &sayLine) {
   Script s;
-  if (!s.parse(sayLine) || s.steps.empty() || s.steps[0].main.verb != Verb::SAY) return;
-  if (!tts_) tts_ = std::make_unique<Tts>(opt_.tts);
-  std::string text; // the same text queueVoice asks for, so the beat finds it cached or in flight
+  if (!s.parse(sayLine) || s.steps.empty() || s.steps[0].main.verb != Verb::SAY) return {};
+  std::string text; // the same text and context queueVoice asks for, so the beat finds it cached or in flight
   for (auto &w : s.steps[0].main.words) {
-    if (w.ref) return; // its values are read once its beat arrives
+    if (w.ref) return {}; // its values are read once its beat arrives
     text += (text.empty() ? "" : " ") + w.text;
   }
-  tts_->request(text);
+  std::vector<std::string> context = saysBefore(script_.steps.size(), (size_t)opt_.tts.contextLines);
+  context.insert(context.end(), prefetched_.begin(), prefetched_.end());
+  if (context.size() > (size_t)opt_.tts.contextLines) context.erase(context.begin(), context.end() - opt_.tts.contextLines);
+  prefetched_.push_back(text);
+  if (opt_.voice && !opt_.instant && !opt_.tts.apiKey.empty()) {
+    if (!tts_) tts_ = std::make_unique<Tts>(opt_.tts);
+    tts_->request(text, context);
+  }
+  return context;
+}
+
+std::vector<std::string> Engine::saysBefore(size_t step, size_t n) {
+  std::vector<std::string> out;
+  for (size_t i = std::min(step, script_.steps.size()); i-- > 0 && out.size() < n;)
+    if (script_.steps[i].main.verb == Verb::SAY) out.insert(out.begin(), spokenText(script_.steps[i].main));
+  return out;
 }
 
 void Engine::queueVoice(size_t fromStep, bool report) {
@@ -1607,7 +1625,7 @@ void Engine::queueVoice(size_t fromStep, bool report) {
     for (auto &w : st.withs) lines.push_back(&w);
     for (const Line *ln : lines) {
       if (ln->verb != Verb::SAY) continue;
-      UttPtr u = tts_->request(spokenText(*ln));
+      UttPtr u = tts_->request(spokenText(*ln), saysBefore(si, (size_t)opt_.tts.contextLines));
       lineUtt_[ln->uid] = u;
       total++;
       std::lock_guard<std::mutex> l(u->mu);

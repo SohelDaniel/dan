@@ -267,3 +267,21 @@ TEST_CASE("stagger: a span sent onto a span as long goes cell by cell, each copy
   run(0.5f); // the second left at 0.5 s and landed at 0.9 s
   CHECK(e.pulsing("b") == "b[1]");
 }
+
+TEST_CASE("voice context: a Say asked for ahead of its beat gets the same earlier sentences its beat will ask with") {
+  EngineOptions o; // live, no voice: only the bookkeeping
+  o.quiet = true;
+  Engine e(o);
+  REQUIRE(e.loadText(""));
+  using V = std::vector<std::string>;
+  // the server's order: each Say is sent ahead (#!voice) as soon as it is written, before the beat before it
+  CHECK(e.prefetchVoice("Say: \"A first.\"") == V{});
+  CHECK(e.prefetchVoice("Say: \"B second.\"") == V{"A first."});
+  REQUIRE(e.appendText("Say: \"A first.\"\n"));
+  V c = e.prefetchVoice("Say: \"C third.\"");
+  CHECK(c == V{"A first.", "B second."});
+  REQUIRE(e.appendText("Say: \"B second.\"\n"));
+  REQUIRE(e.appendText("Say: \"C third.\"\n"));
+  CHECK(e.saysBefore(1, 2) == V{"A first."});
+  CHECK(e.saysBefore(2, 2) == c); // what C's beat asks with: the request made ahead is the one it plays
+}

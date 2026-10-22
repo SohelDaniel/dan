@@ -25,12 +25,18 @@ struct TtsConfig {
   std::string voiceId = "Brian";     // friendly, encouraging tutor voice ($TUTOR_VOICE or --voice-id to change)
   std::string modelId = "inworld-tts-2";
   float speakingRate = 1.0f;          // 0.5 .. 1.5
+  // quality (Inworld TTS docs, 2026): numbers, symbols and units read as words; the model's denoising; and the
+  // sentences just before, so each one continues the explanation instead of starting cold (not billed)
+  bool normalizeText = true;          // applyTextNormalization ON
+  bool enhance = true;                // enhanceGeneration
+  int contextLines = 2;               // synthesisContext: this many earlier sentences (0: none)
   std::string cacheDir = ".tutor_cache";
   int workers = 3;
 };
 
 struct Utterance {
   std::string text, key;
+  std::vector<std::string> context;   // earlier sentences, sent as synthesisContext
   std::mutex mu;
   std::vector<int16_t> pcm;           // mono, Tts::kRate
   std::vector<std::string> words;     // spoken words only (no spaces / punctuation tokens)
@@ -45,13 +51,14 @@ using UttPtr = std::shared_ptr<Utterance>;
 
 class Tts {
 public:
-  static constexpr int kRate = 24000;
+  static constexpr int kRate = 48000;  // inworld-tts-2's native rate: real detail above 12 kHz (measured), not upsampled
 
   explicit Tts(TtsConfig cfg);
   ~Tts();
   bool ok() const { return !cfg_.apiKey.empty(); }
 
-  UttPtr request(const std::string &text);    // cached, in flight, or queued (FIFO)
+  // cached, in flight, or queued (FIFO); context: the sentences spoken just before (the last contextLines are used)
+  UttPtr request(const std::string &text, const std::vector<std::string> &context = {});
 
   // playback: one utterance at a time on the audio thread
   void play(UttPtr u);
@@ -60,7 +67,7 @@ public:
   size_t played() const { return readPos_.load(); } // samples of the current utterance handed to the device
   // samples actually heard: what was handed over, minus what is still queued in the stream's
   // buffers and the device (raylib double-buffers 1024 frames). Hooks key on this.
-  static constexpr size_t kOutputLatency = 1536;
+  static constexpr size_t kOutputLatency = 3072; // 64 ms, as before the rate doubled
   size_t heard() const { size_t p = readPos_.load(); return p > kOutputLatency ? p - kOutputLatency : 0; }
   bool hasAudio() const { return audio_; }
   UttPtr current();

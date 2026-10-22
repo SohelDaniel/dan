@@ -22,6 +22,7 @@
 #include <functional>
 #include "tts.hpp"
 #include <memory>
+#include <deque>
 #include <map>
 #include <set>
 #include <string>
@@ -172,7 +173,8 @@ public:
   // live use: continue the running script without restarting the stage (streamed turns)
   bool appendText(const std::string &text);
   // start synthesising a Say line before its beat arrives (the server sends it as soon as it is written)
-  void prefetchVoice(const std::string &sayLine);
+  // returns the context it asked with (the sentences before), which the line's beat will ask with too
+  std::vector<std::string> prefetchVoice(const std::string &sayLine);
   std::vector<std::string> spokenLines();   // every Say as it will be spoken, {expr} read off the stage
   std::string pulsing(const std::string &id); // what of this thing pulses right now ("a[2]", "a"), "" if nothing
   // numbers and names said aloud: how many, how many on stage at their word, pointed by the script, pointed ahead
@@ -478,6 +480,12 @@ private:
   std::vector<std::string> spokenWords(const Line &ln);
   std::string spokenText(const Line &ln);
   void queueVoice(size_t fromStep, bool report);
+  // the voice's context: the sentences spoken just before a line. A Say prefetched by the server (#!voice) arrives
+  // before the beat that comes ahead of it, so lines prefetched but not yet in the script count too, in order
+public:
+  std::vector<std::string> saysBefore(size_t step, size_t n); // test-visible: the context a scripted Say asks with
+private:
+  std::deque<std::string> prefetched_;     // Say texts asked for ahead of their beat, oldest first
   // hooks belong to the sentence they are spoken in
   size_t sayStep_ = 0;                     // step index of the current/last Say
   std::map<size_t, std::set<std::string>> firedBySay_;

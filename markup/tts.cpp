@@ -77,7 +77,7 @@ Tts::Tts(TtsConfig cfg) : cfg_(std::move(cfg)) {
   mkdir(cfg_.cacheDir.c_str(), 0755);
   if (!IsAudioDeviceReady()) InitAudioDevice();
   if (IsAudioDeviceReady()) {
-    SetAudioStreamBufferSizeDefault(1024); // ~43 ms: hooks stay tight to the words
+    SetAudioStreamBufferSizeDefault(2048); // ~43 ms at 48 kHz: hooks stay tight to the words
     stream_ = LoadAudioStream(kRate, 16, 1);
     SetAudioStreamCallback(stream_, &Tts::audioCallback);
     PlayAudioStream(stream_);
@@ -100,13 +100,19 @@ Tts::~Tts() {
   curl_global_cleanup();
 }
 
-UttPtr Tts::request(const std::string &text) {
-  std::string key = fnv(cfg_.voiceId + "|" + cfg_.modelId + "|" + std::to_string(cfg_.speakingRate) + "|" + text);
+UttPtr Tts::request(const std::string &text, const std::vector<std::string> &context) {
+  std::vector<std::string> ctx(context.end() - std::min(context.size(), (size_t)std::max(0, cfg_.contextLines)), context.end());
+  // everything that changes the audio is in the key, so a cached line is never played with other settings
+  std::string key = cfg_.voiceId + "|" + cfg_.modelId + "|" + std::to_string(cfg_.speakingRate) + "|" + std::to_string(kRate) +
+                    "|" + (cfg_.normalizeText ? "norm" : "") + "|" + (cfg_.enhance ? "enh" : "") + "|";
+  for (auto &c : ctx) key += c + "\x1f";
+  key = fnv(key + "|" + text);
   std::lock_guard<std::mutex> l(qmu_);
   auto it = all_.find(key);
   if (it != all_.end() && !it->second->failed) return it->second;
   auto u = std::make_shared<Utterance>();
   u->text = text;
+  u->context = ctx;
   u->key = key;
   all_[key] = u;
   if (loadCache(u)) return u;
@@ -196,6 +202,13 @@ void Tts::fetch(const UttPtr &u) {
                {"audioConfig", {{"audioEncoding", "PCM"}, {"sampleRateHertz", kRate}, {"speakingRate", cfg_.speakingRate}}},
                {"timestampType", "WORD"},
                {"timestampTransportStrategy", "SYNC"}};
+  if (cfg_.normalizeText) body["applyTextNormalization"] = "ON";
+  if (cfg_.enhance) body["enhanceGeneration"] = true;
+  if (!u->context.empty()) {
+    json prev = json::array();
+    for (auto &c : u->context) prev.push_back({{"text", c}});
+    body["synthesisContext"] = {{"previousRequests", prev}};
+  }
   std::string payload = body.dump();
 
   for (int attempt = 0; attempt < 3 && !quit_; attempt++) {

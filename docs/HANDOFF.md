@@ -331,6 +331,16 @@ Also new:
 - `--check` prints a `pointing:` line; `TUTOR_DUMP_POINT=1` lists every pointer.
 - The number reader is shared with the checker and now reads "seven hundred eighty-four", "ninety-nine thousand nine hundred", "zero point one four" and "twenty one".
 
+**Voice quality** (Inworld docs, 2026; `markup/tts.*`):
+- **48 kHz:** the model's native rate. Measured: real energy above 12 kHz, −56 dB against −91 dB at 24 kHz. The audio buffer was doubled, so timing is unchanged.
+- **Text normalization:** `applyTextNormalization` ON.
+- **Denoising:** `enhanceGeneration`.
+- **Sentence context:** `synthesisContext`, the 2 previous sentences, so each sentence continues the explanation rather than starting cold.
+  - A Say prefetched by the server comes before the beat ahead of it, so the engine keeps `prefetched_` to ask with the same context its beat will.
+  - A test checks they match, or the early audio would be wasted.
+- **Cache:** the key now includes every setting.
+- **Voice choice:** samples of 9 candidate voices plus Brian step by step are in `.tutor_cache/voice-samples/`. The user picks with `--voice <id>`. `GET /voices/v1/voices` lists 166 English system voices.
+
 Wanted later (the user's idea): pause the lesson and ask about what is on screen. A second tab explains the current frame,
 and the lesson resumes where it paused.
 
