@@ -1,0 +1,11 @@
+mark a array items=[the,cat,sat] label="A"
+mark b array items=[on,a,warm,mat] label="B"
+Say: "Make a new one: first a |copyA|copy of all of A."
+@copyA mark c array items=[the,cat,sat] label="new"
+with send a -> c 1s
+Say: "Then take just a small |snip|snippet of B, and append it on the end."
+@snip mark c items=[the,cat,sat,warm,mat]
+with send b[2] -> c 1s
+with send b[3] -> c 1s
+Say: "One new thing, made of a whole and a |part|part."
+@part indicate c[3]

@@ -1,0 +1,13 @@
+schema plane x=[-3,3] y=[-0.5,4.5] grid=false axes=false
+mark p1 dot peg x=0 y=3 r=6
+mark p2 dot peg x=-1 y=2 r=6
+mark p3 dot peg x=1 y=2 r=6
+mark ball dot x=0 y=4.2 r=9 trail=all color=orange label="ball"
+Say: "One ball, let go from the |top|top. It hits the first peg and |flip|flips a coin, right this time."
+@top morph ball.y -> 3.2 0.6s ease=linear
+@flip morph ball.x -> 1 0.6s
+with morph ball.y -> 2.2 0.6s
+Say: "Another peg, another coin flip, left this time, and it |lands|lands at the bottom."
+@lands morph ball.x -> 0 0.7s
+with morph ball.y -> 0 0.7s
+Say: "The path it left is just one run of the process."

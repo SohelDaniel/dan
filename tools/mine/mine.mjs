@@ -349,8 +349,8 @@ async function judge() {
 // ---------------------------------------------------------------- assemble: the kept idioms -> chat/idioms.md
 function assemble() {
   const per = Number(flag('--per', 2)), cap = Number(flag('--cap', 50));
-  const rows = readJsonl(path.join(WORK, 'judged.jsonl')).filter((r) => r.pass && (!fs.existsSync(path.join(WORK, 'rejected.txt')) ||
-    !fs.readFileSync(path.join(WORK, 'rejected.txt'), 'utf8').split('\n').includes(r.name))); // reviewed by hand: work/rejected.txt
+  const rows = readJsonl(path.join(WORK, 'judged.jsonl')).filter((r) => r.pass && (!fs.existsSync(path.join(HERE, 'rejected.txt')) ||
+    !fs.readFileSync(path.join(HERE, 'rejected.txt'), 'utf8').split('\n').includes(r.name))); // reviewed by hand: tools/mine/rejected.txt
   const taxonomy = readJson(path.join(HERE, 'taxonomy.json')).kinds.map((k) => k.name);
   const lines = (r) => fs.readFileSync(r.idiom.file, 'utf8').trim().split('\n').length;
   // one per kind first, then second picks for the kinds 3Blue1Brown uses most, up to the cap

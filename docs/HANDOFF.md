@@ -314,7 +314,12 @@ The pre-registered A/B test (`reports/Idioms A-B preregistration.md`):
 Also new:
 - **Symbol rule:** the binding checker flags a symbol said as a name (f, P, α) that nothing on stage carries. The prompt asks for `label="f(x, y) = …"`, and `label=` on a field is its legend.
 - **Cache guard:** `tools/mine` never caches a failed or limit-hit model call. The eval scripts don't check for this, so scan their outputs for "session limit" before trusting a run.
-- Possible cuts from the idioms (weak end frames): "Slide a value, watch followers", "Park it aside", "Let time pass", "Dim the claim aside".
+- Idioms cut after review (`tools/mine/rejected.txt`; assemble fills from the next passing candidate):
+  - "Park it aside": hand-positions a box on an invisible plane;
+  - "Let time pass": a bar for a process;
+  - "Dim the claim aside": built on a card.
+
+  "Slide a value, watch followers" was kept: its mid frames show the live formula.
 
 **Pointing ahead** (binding.cpp, `startSay` instant loop):
 - As each word is reached, the shadow finds the one visible thing that shows a number or name said aloud: an array cell, a label, a value, a link, else a formula. That word gets a pointer (`@pt:`), which the live engine applies (`applyPointers`) to Says that haven't started.
@@ -330,6 +335,10 @@ Wanted later (the user's idea): pause the lesson and ask about what is on screen
 and the lesson resumes where it paused.
 
 ## 9. Known loose ends
+
+- A loophole in "position comes from structure": `schema plane … axes=false` used as a free canvas to place boxes by
+  coordinates (seen in a mined idiom, now cut). A lint could flag boxes/rects on an axis-less plane that aren't a
+  physical arrangement.
 
 - Voice: the user hasn't picked a voice from the samples (Brian is the default).
 - The camera only works on axes/plane; there's no pan for long arrays or timelines.

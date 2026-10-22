@@ -366,23 +366,6 @@ Say: "Same Sun, same size, just |far|farther off."
 ```
 <!-- move_object · 3b1b _2025/cosmic_distance/planets.py:1535 "Move sun away" -->
 
-### Park it aside
-Use: when a finished example must stay visible but get out of the way, because the next idea needs the space. The thing keeps its shape and glides to a new place.
-```
-title "Save the example"
-schema plane x=[0,10] y=[0,6] grid=false axes=false
-mark ex rect example x=5 y=3 w=3.2 h=2 label="naive example"
-Say: "Here is the |naive|naive example, worked all the way through."
-@naive indicate ex
-Say: "We need room for the next idea, so we |park|park it up in the corner."
-@park morph ex.x -> 1.8 1.2s
-with morph ex.y -> 5 1.2s
-with morph ex.w -> 2.4 1.2s
-with morph ex.h -> 1.5 1.2s
-Say: "Same example, just out of the way, and still there to come back to."
-```
-<!-- move_object · 3b1b _2026/cross_entropy/robot.py:695 "Save the Naive example" -->
-
 ### Sweep line over waveform
 Use: when a tutor wants to examine a function, signal or sequence one moment at a time: a marker travels along the axis and reads off the value where it lands.
 ```
@@ -495,6 +478,20 @@ Say: "Same twelve, but now you can see what it is |made|made of."
 ```
 <!-- decompose_split · 3b1b _2024/puzzles/added_dimension.py:1002 "Break up inner cells" -->
 
+### Split into tokens
+Use: when a whole (a sentence, a word, a number) must be seen as a row of separate pieces before anything is done to each piece.
+```
+title "Splitting into pieces"
+mark s array items=["the cat sat on the mat"] label="one sentence"
+Say: "Here is one |whole|sentence, a single block."
+@whole indicate s[0]
+Say: "Now break it up into |pieces|tokens, one cell for each."
+@pieces mark s array items=[the,cat,sat,on,the,mat] label="tokens"
+Say: "Six pieces, and now each can be |counted|handled on its own."
+@counted mark n brace of=s label="6 tokens"
+```
+<!-- decompose_split · 3b1b _2026/cross_entropy/language_models.py:824 "Break up into tokens" -->
+
 ### Draw the sum arrow
 Use: when two quantities that add (vectors, phasors, forces, waves) should be shown combining into one result: draw the sum as its own arrow from the origin, in its own colour.
 ```
@@ -511,6 +508,23 @@ Say: "It reaches four across and three up, because three plus one is four, and o
 with focus s
 ```
 <!-- combine_gather · 3b1b _2023/optics_puzzles/adding_waves.py:409 "Show the sum of the two vectors" -->
+
+### Append snippet to copy
+Use: when a new thing is built from a whole piece plus a small part of another, such as a mixed document, a spliced sequence, or a concatenation.
+```
+mark a array items=[the,cat,sat] label="A"
+mark b array items=[on,a,warm,mat] label="B"
+Say: "Make a new one: first a |copyA|copy of all of A."
+@copyA mark c array items=[the,cat,sat] label="new"
+with send a -> c 1s
+Say: "Then take just a small |snip|snippet of B, and append it on the end."
+@snip mark c items=[the,cat,sat,warm,mat]
+with send b[2] -> c 1s
+with send b[3] -> c 1s
+Say: "One new thing, made of a whole and a |part|part."
+@part indicate c[3]
+```
+<!-- combine_gather · 3b1b _2026/cross_entropy/language_tree_visualization/language_tree.py:501 "Take a small snippet of B and append it to a copy of A" -->
 
 ### Arrow from thing to code
 Use: when something is translated into another form, such as a phrase into bits, a word into a number, or an input into its representation. Show the source, then draw the arrow to its image.
@@ -623,22 +637,24 @@ Say: "Just one word, [next]France, and that is the whole job."
 ```
 <!-- run_process · 3b1b _2024/transformers/chm.py:112 "Single word prediction" -->
 
-### Let time pass
-Use: when a process should simply play out on its own clock, such as an infection, a decay or a simulation, and the learner watches what changes while a visible counter ticks.
+### Single ball, step by step
+Use: when a random or dynamic process should be watched as one run before many runs are combined, such as a Galton board, random walk or any step-by-step simulation.
 ```
-title "Let time pass"
-mark clock param value=0
-mark day tex tex="\text{day } \val{clock}"
-mark p bar infected load={8 - 1.6*clock} label="virus in patient"
-Say: "A patient starts out |sick|sick, with a lot of virus."
-@sick indicate p
-Say: "Now let |time|time pass, and just watch the counter."
-@time morph clock.value 0 -> 5 5s ease=linear
-Say: "By the end the virus is gone, and they are |well|recovered."
-@well mark p recovered
-with indicate p
+schema plane x=[-3,3] y=[-0.5,4.5] grid=false axes=false
+mark p1 dot peg x=0 y=3 r=6
+mark p2 dot peg x=-1 y=2 r=6
+mark p3 dot peg x=1 y=2 r=6
+mark ball dot x=0 y=4.2 r=9 trail=all color=orange label="ball"
+Say: "One ball, let go from the |top|top. It hits the first peg and |flip|flips a coin, right this time."
+@top morph ball.y -> 3.2 0.6s ease=linear
+@flip morph ball.x -> 1 0.6s
+with morph ball.y -> 2.2 0.6s
+Say: "Another peg, another coin flip, left this time, and it |lands|lands at the bottom."
+@lands morph ball.x -> 0 0.7s
+with morph ball.y -> 0 0.7s
+Say: "The path it left is just one run of the process."
 ```
-<!-- run_process · 3b1b _2020/sir.py:1840 "Let time pass" -->
+<!-- run_process · 3b1b _2023/clt/galton_board.py:552 "Single ball bouncing, step-by-step" -->
 
 ### Local axes at a point
 Use: when you want to measure a small change at one spot on a curve, such as a derivative, a linearisation or a tangent, and need a fresh pair of axes (dx across, df up) centred on that spot.
@@ -743,23 +759,6 @@ Say: "But |out|back out, you see it was a curve all along, bending the whole way
 with indicate f
 ```
 <!-- zoom_out_reset · 3b1b _2024/transformers/mlp.py:296 "Reference emergent structure" -->
-
-### Dim the claim aside
-Use: when a rule or claim has done its job and you want to set it aside, without deleting it, so a counterexample or new case gets the viewer's full attention.
-```
-title "Dim what's done"
-schema plane x=[-3,3] y=[-2,2] grid=false axes=false
-mark rule card text="Roots move continuously" label="Claim"
-mark r dot x=-1 y=0 trail=1.5s label="root"
-Say: "As we change the |slide|coefficient, the root glides along smoothly."
-@slide morph r.x -> 1 1.5s ease=linear
-Say: "Now we set that claim |aside|aside, and look at a case that breaks it."
-@aside hide rule
-Say: "Here the root doesn't glide, it |jumps|jumps."
-@jumps morph r.x -> -2 0.2s
-with indicate r
-```
-<!-- fade_remove · 3b1b _2022/quintic/polynomial_baisics.py:779 "Show discontinuous example" -->
 
 ### Remove one thing
 Use: when a tutor needs to take one item out of a set, such as a removed square, a dropped case or an eliminated option, while leaving it visible as a faint ghost.

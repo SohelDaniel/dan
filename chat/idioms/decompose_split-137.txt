@@ -1,0 +1,8 @@
+title "Splitting into pieces"
+mark s array items=["the cat sat on the mat"] label="one sentence"
+Say: "Here is one |whole|sentence, a single block."
+@whole indicate s[0]
+Say: "Now break it up into |pieces|tokens, one cell for each."
+@pieces mark s array items=[the,cat,sat,on,the,mat] label="tokens"
+Say: "Six pieces, and now each can be |counted|handled on its own."
+@counted mark n brace of=s label="6 tokens"

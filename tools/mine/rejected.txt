@@ -1,0 +1,3 @@
+move_object-33
+run_process-2
+fade_remove-93
