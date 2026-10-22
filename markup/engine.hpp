@@ -332,6 +332,11 @@ private:
   // arrays: cols= makes a grid (rows of that many cells, row-major). A reference names cells:
   // a[3], a[1:3] (a span), and on a grid M[1][2], M[1][:] (a row), M[:][2] (a column)
   int arrayCols(const Mark &m);
+  bool showsIndexRow(const Mark &m);        // a row of cells numbers them underneath (index=0 turns it off; grids don't)
+  // a row of cells seated on= another's cells (a kernel on the input it slides along): the gap it keeps above them,
+  // and the room a block needs above it for what is seated on it (its height, that gap, its own name)
+  float seatGap(const Mark &seated, const Mark &target);
+  float roomAbove(const Mark &target);
   // the targets of a staggered line: each cell of a span, in order ("a[0:2]" -> a[0] a[1] a[2]); one target otherwise
   std::vector<std::string> staggerTargets(const std::string &ref, float stagger);
   std::vector<int> cellsOf(const Mark &m, const std::string &ref);

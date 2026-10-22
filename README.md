@@ -270,6 +270,8 @@ Two words still place a thing, because they are relations:
 ```
 mark lo  label text="lo" at=a[0]          # a pointer naming a thing (or a cell, or a span a[1:3])
 mark tag label text="hot" on=sun          # touching on purpose: on= (on its top edge), in= / over= (on its centre)
+mark k array items=[1,1,1] on=x[0:2]      # a row of cells seated over another's cells, aligned (a kernel on its input);
+                                          # re-mark on=x[1:3] and it slides one step
 ```
 
 `region= below= above= left-of= right-of= near= align= pos=` are retired: old scripts still play, the words are ignored, and `--check` says so.

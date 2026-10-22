@@ -285,3 +285,16 @@ TEST_CASE("voice context: a Say asked for ahead of its beat gets the same earlie
   CHECK(e.saysBefore(1, 2) == V{"A first."});
   CHECK(e.saysBefore(2, 2) == c); // what C's beat asks with: the request made ahead is the one it plays
 }
+
+TEST_CASE("a row of cells seated on= another's cells sits over them, aligned, clear of their name, on the stage") {
+  Engine e(instant());
+  played(e, "mark x array items=[1,2,3,4,5] label=\"input\"\nmark k array items=[1,1,1] label=\"kernel\" on=x[1:3]\n");
+  place::Picture p = e.picture();
+  const place::Ink *x = body(p, "x"), *k = body(p, "k");
+  REQUIRE(x);
+  REQUIRE(k);
+  float cell = x->box.w / 5;
+  CHECK(k->box.x == doctest::Approx(x->box.x + cell).epsilon(0.02)); // over cells 1..3
+  CHECK(k->box.y + k->box.h <= x->box.y);  // above: its index row clear of x's name (each body includes both)
+  CHECK(k->box.y >= 0);                                               // not pushed off the top
+}

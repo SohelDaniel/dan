@@ -346,8 +346,7 @@ void Engine::drawBlock(const Mark &m) {
     if (!focus_.empty() && baseId(focus_) == m.id && focus_.find('[') != std::string::npos)
       for (int k : cellsOf(m, focus_)) lit.insert(k);
     auto dimmed = [&](size_t i) { return lit.empty() || lit.count((int)i) ? 1.f : 0.3f; };
-    const Value *ix = findProp(m.props, "index");
-    bool showIndex = !(ix && ix->num == 0) && arrayCols(m) >= (int)iv->list.size(); // a grid has no index row
+    bool showIndex = showsIndexRow(m);
     // mid-morph (a swap, a shift): each value travels from its old cell on a little arc
     std::vector<int> from(iv->list.size(), -1);
     float bt = 1;

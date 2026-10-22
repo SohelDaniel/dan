@@ -106,9 +106,11 @@ std::string Value::markup() const {
   case EXPR: return "{" + str + "}";
   case LIST: {
     std::string s = "[";
-    for (size_t i = 0; i < list.size(); i++) { // an item with a comma in it is quoted, so it reads back whole
-      bool nested = !list[i].empty() && list[i].front() == '[';
-      s += (i ? "," : "") + (list[i].find(',') != std::string::npos && !nested ? "\"" + list[i] + "\"" : list[i]);
+    for (size_t i = 0; i < list.size(); i++) { // quoted when it wouldn't read back whole: a comma in it, or a blank
+      const std::string &it = list[i];
+      bool nested = !it.empty() && it.front() == '[';
+      bool blank = it.empty() || std::isspace((unsigned char)it.front()) || std::isspace((unsigned char)it.back());
+      s += (i ? "," : "") + (!nested && (blank || it.find(',') != std::string::npos) ? "\"" + it + "\"" : it);
     }
     return s + "]";
   }

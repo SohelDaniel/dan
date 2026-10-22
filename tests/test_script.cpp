@@ -85,3 +85,13 @@ TEST_CASE("stagger= on indicate and send: a duration, anything else is an error"
   Script bad;
   CHECK(!bad.parse("indicate a[0:4] stagger=fast\n"));
 }
+
+TEST_CASE("a list reads back whole: blank items and items with commas are quoted") {
+  Script s;
+  REQUIRE(s.parse("mark t array items=[,\" \",\"cat, dog\",x]\n"));
+  const Value *v = findProp(s.steps[0].main.props, "items");
+  REQUIRE(v);
+  Script again;
+  REQUIRE(again.parse("mark t array items=" + v->markup() + "\n"));
+  CHECK(findProp(again.steps[0].main.props, "items")->list == v->list);
+}

@@ -362,6 +362,28 @@ std::vector<int> Engine::cellsOf(const Mark &m, const std::string &ref) {
   return out;
 }
 
+float Engine::seatGap(const Mark &seated, const Mark &target) {
+  float gap = 2;
+  if (findProp(seated.props, "on") && effectiveKind(seated) == "array" && effectiveKind(target) == "array")
+    gap += (showsIndexRow(seated) ? 20.f : 0.f) + (findProp(target.props, "label") ? 26.f : 0.f); // its index row, their name
+  return gap;
+}
+
+float Engine::roomAbove(const Mark &target) {
+  float room = 0;
+  for (auto &[id, o] : marks_) {
+    const Value *on = findProp(o.props, "on");
+    if (!on || on->type != Value::STR || baseId(on->str) != target.id || effectiveKind(o) != "array") continue;
+    room = std::max(room, bodyBounds(o).height + seatGap(o, target) + (findProp(o.props, "label") ? 26.f : 0.f));
+  }
+  return room;
+}
+
+bool Engine::showsIndexRow(const Mark &m) {
+  const Value *items = findProp(m.props, "items"), *ix = findProp(m.props, "index");
+  return items && items->type == Value::LIST && !(ix && ix->num == 0) && arrayCols(m) >= (int)items->list.size();
+}
+
 std::vector<std::string> Engine::staggerTargets(const std::string &ref, float stagger) {
   if (stagger <= 0) return {ref};
   Mark *m = mark(baseId(ref));
@@ -570,7 +592,7 @@ Rectangle Engine::layoutBand(const std::string &s, bool alone, float dt) {
     // a hidden block keeps its slot as a ghost: nothing after it moves (a new scene makes room)
     blocks.push_back(m);
     if (m->appear < 0.05f) arriving.push_back(m);
-    total += bodyBounds(*m).height + annotationRoom(*m) + 14;
+    total += roomAbove(*m) + bodyBounds(*m).height + annotationRoom(*m) + 14;
   }
   int declared = sceneIdx_ < sceneBlocks_.size() ? sceneBlocks_[sceneIdx_] : 0;
   if (blocks.size() > 1 && ((!alone && total > S.height * 0.4f) || (alone && total > S.height - 8))) blockRows_ = true;
@@ -581,7 +603,7 @@ Rectangle Engine::layoutBand(const std::string &s, bool alone, float dt) {
     std::vector<std::pair<Mark *, Vector2>> row;
     auto flush = [&] {
       float w = x - 24, x0 = S.x + (S.width - w) / 2;
-      for (auto &[bm, sz] : row) { bm->tpos = {x0 + sz.x / 2, y + rowH / 2}; bm->positioned = true; x0 += sz.x + 24; }
+      for (auto &[bm, sz] : row) { bm->tpos = {x0 + sz.x / 2, y + roomAbove(*bm) + sz.y / 2}; bm->positioned = true; x0 += sz.x + 24; }
       y += rowH + 14;
       row.clear(); x = 0; rowH = 0;
     };
@@ -590,7 +612,7 @@ Rectangle Engine::layoutBand(const std::string &s, bool alone, float dt) {
       if (!row.empty() && x + b.width > S.width) flush();
       row.push_back({m, {b.width, b.height}});
       x += b.width + 24;
-      rowH = std::max(rowH, b.height + annotationRoom(*m));
+      rowH = std::max(rowH, roomAbove(*m) + b.height + annotationRoom(*m));
     }
     if (!row.empty()) flush();
     total = y - S.y - 4;
@@ -602,10 +624,10 @@ Rectangle Engine::layoutBand(const std::string &s, bool alone, float dt) {
   }
   float y = alone ? S.y + std::max(4.f, (S.height - total) / 2) : S.y + 4;
   for (Mark *m : blocks) {
-    float h = bodyBounds(*m).height;
-    m->tpos = {S.x + S.width / 2, y + h / 2};
+    float h = bodyBounds(*m).height, above = roomAbove(*m);
+    m->tpos = {S.x + S.width / 2, y + above + h / 2};
     m->positioned = true;
-    y += h + annotationRoom(*m) + 14;
+    y += above + h + annotationRoom(*m) + 14;
   }
   // the picture below the band moves with it, eased (a new formula never snaps a plot aside), and
   // keeps a good part of the stage: plots get at least 40% (the band is capped); anything else may
@@ -643,7 +665,8 @@ void Engine::layoutPointers() {
       if (!anchorBox(t->str, box)) continue;
       if (target && target->positioned) { box.x += target->tpos.x - target->pos.x; box.y += target->tpos.y - target->pos.y; }
       Rectangle own = bodyBounds(*m);
-      m->tpos = {box.x + box.width / 2, findProp(m->props, "on") ? box.y - own.height / 2 - 2 : box.y + box.height / 2};
+      float lift = target ? seatGap(*m, *target) : 2;
+      m->tpos = {box.x + box.width / 2, findProp(m->props, "on") ? box.y - own.height / 2 - lift : box.y + box.height / 2};
       m->anchorBottom = false;
       m->positioned = true;
       m->direct = false;
