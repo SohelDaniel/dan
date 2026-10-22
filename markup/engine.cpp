@@ -58,6 +58,7 @@ bool Engine::loadText(const std::string &text) {
   for (auto &e : script_.errors) std::fprintf(stderr, "parse: %s\n", e.c_str());
   analyze(true);
   startShadow(text);
+  applyPointers();
   prepareVoice();
   reset();
   return script_.errors.empty();
@@ -80,9 +81,10 @@ bool Engine::appendText(const std::string &text) {
   if (!opt_.shadow)
     for (size_t i = errs; i < script_.errors.size(); i++) std::fprintf(stderr, "parse: %s\n", script_.errors[i].c_str());
   analyze(false);
-  if (shadow_) { // read this part's spoken values before its voice is asked for
+  if (shadow_) { // read this part's spoken values (and what to point at) before its voice is asked for
     shadow_->appendText(text);
     shadow_->runToEnd();
+    applyPointers();
   }
   hookFired_.resize(script_.steps.size(), false);
   readbackPrinted_ = false; // report the scene again once this part has played
@@ -1053,9 +1055,33 @@ void Engine::startSay(const Line &ln) {
   }
   if (opt_.instant) {
     std::vector<std::string> said; // each word as spoken: its value once the lines cued on it have run
-    for (auto &sw : say_.words) {
+    // pointing ahead: a number or a name that exactly one thing on stage shows, as its word is reached
+    std::vector<std::string> raw, toks;
+    std::vector<size_t> owner;
+    for (auto &sw : say_.words) raw.push_back(sw.text);
+    sayTokens(raw, toks, owner);
+    auto nums = readNumbers(toks);
+    for (size_t i = 0; i < say_.words.size(); i++) {
+      const SayWord &sw = say_.words[i];
       for (auto &h : sw.hooks) fireHook(h);
       said.push_back(sw.ref ? spokenWord(sw.text) : sw.text);
+      bool pointed = std::any_of(sw.hooks.begin(), sw.hooks.end(), [](const std::string &h) { return h.rfind("@pt:", 0) == 0; });
+      auto consider = [&](const std::string &holder) {
+        pointStats_.spoken++;
+        if (holder.empty()) return;
+        pointStats_.onStage++;
+        if (pointed) pointStats_.pointed++;
+        else if (holder != "?") {
+          autoPoint_[ln.uid].push_back({i, holder});
+          pointStats_.added++;
+          pointed = true;
+          if (std::getenv("TUTOR_DUMP_POINT")) std::fprintf(stderr, "point: line %d \"%s\" -> %s\n", ln.lineNo, sw.text.c_str(), holder.c_str());
+        }
+      };
+      for (auto &n : nums) if (owner[n.first] == i && pointable(n, toks)) consider(holderOfValue(n.v, n.percent));
+      for (size_t t = 0; t < toks.size(); t++)
+        if (owner[t] == i && toks[t].size() == 1 && std::isalpha((unsigned char)toks[t][0]) && toks[t] != "a" && toks[t] != "i")
+          consider(holderOfName(toks[t]));
     }
     spoken_[ln.uid] = said;
     for (auto &h : say_.trailing) fireHook(h);

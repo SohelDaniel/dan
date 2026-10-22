@@ -49,6 +49,200 @@ std::string flatTex(std::string t) {
 }
 } // namespace
 
+// a sentence's words as lower-case tokens, hyphenated numbers split ("eighty-four"), each with the word it came from;
+// {expr} words are left out (they point at their thing already)
+void Engine::sayTokens(const std::vector<std::string> &words, std::vector<std::string> &toks, std::vector<size_t> &owner) {
+  for (size_t i = 0; i < words.size(); i++) {
+    if (words[i].find('{') != std::string::npos) continue;
+    std::string w = lowerAscii(words[i]);
+    for (auto &c : w) if (c == '-' || c == '/') c = ' ';
+    std::istringstream in(w);
+    for (std::string t; in >> t;) {
+      while (!t.empty() && !std::isalnum((unsigned char)t.back())) t.pop_back();
+      while (!t.empty() && !std::isalnum((unsigned char)t.front())) t.erase(t.begin());
+      if (!t.empty()) { toks.push_back(t); owner.push_back(i); }
+    }
+  }
+}
+
+// numbers said aloud, with the tokens they span: "fifty nine", "seven hundred eighty four", "zero point one four",
+// "seven and a half", "40 percent". "one" alone is too common to mean a number; "four times, because…" is a ratio
+std::vector<Engine::SpokenNum> Engine::readNumbers(const std::vector<std::string> &w) {
+  auto val = [&](size_t i, double &v) {
+    if (i >= w.size()) return false;
+    auto it = numberWords().find(w[i]);
+    if (it != numberWords().end()) { v = it->second; return true; }
+    char *end;
+    v = std::strtod(w[i].c_str(), &end);
+    return end != w[i].c_str() && *end == 0 && std::isdigit((unsigned char)w[i][0]);
+  };
+  // a single digit; after "point" (and in "one hundred") "one" is a digit too
+  auto digit = [&](size_t i, double &v) {
+    if (i < w.size() && w[i] == "one") { v = 1; return true; }
+    return val(i, v) && v < 10 && v == std::floor(v);
+  };
+  std::vector<SpokenNum> out;
+  for (size_t i = 0; i < w.size(); i++) {
+    SpokenNum n;
+    n.first = i;
+    double v = 0, u;
+    bool one = w[i] == "one" && i + 1 < w.size() && (w[i + 1] == "hundred" || w[i + 1] == "thousand" || w[i + 1] == "point");
+    if (w[i] == "point" && digit(i + 1, u) && (i == 0 || !numberWords().count(w[i - 1]))) v = 0, i--; // "point six"
+    else if (one) v = 1;
+    else if (!val(i, v)) continue;
+    // tens and units, hundreds, thousands
+    auto below100 = [&](double &x) {
+      if (x >= 20 && x < 100 && std::fmod(x, 10) == 0 && digit(i + 1, u) && u > 0) { x += u; i++; }
+    };
+    below100(v);
+    if (i + 1 < w.size() && w[i + 1] == "hundred") {
+      v *= 100; i++;
+      if (i + 1 < w.size() && w[i + 1] == "and") i++;
+      double r;
+      if (val(i + 1, r) && r < 100) { i++; below100(r); v += r; }
+    }
+    if (i + 1 < w.size() && w[i + 1] == "thousand") { // "ninety nine thousand nine hundred (and) five"
+      v *= 1000; i++;
+      if (i + 1 < w.size() && w[i + 1] == "and") i++;
+      double r;
+      if (val(i + 1, r) && r < 100) {
+        i++;
+        below100(r);
+        if (i + 1 < w.size() && w[i + 1] == "hundred") {
+          r *= 100; i++;
+          if (i + 1 < w.size() && w[i + 1] == "and") i++;
+          double t;
+          if (val(i + 1, t) && t < 100) { i++; below100(t); r += t; }
+        }
+        v += r;
+      }
+    }
+    // decimals: every single digit after "point" ("zero point one four" -> 0.14)
+    if (i + 1 < w.size() && w[i + 1] == "point" && digit(i + 2, u)) {
+      i++;
+      std::string frac;
+      while (digit(i + 1, u)) { frac += char('0' + (int)u); i++; }
+      v += std::stod("0." + frac);
+    }
+    if (i + 3 < w.size() && w[i + 1] == "and" && w[i + 2] == "a" && w[i + 3] == "half") { v += 0.5; i += 3; }
+    if (i + 1 < w.size() && w[i + 1] == "times" && !(val(i + 2, u))) continue; // a ratio, not a value to show
+    if (i + 1 < w.size() && w[i + 1] == "percent") { n.percent = true; i++; }
+    n.last = i;
+    n.v = v;
+    for (size_t k = n.first; k <= n.last; k++) n.spoken += (k > n.first ? " " : "") + w[k];
+    out.push_back(n);
+  }
+  return out;
+}
+
+// a number worth pointing at: not a small count of things ("two groups", "four ways") nor an ordinal ("step two")
+bool Engine::pointable(const SpokenNum &n, const std::vector<std::string> &toks) {
+  static const std::set<std::string> ordinal = {"step", "part", "stage", "phase", "round", "case", "line", "chapter", "level", "option"};
+  static const std::set<std::string> notPlural = {"is", "was", "has", "as", "us", "its", "this", "thus", "yes", "plus", "minus", "times", "less"};
+  if (n.first > 0 && ordinal.count(toks[n.first - 1])) return false;
+  if (n.v < 10 && n.v == std::floor(n.v) && n.last + 1 < toks.size()) {
+    // the next word, or the one after an adjective ("two smaller questions")
+    for (size_t k = n.last + 1; k < std::min(toks.size(), n.last + 3); k++) {
+      const std::string &t = toks[k];
+      if (t.size() > 2 && t.back() == 's' && !notPlural.count(t)) return false;
+    }
+  }
+  return true;
+}
+
+// the one visible thing that shows this value: a cell, a label, a value, a link ("" none, "?" several)
+std::string Engine::holderOfValue(double v, bool percent) {
+  static const std::regex numRe(R"(-?\d+(\.\d+)?)");
+  auto has = [&](const std::string &t) {
+    std::string d = plainDigits(t);
+    for (std::sregex_iterator r(d.begin(), d.end(), numRe), e; r != e; ++r) {
+      double x = std::fabs(std::stod(r->str()));
+      if (std::fabs(x - v) < 1e-9 || (percent && std::fabs(x - v / 100) < 1e-9)) return true;
+    }
+    return false;
+  };
+  std::set<std::string> plain, formulas;
+  for (auto &id : order_) {
+    if (Mark *m = mark(id); m && opacityOf(*m) > 0.3f) {
+      std::string k = effectiveKind(*m);
+      if (k == "param" || k == "code") continue; // numbers in code aren't values to point at
+      for (auto &p : m->props) {
+        if (p.key == "items" && p.val.type == Value::LIST) {
+          for (size_t c = 0; c < p.val.list.size(); c++) if (has(p.val.list[c]) && plainDigits(p.val.list[c]).find_first_not_of("0123456789.-") == std::string::npos)
+            plain.insert(id + "[" + std::to_string(c) + "]");
+        } else if (p.key == "tex" && p.val.type == Value::STR) {
+          if (has(texSource(p.val.str))) formulas.insert(id);
+        } else if ((p.key == "label" || p.key == "text" || p.key == "name") && p.val.type == Value::STR) {
+          if (has(p.val.str)) plain.insert(id);
+        } else if (p.key == magProp(*m) && p.val.isNumeric()) {
+          if (has(fmtNum(num(p.val)))) plain.insert(id);
+        }
+      }
+    } else if (auto lt = links_.find(id); lt != links_.end() && opacityOf(lt->second) > 0.3f) {
+      for (auto &p : lt->second.props)
+        if ((p.key == "label" && p.val.type == Value::STR && has(p.val.str)) ||
+            (p.key != "opacity" && p.key != "bend" && p.val.isNumeric() && has(fmtNum(num(p.val)))))
+          plain.insert(id);
+    }
+  }
+  for (auto it = plain.begin(); it != plain.end();) // a cell beats its own array's label ("looking for 23" over the 23)
+    it = (it->find('[') == std::string::npos && std::any_of(plain.begin(), plain.end(), [&](const std::string &c) {
+           return c.rfind(*it + "[", 0) == 0; })) ? plain.erase(it) : std::next(it);
+  if (plain.size() == 1) return *plain.begin();
+  if (plain.empty() && formulas.size() == 1) return *formulas.begin();
+  return plain.empty() && formulas.empty() ? "" : "?";
+}
+
+// the one visible thing whose label carries this letter as a word ("P", "f(x, y) = …")
+std::string Engine::holderOfName(const std::string &letter) {
+  auto has = [&](const std::string &t) {
+    std::string tok;
+    for (size_t i = 0; i <= t.size(); i++) {
+      if (i < t.size() && std::isalpha((unsigned char)t[i])) tok += t[i];
+      else { if (lowerAscii(tok) == letter) return true; tok.clear(); }
+    }
+    return false;
+  };
+  std::set<std::string> plain, formulas;
+  for (auto &id : order_) {
+    if (Mark *m = mark(id); m && opacityOf(*m) > 0.3f && effectiveKind(*m) != "param") {
+      for (auto &p : m->props)
+        if ((p.key == "label" || p.key == "text" || p.key == "name") && p.val.type == Value::STR && has(p.val.str)) plain.insert(id);
+        else if (p.key == "tex" && p.val.type == Value::STR) {
+          std::string t = std::regex_replace(texSource(p.val.str), std::regex(R"(\\[A-Za-z]+(\{[^}]*\})?)"), " "); // commands and their names
+          if (has(t)) formulas.insert(id);
+        }
+    } else if (auto lt = links_.find(id); lt != links_.end() && opacityOf(lt->second) > 0.3f) {
+      if (auto lb = findProp(lt->second.props, "label"); lb && lb->type == Value::STR && has(lb->str)) plain.insert(id);
+    }
+  }
+  if (plain.size() == 1) return *plain.begin();
+  if (plain.empty() && formulas.size() == 1) return *formulas.begin();
+  return plain.empty() && formulas.empty() ? "" : "?";
+}
+
+void Engine::applyPointers() {
+  if (!shadow_) return;
+  for (size_t i = cursor_; i < script_.steps.size(); i++) {
+    Line &ln = script_.steps[i].main;
+    if (ln.verb != Verb::SAY) continue;
+    auto it = shadow_->autoPoint_.find(ln.uid);
+    if (it == shadow_->autoPoint_.end()) continue;
+    for (auto &[w, target] : it->second)
+      if (w < ln.words.size()) {
+        auto &hooks = ln.words[w].hooks;
+        if (std::find(hooks.begin(), hooks.end(), "@pt:" + target) == hooks.end()) hooks.push_back("@pt:" + target);
+      }
+  }
+}
+
+std::string Engine::pointingReport() const {
+  const PointStats &p = shadow_ ? shadow_->pointStats_ : pointStats_;
+  return "pointing: " + std::to_string(p.spoken) + " numbers and names said, " + std::to_string(p.onStage) +
+         " on stage as they are said, " + std::to_string(p.pointed) + " pointed by the script, " + std::to_string(p.added) +
+         " pointed ahead";
+}
+
 Engine::StageFacts Engine::stageFacts() {
   StageFacts f;
   auto visible = [&](const Obj &o) { return opacityOf(o) > 0.3f; };
@@ -138,55 +332,10 @@ void Engine::checkBinding(size_t sayIdx, size_t nextIdx) {
   // 1. numbers said aloud (questions are hypotheticals; "one" is too common to mean a number)
   if (!question && !last) {
     std::vector<std::pair<std::string, double>> said;
-    std::vector<std::string> words;
-    std::istringstream in(low);
-    for (std::string w; in >> w;) {
-      while (!w.empty() && !std::isalnum((unsigned char)w.back())) w.pop_back();
-      while (!w.empty() && !std::isalnum((unsigned char)w.front())) w.erase(w.begin());
-      if (!w.empty()) words.push_back(w);
-    }
-    auto wordVal = [&](const std::string &w, double &v) {
-      auto it = numberWords().find(w);
-      if (it != numberWords().end()) { v = it->second; return true; }
-      char *end;
-      v = std::strtod(w.c_str(), &end);
-      return end != w.c_str() && *end == 0 && std::isdigit((unsigned char)w[0]);
-    };
-    for (size_t i = 0; i < words.size(); i++) {
-      double v;
-      if (words[i] == "one" && i + 2 < words.size() && words[i + 1] == "point" && wordVal(words[i + 2], v) && v < 10) {
-        said.push_back({"one point " + words[i + 2], 1 + v / 10}); // "one point seven"
-        i += 2;
-        continue;
-      }
-      if (words[i] == "point" && i + 1 < words.size() && wordVal(words[i + 1], v) && v < 10) { // "point six"
-        if (i == 0 || !numberWords().count(words[i - 1])) said.push_back({"point " + words[i + 1], v / 10});
-        i++;
-        continue;
-      }
-      if (!wordVal(words[i], v)) continue;
-      std::string spoken = words[i];
-      // compound numbers: "fifty nine", "two hundred", "seven and a half"
-      double u;
-      if (v >= 20 && v < 100 && std::fmod(v, 10) == 0 && i + 1 < words.size() && wordVal(words[i + 1], u) && u < 10) {
-        v += u; spoken += " " + words[++i];
-      }
-      if (i + 1 < words.size() && (words[i + 1] == "hundred" || words[i + 1] == "thousand")) {
-        v *= words[i + 1] == "hundred" ? 100 : 1000; spoken += " " + words[++i];
-      }
-      // decimals: "one point six" -> 1.6
-      if (i + 2 < words.size() && words[i + 1] == "point" && wordVal(words[i + 2], u) && u < 10) {
-        v += u / 10; spoken += " point " + words[i + 2]; i += 2;
-      }
-      if (i + 3 < words.size() && words[i + 1] == "and" && words[i + 2] == "a" && words[i + 3] == "half") {
-        v += 0.5; spoken += " and a half"; i += 3;
-      }
-      // "four times, because…" is a ratio, not a value to show ("two times three" is a product: keep it)
-      double nx;
-      if (i + 1 < words.size() && words[i + 1] == "times" && !(i + 2 < words.size() && wordVal(words[i + 2], nx))) continue;
-      if (i + 1 < words.size() && words[i + 1] == "percent") { spoken += " percent"; v = -v; } // checked as v/100 too
-      said.push_back({spoken, v});
-    }
+    std::vector<std::string> toks;
+    std::vector<size_t> owner;
+    sayTokens(spokenWords(say), toks, owner);
+    for (auto &n : readNumbers(toks)) said.push_back({n.spoken, n.percent ? -n.v : n.v});
     for (auto &[word, vs] : said) {
       bool percent = vs < 0;
       double v = std::fabs(vs);

@@ -316,6 +316,16 @@ Also new:
 - **Cache guard:** `tools/mine` never caches a failed or limit-hit model call. The eval scripts don't check for this, so scan their outputs for "session limit" before trusting a run.
 - Possible cuts from the idioms (weak end frames): "Slide a value, watch followers", "Park it aside", "Let time pass", "Dim the claim aside".
 
+**Pointing ahead** (binding.cpp, `startSay` instant loop):
+- As each word is reached, the shadow finds the one visible thing that shows a number or name said aloud: an array cell, a label, a value, a link, else a formula. That word gets a pointer (`@pt:`), which the live engine applies (`applyPointers`) to Says that haven't started.
+- Several matches, or none: nothing happens. Small counts of things ("two groups"), ordinals ("step two") and code blocks are skipped.
+- Measured on 176 generated scenes:
+  - Claude pointed at 3% of the spoken numbers and names that were on stage;
+  - with pointing ahead, 76% are pointed at;
+  - about 90% of 30 audited pointers were right (77% before the count and ordinal rules).
+- `--check` prints a `pointing:` line; `TUTOR_DUMP_POINT=1` lists every pointer.
+- The number reader is shared with the checker and now reads "seven hundred eighty-four", "ninety-nine thousand nine hundred", "zero point one four" and "twenty one".
+
 Wanted later (the user's idea): pause the lesson and ask about what is on screen. A second tab explains the current frame,
 and the lesson resumes where it paused.
 

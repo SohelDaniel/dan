@@ -197,3 +197,32 @@ TEST_CASE("binding: a symbol said as a name must be on stage (f over an unlabell
   CHECK(!hasLint(a, "says \"t\"")); // doesn't
   CHECK(!hasLint(a, "says \"c\"")); // C++
 }
+
+TEST_CASE("numbers said aloud are read whole, with the words they span") {
+  auto read = [](const std::string &s) {
+    std::vector<std::string> toks;
+    std::vector<size_t> owner;
+    std::vector<std::string> words;
+    std::istringstream in(s);
+    for (std::string w; in >> w;) words.push_back(w);
+    Engine::sayTokens(words, toks, owner);
+    std::vector<double> out;
+    for (auto &n : Engine::readNumbers(toks)) out.push_back(n.v);
+    return out;
+  };
+  CHECK(read("seven hundred eighty-four") == std::vector<double>{784});
+  CHECK(read("ninety-nine thousand nine hundred people") == std::vector<double>{99900});
+  CHECK(read("zero point one four and two point five") == std::vector<double>{0.14, 2.5});
+  CHECK(read("one hundred and five, seven and a half") == std::vector<double>{105, 7.5});
+  CHECK(read("one of them is four times bigger") == std::vector<double>{}); // "one" alone, a ratio
+  CHECK(read("forty percent") == std::vector<double>{40});
+}
+
+TEST_CASE("pointing ahead: a number said aloud pulses the one cell that shows it; live, the shadow puts the pointer on the word") {
+  EngineOptions o;
+  o.quiet = true;
+  Engine e(o);
+  REQUIRE(e.loadText("mark a array items=[2,5,8,12,16,23] label=\"sorted, looking for 23\"\n"
+                     "Say: \"We want twenty-three, and the middle is sixteen.\"\nSay: \"Both are here.\"\n"));
+  CHECK(e.pointingReport().find("2 pointed ahead") != std::string::npos);
+}

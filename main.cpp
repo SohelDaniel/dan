@@ -187,6 +187,7 @@ int main(int argc, char **argv) {
       std::printf("decodable: %s\n", same ? "yes (readback re-parses to the same scene)" : "NO");
       if (!same) std::printf("--- first\n%s--- re-read\n%s", model.c_str(), model2.c_str());
       std::printf("axiom warnings: %d\n", zero);
+      std::printf("%s\n", eng.pointingReport().c_str());
       for (auto &l : lints) std::printf("  %s\n", l.c_str());
       // the layout checker on the final scene: what overlaps by accident
       std::vector<std::string> layoutMsgs;

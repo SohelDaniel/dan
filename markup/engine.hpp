@@ -173,6 +173,12 @@ public:
   // start synthesising a Say line before its beat arrives (the server sends it as soon as it is written)
   void prefetchVoice(const std::string &sayLine);
   std::vector<std::string> spokenLines();   // every Say as it will be spoken, {expr} read off the stage
+  // numbers and names said aloud: how many, how many on stage at their word, pointed by the script, pointed ahead
+  std::string pointingReport() const;
+  // numbers said aloud with the words they span ("seven hundred eighty-four", "zero point one four"); pure, for tests too
+  struct SpokenNum { size_t first = 0, last = 0; double v = 0; bool percent = false; std::string spoken; };
+  static std::vector<SpokenNum> readNumbers(const std::vector<std::string> &toks);
+  static void sayTokens(const std::vector<std::string> &words, std::vector<std::string> &toks, std::vector<size_t> &owner);
   bool speaking() const { return say_.active && say_.utt != nullptr; }
   // stop what is playing: the rest of the script so far runs instantly (state stays consistent), voice stops
   void interrupt();
@@ -283,6 +289,14 @@ private:
     std::map<std::string, int> linkColors;
   };
   StageFacts stageFacts();
+  // pointing ahead (binding.cpp): a number or a name said aloud that exactly one thing on stage shows gets a pointer
+  // on its word, worked out by the instant run (the shadow, live) as each word is reached
+  static bool pointable(const SpokenNum &n, const std::vector<std::string> &toks);
+  std::string holderOfValue(double v, bool percent);
+  std::string holderOfName(const std::string &letter);
+  std::map<int, std::vector<std::pair<size_t, std::string>>> autoPoint_; // by Say uid: (word, target)
+  struct PointStats { int spoken = 0, onStage = 0, pointed = 0, added = 0; } pointStats_;
+  void applyPointers();                     // live: the shadow's pointers onto Says that haven't started
   StageFacts sayFacts_;                     // at the start of the current sentence                    // run this sentence's cued lines that never got their cue
   bool blocking() const;
   void tickActives(float dt);
