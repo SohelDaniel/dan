@@ -1,0 +1,6 @@
+title "One step of a derivation"
+mark f tex tex="\textcolor{yellow}{4!} = 4 \cdot 3 \cdot 2 \cdot 1"
+Say: "Four factorial is four times three times two times one."
+Say: "Multiply it |out|out, and the right side collapses into one number."
+@out morph f.tex -> "\textcolor{yellow}{4!} = 24" 1.5s
+Say: "Equal value, simpler form."

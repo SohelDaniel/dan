@@ -1,0 +1,8 @@
+title "Plug in a number"
+mark f tex tex="f(\textcolor{blue}{x}) = 2 + 3\textcolor{blue}{x} + \textcolor{blue}{x}^2"
+Say: "Here is a function of |x|x, with the same x showing up three times."
+@x indicate f
+Say: "Now plug in |one|one: every x becomes a one."
+@one morph f.tex -> "f(\textcolor{blue}{1}) = 2 + 3\cdot\textcolor{blue}{1} + \textcolor{blue}{1}^2" 1.2s
+Say: "What's left is plain |sum|arithmetic: two plus three plus one is six."
+@sum morph f.tex -> "f(\textcolor{blue}{1}) = 2 + 3 + 1 = 6" 1.2s

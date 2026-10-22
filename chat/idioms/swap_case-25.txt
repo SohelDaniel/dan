@@ -1,0 +1,9 @@
+title "Cycle through cases"
+mark w array items=[it,was,the,best] label="formal"
+Say: "Here is one line of text, written the |formal|formal way."
+@formal indicate w[0]
+Say: "Now say it in a |casual|casual voice."
+@casual mark w array items=[yo,that,was,fire] label="casual"
+Say: "Now as a |coder|programmer would say it."
+@coder mark w array items=[git,push,force,done] label="code"
+Say: "Four cells, three voices, and each one changes what comes next."

@@ -1,0 +1,11 @@
+schema plane x=[-2,2] y=[-2,2]
+mark re param value=-1
+mark im param value=0
+mark s dot x={re} y={im} trail=all label="s"
+mark e tex tex="s = \val{re} + \val{im}\,i"
+Say: "Here is [s]s, sitting at negative one, and the formula reads it off."
+Say: "Slide it |right|right toward zero, then |zero|stop on zero."
+@right morph re.value -> 0.2 2s ease=linear
+@zero morph re.value -> 0 1s
+Say: "Now lift it |up|straight up, and end at i."
+@up morph im.value -> 1 1.5s

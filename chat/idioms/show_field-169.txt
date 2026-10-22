@@ -1,0 +1,7 @@
+title "Flow in a direction"
+schema plane x=[-4,4] y=[-3,3] grid=false axes=false
+mark d vector x=0 y=0 dx=2 dy=1 color=yellow label="direction"
+Say: "Here is one |dir|direction: two across and one up."
+@dir indicate d
+Say: "Now |fill|fill all of space with it, so every point streams the same way."
+@fill mark E field vx={2} vy={1} style=flow color=yellow

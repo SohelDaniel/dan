@@ -2,7 +2,7 @@
 // console); Claude answers by speaking and drawing on the stage. The browser shows a live transcript.
 // Separate from the engine: it drives `tutor --stdin` and listens to its "@ev" events.
 //
-//   node chat/server.mjs [--port 4747] [--mute] [--voice Brian] [--model sonnet] [--effort low] [--new] [--no-open]
+//   node chat/server.mjs [--no-idioms] [--port 4747] [--mute] [--voice Brian] [--model sonnet] [--effort low] [--new] [--no-open]
 //
 // A turn:
 //   Claude (one persistent `claude -p` process per chat, no tools) answers with a hidden ```plan,
@@ -53,6 +53,8 @@ function buildSystem(promptFile) {
   if (fs.existsSync(EXEMPLARS))
     for (const f of fs.readdirSync(EXEMPLARS).filter((f) => f.endsWith('.txt')).sort())
       examples += `\n### ${f.slice(0, -4)}\n\n\`\`\`scene\n${fs.readFileSync(path.join(EXEMPLARS, f), 'utf8').trim()}\n\`\`\`\n`;
+  // the visual moves mined from 3Blue1Brown (tools/mine), after the worked examples; --no-idioms leaves them out
+  if (!argv.includes('--no-idioms') && fs.existsSync(path.join(HERE, 'idioms.md'))) examples += '\n' + fs.readFileSync(path.join(HERE, 'idioms.md'), 'utf8') + '\n';
   return fs.readFileSync(promptFile, 'utf8').replace('{{EXAMPLES}}', examples) +
     readme.slice(readme.indexOf('## The language'), readme.indexOf('## The dictionary'));
 }

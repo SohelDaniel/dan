@@ -1,0 +1,14 @@
+title "Two chains, one set"
+schema graph
+mark n1 box item label="1"
+mark n2 box item label="3"
+mark n3 box item label="4"
+mark n4 box item label="2"
+Say: "Four numbers in a row: one, three, four, two."
+Say: "First the |up|climbing chain, each step to something bigger."
+@up link u1 arrow n1 -> n2 color=green
+with link u2 arrow n2 -> n3 color=green
+Say: "Then the |down|falling ones, drawn after, so they hang off the same three and four."
+@down link d1 arrow n2 -> n4 color=orange
+with link d2 arrow n3 -> n4 color=orange
+Say: "Green only goes up, orange only goes down, and some numbers sit on both."

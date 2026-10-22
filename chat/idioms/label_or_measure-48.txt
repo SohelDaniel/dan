@@ -1,0 +1,6 @@
+mark g array cols=4 items=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16] label="grid"
+Say: "This grid holds |total|sixteen cells."
+@total mark n brace of=g label="16"
+Say: "But sixteen is really |sq|four squared, four rows of four."
+@sq mark n brace of=g label="16 = 4²" color=yellow
+with indicate g[0]

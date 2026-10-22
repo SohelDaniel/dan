@@ -1,0 +1,9 @@
+title "Entropy, worked example"
+mark eq tex tex="E[I] = \log_2\left(\frac{1}{p}\right)"
+Say: "Sixteen equally likely outcomes, so each has |p|probability one sixteenth."
+@p morph eq.tex -> "E[I] = \log_2\left(\frac{1}{1/16}\right)" 1.2s
+Say: "One over that is |inv|sixteen."
+@inv morph eq.tex -> "E[I] = \log_2(16)" 1.2s
+Say: "Two to the fourth is sixteen, so the answer is |ans|four bits."
+@ans morph eq.tex -> "E[I] = \log_2(16) = 4\,\text{bits}" 1.2s
+with mark ok check of=eq label="result"

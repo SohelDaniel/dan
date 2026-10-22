@@ -1,0 +1,9 @@
+title "Pointing at a formula"
+mark f tex tex="P(H|E) = \frac{\textcolor{num}{P(H)\,P(E|H)}}{P(E)}"
+Say: "Here is the rule for updating a |belief|belief."
+@belief mark ask label text="the update" at=f
+Say: "Look first at the |top|top."
+@top mark part enclose of=f[num] label="start here"
+with hide ask
+Say: "That is where the evidence and the prior |meet|meet."
+@meet indicate part

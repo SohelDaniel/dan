@@ -1,0 +1,7 @@
+title "Exponentiate each part"
+mark f tex tex="\textcolor{orange}{2},\ \textcolor{orange}{1},\ \textcolor{orange}{3}"
+Say: "Here are three scores. Let's |exp|exponentiate each one."
+@exp morph f.tex -> "e^{\textcolor{orange}{2}},\ e^{\textcolor{orange}{1}},\ e^{\textcolor{orange}{3}}" 1.2s
+Say: "Every score now sits in an |pow|exponent, so every part is positive."
+@pow mark pos tex tex="e^{x} > 0"
+with indicate f

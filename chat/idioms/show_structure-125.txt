@@ -1,0 +1,9 @@
+title "Seasons as a ring"
+schema plane x=[-4,4] y=[-4,4] grid=false axes=false
+Say: "Four seasons, and they all settle onto one |ring|ring at once."
+@ring mark c circle x=0 y=0 r=3
+with mark sp dot season x=3 y=0 r=9 label="spring"
+with mark su dot season x=0 y=3 r=9 label="summer"
+with mark au dot season x=-3 y=0 r=9 label="autumn"
+with mark wi dot season x=0 y=-3 r=9 label="winter"
+Say: "After [wi]winter comes [sp]spring again: a cycle, not a line."

@@ -1,0 +1,10 @@
+title "A distribution as bars"
+schema free
+Say: "Each outcome gets a bar as tall as its probability. First, |half|one half."
+@half mark b1 bar outcome p=0.5 label="1/2"
+Say: "Then |quarter|one quarter, then |eighth|one eighth, then |sixteenth|one sixteenth."
+@quarter mark b2 bar outcome p=0.25 label="1/4"
+@eighth mark b3 bar outcome p=0.125 label="1/8"
+@sixteenth mark b4 bar outcome p=0.0625 label="1/16"
+Say: "The rarer the outcome, the |short|shorter its bar."
+@short indicate b4

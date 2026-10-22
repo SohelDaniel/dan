@@ -17,7 +17,7 @@ manim_demo: examples/manim_demo.cpp $(LIB_SRC) rm/raymanim.hpp
 	$(CXX) $(CXXFLAGS) examples/manim_demo.cpp $(LIB_SRC) -o $@ $(RAYLIB) $(FRAMEWORKS)
 
 check: tutor
-	@for f in scripts/*.txt; do printf "%-28s " $$f; ./tutor $$f --check > /dev/null 2>&1 && echo ok || echo FAIL; done
+	@for f in scripts/*.txt chat/idioms/*.txt; do printf "%-36s " $$f; ./tutor $$f --check > /dev/null 2>&1 && echo ok || echo FAIL; done
 
 # the placement module on its own: no raylib on the include path, so it can't depend on the engine
 TEST_FLAGS := -std=c++20 -O1 -g -Wall -Wextra -Wno-unused-parameter -Ithird_party

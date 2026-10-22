@@ -1,0 +1,8 @@
+title "Highlight equation parts"
+mark f tex tex="\textcolor{lhs}{\frac{d}{dt}e^{t}} = \textcolor{rhs}{e^{t}}"
+Say: "Look at the |right|right side first: the amount itself."
+@right mark r enclose of=f[rhs] label="amount"
+Say: "Now the |left|left side: how fast that amount grows."
+@left hide r
+with mark l enclose of=f[lhs] label="rate"
+Say: "The two sides are equal, and the whole formula stayed in view the entire time."

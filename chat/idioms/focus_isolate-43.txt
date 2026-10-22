@@ -1,0 +1,11 @@
+title "Isolate one triangle"
+schema plane x=[0,10] y=[0,6] grid=false axes=false
+mark t1 polygon shape pts=[1,1, 3,1, 2,3] label="A"
+mark t2 polygon shape pts=[4,1, 7,1, 4.5,4] label="B"
+mark t3 polygon shape pts=[8,1, 9.5,1, 9,2.5] label="C"
+Say: "Here are three triangles, all different."
+Say: "Take just |this|this one and put the others aside."
+@this focus t2
+with hide t1
+with hide t3
+Say: "Now we can study it on its own."

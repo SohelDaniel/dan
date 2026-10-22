@@ -1,0 +1,9 @@
+title "Zoom back out"
+schema axes x=[0,6] y=[0,9]
+mark f path fn={x^2/4} label="f(x) = x²/4"
+mark p dot point x=2 y={f(2)} label="P"
+Say: "Zoom |in|in on P, and the curve looks like a straight line."
+@in camera zoom=12 on=p
+Say: "But |out|back out, you see it was a curve all along, bending the whole way."
+@out camera reset
+with indicate f

@@ -1,0 +1,11 @@
+title "Transform a vector"
+schema plane x=[-1,5] y=[-1,4]
+mark G grid space m=[1,0,0,1]
+mark u vector x=0 y=0 dx=2 dy=1 label="in"
+Say: "Here is a [u]vector: two across, one up."
+Say: "Now apply the |map|map. The plane shears, and a copy of the arrow rides along to its new |spot|spot."
+@map morph G.m -> [1,1,0,1] 2s
+@map mark w vector x=0 y=0 dx=2 dy=1 label="out"
+@map morph w.to -> [3,1] 2s
+@spot indicate w
+Say: "It lands three across, one up: same arrow, new place."

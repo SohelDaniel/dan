@@ -1,0 +1,14 @@
+title "Two cases, side by side"
+schema graph
+mark a1 box case label="guess: speed"
+mark a2 box result label="green, gray, gray"
+link la arrow a1 -> a2
+group g1 part-of=[a1,a2] label="Case A"
+Say: "Take the first |one|case and its result."
+@one indicate a2
+mark b1 box case label="guess: abide"
+mark b2 box result label="gray, yellow, gray"
+link lb arrow b1 -> b2
+group g2 part-of=[b1,b2] label="Case B"
+Say: "Now |other|another case, with the first still there: the same steps, a different outcome."
+@other indicate b2

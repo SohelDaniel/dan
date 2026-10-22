@@ -25,3 +25,6 @@ tests/test_viz
 scripts/*.readback
 tests/test_script
 tests/test_engine
+
+# idiom mining: the 3Blue1Brown clone, model outputs, frames (rebuilt by tools/mine)
+tools/mine/work/

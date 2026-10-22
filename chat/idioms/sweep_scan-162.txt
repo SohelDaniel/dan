@@ -1,0 +1,10 @@
+title "Sweeping a waveform"
+schema axes x=[0,10] y=[-2,2] xlabel="time" ylabel="intensity"
+mark f path fn={sin(x)+0.5*sin(3*x)} label="waveform"
+mark clock param value=0
+mark scan line x1={clock} y1=-2 x2={clock} y2=2 label="now"
+mark p dot x={clock} y={f(clock)}
+Say: "A line |sweep|sweeps across time, and the dot reads the intensity wherever the line meets the curve."
+@sweep morph clock.value 0 -> 10 6s ease=linear
+Say: "One moment at a time, the whole |shape|waveform gets read."
+@shape indicate f

@@ -1,0 +1,142 @@
+{
+ "version": 2,
+ "note": "Hand-edited from the model's proposal (work/taxonomy-proposed.json): near-duplicates merged, non-visual moves folded into other, reveal_one_by_one added. v2: definitions of the most-confused pairs sharpened after the first audit (kappa 0.60).",
+ "kinds": [
+  {
+   "name": "highlight_part",
+   "definition": "Make one part stand out on the spot (recolour, pulse, flash, underline) while everything else stays as bright as before; if the others are dimmed or removed it is focus_isolate."
+  },
+  {
+   "name": "enclose_part",
+   "definition": "Draw an outline, box, circle or brace around a part or group to mark it out; the shape is the point."
+  },
+  {
+   "name": "cross_out",
+   "definition": "Strike through or mark something as ruled out, wrong or cancelled (a cross, a strike line); not simply removing it."
+  },
+  {
+   "name": "focus_isolate",
+   "definition": "Single out one item by dimming, fading or removing the others, so only it stays bright; if nothing else changes it is highlight_part."
+  },
+  {
+   "name": "point_at",
+   "definition": "An arrow or pointer indicating one location, cell or item (a marker that may later move)."
+  },
+  {
+   "name": "label_or_measure",
+   "definition": "Attach a short name, value, coordinate or dimension to a specific object already on screen (a tag next to it); a standalone equation is write_formula."
+  },
+  {
+   "name": "reveal_one_by_one",
+   "definition": "Bring in or count items one after another (staggered or lagged entrances, a tally) so the order or the count is the point; a layout appearing at once is show_structure."
+  },
+  {
+   "name": "write_formula",
+   "definition": "Write a new standalone equation, law or expression on screen; changing an expression already shown is transform_formula, a tag on an object is label_or_measure."
+  },
+  {
+   "name": "transform_formula",
+   "definition": "Morph an expression already on screen into a rearranged, simplified or equivalent form (one step of a derivation); a brand-new expression is write_formula."
+  },
+  {
+   "name": "substitute_values",
+   "definition": "Replace symbols in an expression with numbers or other terms (and the reverse: generalise numbers back into symbols)."
+  },
+  {
+   "name": "compute_example",
+   "definition": "Work a concrete numeric example step by step, ending with its result shown."
+  },
+  {
+   "name": "compare_side_by_side",
+   "definition": "Place two or more cases, quantities or objects next to each other to contrast them; both stay visible."
+  },
+  {
+   "name": "overlay",
+   "definition": "Superimpose one thing on another (a curve on a histogram, a shape on its copy) so they can be matched."
+  },
+  {
+   "name": "swap_case",
+   "definition": "Replace one version with another in the same place, or step through several discrete cases one at a time."
+  },
+  {
+   "name": "move_object",
+   "definition": "Move a thing along a path or to a new place (slide, travel, send), keeping its shape."
+  },
+  {
+   "name": "sweep_scan",
+   "definition": "Move a marker or window systematically across a range, array or structure to examine each part."
+  },
+  {
+   "name": "vary_parameter",
+   "definition": "Change one named value continuously (a value tracker, slider, set_value) and let everything that depends on it follow."
+  },
+  {
+   "name": "grow_shrink",
+   "definition": "Change the size or proportion of a thing, or stretch one of its dimensions."
+  },
+  {
+   "name": "transform_space",
+   "definition": "Deform a shape or the whole plane by a mapping (rotate, shear, apply a matrix, warp)."
+  },
+  {
+   "name": "decompose_split",
+   "definition": "Break a thing into its parts or pieces to show its structure."
+  },
+  {
+   "name": "combine_gather",
+   "definition": "Bring separate pieces together, stack them, or sum them into one thing."
+  },
+  {
+   "name": "connect_map",
+   "definition": "Draw lines or arrows showing how things relate, flow or map to each other (between two or more things)."
+  },
+  {
+   "name": "show_structure",
+   "definition": "Lay out a table, grid, tree, list, timeline or diagram that organises items in space, appearing as a whole; one-by-one entrance is reveal_one_by_one."
+  },
+  {
+   "name": "plot_graph",
+   "definition": "Draw a function, curve or data on axes, or change the axes/scale of a plot."
+  },
+  {
+   "name": "show_distribution",
+   "definition": "Show a probability distribution, histogram or bar chart of values, or many samples piling into one."
+  },
+  {
+   "name": "run_process",
+   "definition": "Let a dynamic process, simulation or random experiment play out over time on its own clock (updaters, time stepping), not driven by one named value."
+  },
+  {
+   "name": "geometric_construction",
+   "definition": "Add an auxiliary line, point, angle, chord or shape to a figure to build an argument."
+  },
+  {
+   "name": "show_field",
+   "definition": "Fill space with arrows, flow lines or colour showing a field."
+  },
+  {
+   "name": "two_views",
+   "definition": "Show one thing in two representations at once, tied together (a curve and its formula, arrows and a matrix)."
+  },
+  {
+   "name": "zoom_in",
+   "definition": "Magnify the view onto a detail."
+  },
+  {
+   "name": "zoom_out_reset",
+   "definition": "Widen or restore the view, reframe the camera, or bring back an earlier view."
+  },
+  {
+   "name": "fade_remove",
+   "definition": "Remove, dim or clear things no longer needed (including wiping the scene)."
+  },
+  {
+   "name": "setup",
+   "definition": "Just establishing objects before anything is explained, with no move of its own."
+  },
+  {
+   "name": "other",
+   "definition": "A remark, question, transition or note with no visual move, or a comment too vague to tell even from the code."
+  }
+ ]
+}

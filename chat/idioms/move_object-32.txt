@@ -1,0 +1,11 @@
+title "Move a thing"
+schema plane x=[0,12] y=[0,6] grid=false axes=false
+mark earth dot x=2 y=3 r=10 color=blue label="Earth"
+mark sun dot x=5 y=3 r=18 color=yellow label="Sun"
+mark ray line x1=2 y1=3 x2={sun.x} y2=3
+Say: "Here is the Sun, with a line running to it from the |earth|Earth."
+@earth indicate earth
+Say: "Now slide the Sun |away|away, and the line stretches to follow it."
+@away morph sun.x 5 -> 10 2s
+Say: "Same Sun, same size, just |far|farther off."
+@far indicate sun

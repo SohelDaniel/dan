@@ -1,0 +1,10 @@
+title "Predict the next word"
+schema graph
+mark text box input label="Paris is the capital of"
+mark model box process label="language model"
+Say: "The words go |in|in to the model."
+@in link feed arrow text -> model
+Say: "Out comes a single |guess|guess for the next word."
+@guess mark next box output label="France"
+with link out arrow model -> next
+Say: "Just one word, [next]France, and that is the whole job."

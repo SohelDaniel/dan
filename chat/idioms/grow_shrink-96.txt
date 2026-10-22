@@ -1,0 +1,8 @@
+title "Shrink one bar"
+mark a bar quantity length=10 label="first"
+mark b bar quantity length=10 label="second"
+Say: "Two bars, the same length, both at ten."
+Say: "Now the second one |shrinks| to six tenths of the first."
+@shrinks morph b.length 10 -> 6 1.5s
+Say: "Same start, but the second is now clearly |shorter|shorter."
+@shorter indicate b

@@ -1,0 +1,12 @@
+title "Remove one square"
+mark s1 dot square shape=square r=14
+mark s2 dot square shape=square r=14
+mark s3 dot square shape=square r=14
+mark s4 dot square shape=square r=14
+mark s5 dot square shape=square r=14
+mark s6 dot square shape=square r=14
+Say: "Here are six squares, all in play."
+Say: "Now |remove|remove the last one."
+@remove hide s6 0.8s
+with mark rule card text="Remove one square" label="Rule"
+Say: "Five are left, and the removed one stays as a faint ghost."

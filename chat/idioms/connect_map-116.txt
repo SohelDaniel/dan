@@ -1,0 +1,10 @@
+title "Encoding a phrase"
+schema graph
+mark phrase box input label="INFORMATION THEORY"
+Say: "Here is a |phrase|phrase we want to send."
+@phrase indicate phrase
+Say: "Draw an |arrow|arrow from it to the bits that stand for it."
+@arrow mark code box output label="11110"
+with link enc arrow phrase -> code label="encode"
+Say: "Those five bits are |bits|thirty in binary, one short code for the whole phrase."
+@bits indicate code

@@ -1,0 +1,8 @@
+title "Break it into parts"
+mark w area parts=[12] labels=[class] colors=[grey] label="a class of 12"
+Say: "Here is a |whole|whole class of twelve students."
+@whole indicate w
+Say: "Split it into its |parts|parts: six juniors, four seniors, and two staff."
+@parts mark w area parts=[6,4,2] labels=[juniors,seniors,staff] colors=[blue,orange,teal] label="the same 12"
+Say: "Same twelve, but now you can see what it is |made|made of."
+@made indicate w

@@ -1,0 +1,9 @@
+title "Extend the graph"
+schema axes x=[-1,10] y=[0,4] xlabel="x" ylabel="f(x)"
+mark f path fn={2 + sin(x)} domain=[2,6] label="known part"
+Say: "Here is a function, drawn only between two and six."
+Say: "But the rule doesn't stop there, so |extend|extend it past both ends."
+@extend mark left path ext fn={2 + sin(x)} domain=[-1,2] color=orange label="extension"
+with mark right path ext fn={2 + sin(x)} domain=[6,10] color=orange
+Say: "Same rule, same curve, just carried |on|on."
+@on indicate right

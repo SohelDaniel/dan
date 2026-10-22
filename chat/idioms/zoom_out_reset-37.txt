@@ -1,0 +1,9 @@
+title "Back to the whole"
+schema axes x=[0,6] y=[0,9]
+mark f path fn={x^2/4} label="f(x) = x²/4"
+mark p dot x=3 y={f(3)} label="P"
+Say: "Zoom |in|in on P: up close, the curve is nearly a straight line."
+@in camera zoom=12 on=p
+Say: "Now |back|back out, and the whole curve returns, with P just one point on it."
+@back camera reset
+with indicate p

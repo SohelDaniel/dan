@@ -1,0 +1,7 @@
+title "Accurate is not predictive"
+mark imp tex tex="\textcolor{green}{\text{Accurate}} \Rightarrow \textcolor{yellow}{\text{Predictive}}"
+Say: "It is tempting to think that an |acc|accurate test must be a predictive one."
+@acc indicate imp
+Say: "But that |no|does not follow."
+@no mark x cross of=imp label="does not follow"
+Say: "The claim stays in view, struck out, so we can see exactly what we are ruling out."

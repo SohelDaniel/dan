@@ -1,0 +1,5 @@
+title "Brace a group"
+mark coins array items=[1,0,1,1,0,1,1,0,1,1] label="coin flips"
+Say: "We have a pile of flips, and we make |one|one update from all the data at once."
+@one mark all brace of=coins[0:9] label="one update from all data"
+with indicate coins[0]

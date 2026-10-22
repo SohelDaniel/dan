@@ -1,0 +1,12 @@
+mark n param value=0
+mark tally tex tex="\val{n}\ \text{coins}"
+Say: "Coins land after each other, and the tally keeps up: |a|{c1.n}, |b|{c2.n}, |c|{c3.n}, |d|{c4.n}."
+@a mark c1 dot coin n=1 r=10 label="1"
+with morph n.value -> 1 0.3s
+@b mark c2 dot coin n=2 r=10 label="2"
+with morph n.value -> 2 0.3s
+@c mark c3 dot coin n=3 r=10 label="3"
+with morph n.value -> 3 0.3s
+@d mark c4 dot coin n=4 r=10 label="4"
+with morph n.value -> 4 0.3s
+Say: "That makes {n} in all, counted as they arrived."

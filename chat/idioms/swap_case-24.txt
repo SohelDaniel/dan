@@ -1,0 +1,8 @@
+title "Swap in place"
+mark f tex tex="y = x" size=60
+Say: "Start with a |lin|line, swap in a |par|parabola, then a |cub|cubic."
+@lin morph f.tex -> "y = x" 0.5s
+@par morph f.tex -> "y = x^2" 0.5s
+@cub morph f.tex -> "y = x^3" 0.5s
+Say: "Same place each time, so what changes is only the |pow|power."
+@pow mark e enclose of=f label="the only change"

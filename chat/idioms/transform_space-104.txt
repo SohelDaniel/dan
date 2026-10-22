@@ -1,0 +1,10 @@
+schema plane x=[-1,6] y=[-1,4]
+mark G grid space m=[1,1,0,1]
+mark sq polygon pts=[0,0, 2,0, 4,2, 2,2] label="shape"
+Say: "The plane has been |slanted|sheared, and the square leans over with it."
+@slanted indicate sq
+Say: "Shear it |back|back, and the lean comes out."
+@back morph G.m -> [1,0,0,1] 2s
+with morph sq.pts -> [0,0, 2,0, 2,2, 0,2] 2s
+Say: "Same shape, now a |square|square again."
+@square indicate sq

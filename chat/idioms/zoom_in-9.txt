@@ -1,0 +1,10 @@
+title "Zoom in"
+schema axes x=[0,10] y=[0,10]
+mark f path fn={x^2/10} label="f(x) = x²/10"
+mark p dot point x=6 y={f(6)} label="P"
+Say: "Here is a whole curve, and one |pt|point on it."
+@pt indicate p
+Say: "Now |in|zoom in on that point, and look at what the curve does there."
+@in camera zoom=12 on=p
+Say: "Up close, it is almost a straight line. Now |out|back out."
+@out camera reset

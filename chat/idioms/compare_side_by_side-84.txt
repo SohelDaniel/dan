@@ -1,0 +1,13 @@
+title "Compare to the naive way"
+mark avg param value=1.75
+mark navg param value=2
+mark h array items=[1,2,3,3] label="Huffman code lengths"
+mark hs tex tex="\frac{1}{2}\cdot 1+\frac{1}{4}\cdot 2+\frac{1}{8}\cdot 3+\frac{1}{8}\cdot 3 = \val{avg}"
+Say: "The smart code averages |h|{avg} bits per symbol."
+@h indicate hs
+Say: "Now |n|compare it to the naive code, which gives every symbol {navg} bits."
+@n mark n array items=[2,2,2,2] label="naive code lengths"
+with mark ns tex tex="\frac{1}{2}\cdot 2+\frac{1}{4}\cdot 2+\frac{1}{8}\cdot 2+\frac{1}{8}\cdot 2 = \val{navg}"
+Say: "Side by side, the naive one |more|costs more."
+@more mark worse enclose of=ns label="more bits"
+with indicate hs

@@ -1,0 +1,11 @@
+title "Slope from masses"
+mark m1 param value=16
+mark m2 param value=1
+Say: "The path's slope is |slope|minus the square root of the mass ratio."
+@slope mark eq tex tex="\text{slope} = -\sqrt{\textcolor{m1}{m_1} / \textcolor{m2}{m_2}}"
+Say: "The first mass is |a|sixteen."
+@a mark v1 tex tex="\textcolor{m1}{m_1} = \val{m1}"
+with send eq[m1] -> v1 1s
+Say: "The second mass is |b|one."
+@b mark v2 tex tex="\textcolor{m2}{m_2} = \val{m2}"
+with send eq[m2] -> v2 1s

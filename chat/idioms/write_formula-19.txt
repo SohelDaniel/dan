@@ -1,0 +1,7 @@
+title "Distance"
+mark v bar speed=60 label="speed"
+mark t bar time=3 label="time"
+Say: "How far you go is speed times time, written as one |law|law."
+@law mark f tex tex="d = \textcolor{v}{v}\,\textcolor{t}{t}"
+Say: "Here [v]speed and [t]time keep the colours of their bars, so |read|read it off the picture."
+@read focus f

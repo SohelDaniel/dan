@@ -1,0 +1,6 @@
+title "Box a group"
+mark a array items=[3,8,5,9,2] label="values"
+Say: "Five values, and three of them in a row are bigger than the rest."
+Say: "Put a |box|box around those three, and they become one group."
+@box mark g enclose of=a[1:3] label="the big ones"
+Say: "Now we can talk about the group, not each value."

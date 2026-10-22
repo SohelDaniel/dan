@@ -1,6 +1,6 @@
 // Generate one first-turn scene per prompt with a given prompt variant, then check and render it.
 //
-//   node tools/eval/run.mjs --variant full|method|base --out DIR [--only a,b] [--model sonnet] [--jobs 4] [--prompts prompts-2d.json] [--prompt chat/prompt.md]
+//   node tools/eval/run.mjs --variant full|method|base --out DIR [--only a,b] [--model sonnet] [--jobs 4] [--prompts prompts-2d.json] [--prompt chat/prompt.md] [--no-idioms]
 //
 // Variants: base   = format + scene rules only (no plan, no teaching method, no examples)
 //           method = chat/prompt.md without the worked examples
@@ -32,6 +32,9 @@ function system() {
   if (variant === 'full')
     for (const f of fs.readdirSync(ex).filter((f) => f.endsWith('.txt')).sort())
       examples += `\n### ${f.slice(0, -4)}\n\n\`\`\`scene\n${fs.readFileSync(path.join(ex, f), 'utf8').trim()}\n\`\`\`\n`;
+  // the visual moves mined from 3Blue1Brown, as the chat server adds them (--no-idioms leaves them out)
+  if (variant === 'full' && !argv.includes('--no-idioms') && fs.existsSync(path.join(ROOT, 'chat', 'idioms.md')))
+    examples += '\n' + fs.readFileSync(path.join(ROOT, 'chat', 'idioms.md'), 'utf8') + '\n';
   const file = variant === 'base' ? path.join(HERE, 'variants', 'base.md') : path.resolve(flag('--prompt', path.join(ROOT, 'chat', 'prompt.md')));
   return fs.readFileSync(file, 'utf8').replace('{{EXAMPLES}}', examples) + lang;
 }

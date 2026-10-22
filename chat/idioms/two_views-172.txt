@@ -1,0 +1,9 @@
+title "Picture and numbers"
+mark img array cols=3 items=[0,1,0,1,1,1,0,1,0] colors=[-,teal,-,teal,teal,teal,-,teal,-] label="the picture"
+Say: "Here is a tiny |pic|picture, a plus sign made of pixels."
+@pic indicate img
+Say: "The machine never sees it that way. Each pixel's |copy|brightness is copied out as a number."
+@copy mark nums array cols=3 items=[0,1,0,1,1,1,0,1,0] colors=[-,teal,-,teal,teal,teal,-,teal,-] label="what the machine reads"
+with send img[1] -> nums[1] 1s
+Say: "Same |same|thing, two views: the picture for us, the numbers for the machine."
+@same focus nums

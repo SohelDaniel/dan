@@ -1,0 +1,10 @@
+title "Reading a point"
+schema plane x=[0,6] y=[0,5]
+mark p dot x=3 y=2 label="P"
+Say: "A point floats in the plane. Where is it, in numbers?"
+Say: "Drop a line straight |down|down to the x-axis."
+@down mark v line x1=3 y1=0 x2=3 y2=2 color=teal label="x = 3"
+Say: "Then run one |across|across to the y-axis."
+@across mark h line x1=0 y1=2 x2=3 y2=2 color=orange label="y = 2"
+Say: "Where they land are its coordinates: three, and |two|two."
+@two indicate p

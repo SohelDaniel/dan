@@ -1,0 +1,10 @@
+title "Same shape"
+mark p1 param color=orange
+mark p2 param color=teal
+mark p3 param color=purple
+mark f tex tex="\textcolor{p1}{x''(t)} + \textcolor{p2}{\mu x'(t)} + \textcolor{p3}{k x(t)} = 0"
+mark g tex tex="\textcolor{p1}{s^2} + \textcolor{p2}{\mu s} + \textcolor{p3}{k} = 0"
+Say: "The spring equation and its |acc|s equation are mirror images: acceleration matches s squared, |fric|friction matches mu s, and the |spring|spring term matches k."
+@acc send f[p1] -> g[p1] 1s
+@fric send f[p2] -> g[p2] 1s
+@spring send f[p3] -> g[p3] 1s

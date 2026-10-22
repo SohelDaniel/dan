@@ -1,0 +1,7 @@
+title "Highlight a range"
+mark a array items=[1,3,5,7,9,11] label="sorted values"
+Say: "A row of sorted values, all in plain view."
+Say: "Only the ones |between|between three and nine count."
+@between mark r enclose of=a[1:4] label="in range"
+Say: "The others stay just as bright. Now the |box|box can go."
+@box hide r

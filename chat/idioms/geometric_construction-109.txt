@@ -1,0 +1,8 @@
+schema axes x=[0,6] y=[0,9]
+mark f path fn={x^2/4} label="f(x)"
+mark p dot point x=3 y={f(3)} label="P"
+Say: "Take a point P on the curve and draw tiny axes centred on it: |across|dx runs across, and |up|df runs up."
+@across mark ax line x1=2.4 y1=2.25 x2=3.6 y2=2.25 color=grey label="dx"
+@up mark ay line x1=3 y1=1.65 x2=3 y2=2.85 color=grey label="df"
+Say: "Now |in|zoom in, and these are the only axes that matter."
+@in camera zoom=8 on=p

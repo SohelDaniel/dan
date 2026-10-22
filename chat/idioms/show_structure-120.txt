@@ -1,0 +1,7 @@
+title "Bit levels"
+mark note card text="Each extra bit doubles the outcomes" label="Key idea"
+Say: "Information is measured against a ladder of |rungs|bit levels."
+@rungs mark lad table cols=2 cells=[bits,outcomes,0,1,1,2,2,4,3,8,4,16]
+Say: "Zero bits is one outcome, one bit is two, and every |step|step up doubles it."
+@step indicate lad
+Say: "Anything we measure later lands on one of these rungs."

@@ -1,0 +1,10 @@
+title "Next guess"
+schema axes x=[0,3] y=[-2,4]
+mark f path fn={x^2-2} label="f(x)"
+mark g dot x=2 y=2 label="guess"
+mark t line x=2 y=2 slope=4 extend=1
+Say: "Follow the tangent line down to the axis. It lands on one and a half: the |next|next guess."
+@next mark n dot x=1.5 y=0 color=red
+with mark p label text="next guess" at=n color=red
+Say: "Repeat from there, and the |move|marker slides to a closer one."
+@move morph n.x 1.5 -> 1.417 1s

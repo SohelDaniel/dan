@@ -1,0 +1,11 @@
+title "Isolate one"
+mark a box group label="group A"
+mark b box group label="group B"
+mark c box group label="group C"
+Say: "Three groups of checks, all running at once."
+Say: "To see how it works, keep just |one|group A."
+@one hide b
+with hide c
+with focus a
+Say: "Everything we say next is about this |one2|one group alone."
+@one2 indicate a

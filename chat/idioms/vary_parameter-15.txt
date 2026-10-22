@@ -1,0 +1,12 @@
+schema plane x=[-3,3] y=[-3,3] grid=false axes=false
+mark loop circle x=0 y=0 r=2
+mark s param value=0
+mark d0 dot corner x={2*cos(0.4)} y={2*sin(0.4)}
+mark d1 dot corner x={2*cos(0.4+s*1.5708)} y={2*sin(0.4+s*1.5708)}
+mark d2 dot corner x={2*cos(0.4+s*3.1416)} y={2*sin(0.4+s*3.1416)}
+mark d3 dot corner x={2*cos(0.4+s*4.7124)} y={2*sin(0.4+s*4.7124)}
+Say: "Four points sit bunched together on a loop."
+Say: "Now |spread|spread them out along the loop, and watch where they settle."
+@spread morph s.value 0 -> 1 3s
+Say: "They land on the corners of an |square|inscribed square."
+@square mark sq polygon pts=[{d0.x},{d0.y},{d1.x},{d1.y},{d2.x},{d2.y},{d3.x},{d3.y}] color=yellow

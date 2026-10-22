@@ -1,0 +1,13 @@
+title "A vector per word"
+schema graph
+mark w1 box word label="the"
+mark w2 box word label="cat"
+mark w3 box word label="sat"
+Say: "Each word gets its own list of numbers. First the|one|, then cat|two|, then sat|three|."
+@one mark v1 box embedding label="0.3  -1.2  0.7"
+with link e1 arrow w1 -> v1 label="e₁"
+@two mark v2 box embedding label="0.9  0.4  -0.5"
+with link e2 arrow w2 -> v2 label="e₂"
+@three mark v3 box embedding label="-0.6  1.1  0.2"
+with link e3 arrow w3 -> v3 label="e₃"
+Say: "Three words, three vectors, one each."
