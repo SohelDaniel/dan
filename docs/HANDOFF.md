@@ -394,6 +394,27 @@ ink only when the script relates them. `reports/Overlap needs a relation.md` has
   Not fixed: names crossing shapes' outlines in geometry and plots (the largest class, about 110 lessons; making a
   crossing cost more did nothing), and overlaps that last only during a transition.
 
+## 8i. 2026-10-23: 3D (schema space)
+
+Plan: `docs/plan-3d.md`. Research: `research_notes/3D/explainers.md`. The code is in `markup/space.cpp` and `markup/viz/space.*`.
+- **How it is drawn.** One CPU projection (orbit camera, z up, narrow perspective, fitted to the cylinder the box sweeps
+  as it turns), drawn as 2D strokes and triangles sorted by depth. So labels, the placer, the checker, readback and
+  `--check` all work on projected positions; GPU 3D was rejected (it breaks snapshots and headless runs).
+- **Kinds:** dot (`drop=true`), vector (dz), line/arrow, path (xt yt zt), surface (fn=, or u,v), sphere, plane, polygon
+  faces, grid (3x3), field (vx vy vz).
+- **Camera:** in words (view= orbit= tilt= spin zoom= on= reset).
+- **Parity:** everything 2D has (trails, notes, pointers, send, focus, `{expr}`); a ghost pass so things behind
+  surfaces still show.
+- **Lints:** a thing leaving the box; a surface with a camera that never moves; binding (heights must be labelled).
+- **Eval** (`tools/eval/prompts-3d.json`: 24 spatial questions, 12 that only tempt 3D; Opus high; judge v2 and sentences):
+  - choice right 34/36 (before 12/36; flat questions stayed flat 12/12);
+  - on the 3D questions: picture 2.88 to 3.46, accuracy 3.12 to 3.54, teaching 3.12 to 3.58, layout 2.62 to 2.83;
+  - flat questions unchanged or a little better;
+  - claims shown 62% vs 60% (noise).
+- **Next:** the judge's main complaint is a small, crowded 3D view when formulas stack above it (a band that
+  gives a space view more room, or formulas beside it), and tangent planes drawn as large clipped polygons
+  (a local patch would read better).
+
 ## 9. Known loose ends
 
 - A loophole in "position comes from structure": `schema plane … axes=false` used as a free canvas to place boxes by
