@@ -233,6 +233,36 @@
   "final": 100,
   "maxOverlaps": 1
  },
+ "scripts/space-cross.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/space-determinant.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
+ "scripts/space-downhill.txt": {
+  "mean": 93.4,
+  "worst": 78.1,
+  "final": 100,
+  "maxOverlaps": 4
+ },
+ "scripts/space-kinds.txt": {
+  "mean": 99.8,
+  "worst": 97,
+  "final": 100,
+  "maxOverlaps": 1
+ },
+ "scripts/space-saddle.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
  "scripts/steps.txt": {
   "mean": 100,
   "worst": 100,
