@@ -441,3 +441,30 @@ The user will use the tutor daily and come back to Claude with what they don't l
   `chat/settings.json` (gitignored); flags win.
 - `docs/HANDOFF.md` is now a map of the current state; the old chronological handoff became this file.
   `CLAUDE.md` loads the map and asks each session to update it with every commit.
+
+## 8j. 2026-10-23: pacing after an algebra step (research and plan only, no code)
+
+The user: after an algebraic step the tutor should pause a moment and say it again so it lands, the way 3Blue1Brown
+and Professor Leonard do, but not after every step. Asked for the regressions, the audit, research and a plan.
+
+Regressions: test, check, golden green; **`make append` fails on two 3D scripts** (space-saddle in chunks of 2,
+space-downhill in chunks of 2, 3, 5; 152 identical, 4 different), reproducible on a clean tree, not touched here.
+Audit of the last 8 chats: worst 75.1 (code over a formula, 20261022-211954), the rest 82–100.
+
+Found: a `Say` blocks until its audio ends, an uncued morph blocks until it lands, and the next `Say` starts at
+once: 0 s at rest with the finished formula. `wait Ns` exists, is blocking and decodable, and Claude has never
+written one (0 in 59 turns); the prompt only says "Don't use `pause`". In the real chats 108 of 495 sentences
+change a formula; 42% are followed by another formula sentence, 70% by a sentence that moves on; the rationals
+chat has two sentences with three formula changes each.
+
+3Blue1Brown measured: one transform per play 73% of the time, a 1 s wait after 66%; captions: 205 wpm, median
+gap 0.62 s, 21% of gaps ≥ 1 s, 6% ≥ 2 s, 3% ≥ 3 s, the long holds after statements of a result; restates with
+"in other words" and a new framing, never the same words. Research: system-paced 2 s pauses at segment
+boundaries help novices and cost experts nothing (Spanjers 2010); time added at the end does not (Hasler 2007);
+label the subgoal (Catrambone); a tutor repeating itself verbatim does not help, prompting or re-framing does
+(Chi 2001). Write-up with sources: `research_notes/Pacing/`.
+
+Plan proposed (awaiting the user's yes): one formula change per sentence and an automatic 1 s rest after a formula
+sentence (engine); a digest sentence that reads the result off the stage in other words plus `wait 2s` after a
+subgoal step, a prompt or re-framing plus `wait 3s` after the crux, none at `expert` (prompt + toolbox); a gap
+metric from the engine's say/end events, a `prompts-algebra` set, pre-registered bar. No axiom bent.

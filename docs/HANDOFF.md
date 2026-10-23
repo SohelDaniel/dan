@@ -6,7 +6,7 @@ what is open. The dated story of how it got here (what was tried, measured, kept
 **Keep this file current.** Each session ends by updating it (see `CLAUDE.md`): change the map where the code
 changed, add gotchas, move finished items out of "Open", and add a dated entry to `docs/history.md`.
 
-Last updated: 2026-10-23 (the `tutor` command, a voice picker, this map).
+Last updated: 2026-10-23 (pacing research and plan; append fails on two 3D scripts).
 
 ## 1. What it is
 
@@ -189,5 +189,8 @@ Next candidates, roughly by value:
 - A lint for the invisible-plane loophole (`schema plane axes=false` used as a free canvas).
 - Ideas offered, not started: "prepare like Grant" (plan the whole lesson first), a taste judge trained on the
   user's clicks.
+- **Pacing after an algebra step** (plan in `docs/history.md` 8j, sources in `research_notes/Pacing/`): one
+  step per sentence, an automatic rest, a digest sentence and `wait` after subgoal and crux steps. Awaiting a yes.
+- **`make append` fails on `space-saddle` and `space-downhill`** (streamed != whole in chunks of 2/3/5).
 - Small: no camera pan for long arrays or timelines; contour labels and field legends aren't in the checker;
   `scripts/*.readback` files are generated junk.
