@@ -118,7 +118,8 @@ std::vector<std::vector<StripPt>> Engine::trailRuns(Mark &m) {
   std::vector<std::vector<StripPt>> runs;
   double window;
   bool all;
-  if (!trailSpec(m, window, all) || !isAxes(schemaNow())) return runs;
+  bool space = isSpace(schemaNow()); // a path in space: re-projected every frame, so it turns with the view
+  if (!trailSpec(m, window, all) || !(isAxes(schemaNow()) || space)) return runs;
   if (!findProp(m.props, "x") || !findProp(m.props, "y")) return runs;
   double t1 = clock_, born = bornAt_.count(m.id) ? bornAt_[m.id] : 0;
   double t0 = std::max(born, all ? born : t1 - window);
@@ -137,11 +138,12 @@ std::vector<std::vector<StripPt>> Engine::trailRuns(Mark &m) {
   double maxJump = std::max(40.0, 2400.0 * h); // a jump this big in one sample is a teleport, not motion
   for (double t : ts) {
     histT_ = t;
-    bool hx, hy;
-    double x = num(m, "x", &hx), y = num(m, "y", &hy);
+    bool hx, hy, hz;
+    double x = num(m, "x", &hx), y = num(m, "y", &hy), z = space ? num(m, "z", &hz) : 0;
     histT_ = NAN;
-    if (!hx || !hy || !std::isfinite(x) || !std::isfinite(y)) { flush(); have = false; continue; }
+    if (!hx || !hy || !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) { flush(); have = false; continue; }
     Vector2 P = axes_.toScreen((float)x, (float)y);
+    if (space) { viz::Projected q = spc_.proj.project({x, y, z}); P = {(float)q.x, (float)q.y}; }
     if (have && len(P - last) > maxJump) flush();
     float u = all ? 0.f : (float)std::clamp((t1 - t) / window, 0.0, 1.0); // 0 at the head, 1 at the tail
     float w = all ? width : std::max(0.6f, width * std::sqrt(1 - u));

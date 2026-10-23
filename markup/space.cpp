@@ -496,6 +496,23 @@ void Engine::layoutSpace(Rectangle area, float dt) {
     std::string k = effectiveKind(*m);
     if (k != "dot" && k != "vector" && k != "line" && k != "arrow" && k != "path" && k != "polygon" && k != "grid" && !isSpaceKind(k)) continue;
     SpaceShape s = spaceShape(*m);
+    // a thing the box doesn't hold leaves the picture: say so (against the ranges it is easing to)
+    auto outside = [&](V3 q) {
+      double c[3] = {q.x, q.y, q.z};
+      for (int i = 0; i < 3; i++) {
+        double pad = (v.hi[i] - v.lo[i]) * 0.02;
+        if (c[i] < v.lo[i] - pad || c[i] > v.hi[i] + pad) {
+          const char *axis[3] = {"x", "y", "z"};
+          warn("space: '" + m->id + "' reaches " + axis[i] + " = " + fmtNum(c[i]) + ", outside the box (" + axis[i] + "=[" +
+               fmtNum(v.lo[i]) + ", " + fmtNum(v.hi[i]) + "]): widen the schema's " + axis[i] + "=[…] so it stays in view");
+          return true;
+        }
+      }
+      return false;
+    };
+    bool out = false;
+    for (auto &st : s.strokes) if (st.ink) for (auto &q : st.pts) if (!out) out = outside(q);
+    for (auto &q : s.dots) if (!out) out = outside(q);
     float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
     auto add = [&](V3 q) {
       viz::Projected p = v.proj.project(q);
@@ -611,6 +628,8 @@ struct Piece {
   Color col{};
   float w = 1;
   bool dashed = false;
+  bool thing = false; // a point, an arrowhead or a line of a thing: drawn again faintly on top, so what goes behind a
+                      // surface is still seen (identity: nothing the voice names may vanish)
 };
 } // namespace
 
@@ -623,14 +642,14 @@ void Engine::drawSpace() {
     return Vector2{(float)p.x, (float)p.y};
   };
   // a polyline: each segment a piece of its own, so a surface can come between its parts
-  auto addLine = [&](const std::vector<V3> &pts, Color c, float w, bool dashed) {
+  auto addLine = [&](const std::vector<V3> &pts, Color c, float w, bool dashed, bool thing = false) {
     for (size_t i = 1; i < pts.size(); i++) {
       Piece pc;
       float d0, d1;
       pc.a = proj(pts[i - 1], d0);
       pc.b = proj(pts[i], d1);
       pc.depth = (d0 + d1) / 2;
-      pc.col = c; pc.w = w; pc.dashed = dashed;
+      pc.col = c; pc.w = w; pc.dashed = dashed; pc.thing = thing;
       pieces.push_back(pc);
     }
   };
@@ -696,7 +715,7 @@ void Engine::drawSpace() {
     if (!s.ok) continue;
     for (auto &t : s.tris) addTri(t, a);
     for (auto &st : s.strokes) {
-      addLine(st.pts, fade(st.c, st.alpha * a), st.width, st.dashed);
+      addLine(st.pts, fade(st.c, st.alpha * a), st.width, st.dashed, st.ink);
       if (st.head && st.pts.size() >= 2) { // a cone-like head: a triangle along the direction on screen
         float d0, d1;
         Vector2 tip = proj(st.pts.back(), d0), back = proj(st.pts[st.pts.size() - 2], d1);
@@ -707,6 +726,7 @@ void Engine::drawSpace() {
         h.a = tip + dir * 4; h.b = tip - dir * 14 + side * 7; h.c = tip - dir * 14 - side * 7;
         h.depth = d0 - 0.001f;
         h.col = fade(st.c, a);
+        h.thing = true;
         pieces.push_back(h);
       }
     }
@@ -717,11 +737,13 @@ void Engine::drawSpace() {
       d.depth -= 0.002f; // a dot on a surface is in front of it
       d.col = fade(colorOf(*m), a);
       d.w = dotRadius(*m) * std::clamp(m->appear * 1.4f, 0.f, 1.f);
+      d.thing = true;
       pieces.push_back(d);
     }
   }
 
   std::stable_sort(pieces.begin(), pieces.end(), [](const Piece &x, const Piece &y) { return x.depth > y.depth; });
+  bool anySurface = std::any_of(pieces.begin(), pieces.end(), [](const Piece &p) { return p.kind == Piece::Tri; });
   for (auto &p : pieces) {
     switch (p.kind) {
     case Piece::Tri: tri(p.a, p.b, p.c, p.col); break;
@@ -739,6 +761,14 @@ void Engine::drawSpace() {
       break;
     }
   }
+  if (anySurface) // things hidden by a surface show through it faintly (in front they only brighten a little)
+    for (auto &p : pieces) {
+      if (!p.thing) continue;
+      Color g = fade(p.col, 0.3f);
+      if (p.kind == Piece::Disc) DrawCircleV(p.a, p.w, g);
+      else if (p.kind == Piece::Head) tri(p.a, p.b, p.c, g);
+      else if (!p.dashed) DrawLineEx(p.a, p.b, p.w, g);
+    }
   // numbers and axis names last, upright, readable over anything
   for (auto &[box, s] : spaceTicks()) {
     bool name = !s.empty() && s[0] == '\x01';

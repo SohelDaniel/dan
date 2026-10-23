@@ -378,3 +378,57 @@ TEST_CASE("a named brace beside a column of inputs gets room beside the graph: o
   e.layoutCheck(&msgs);
   for (auto &m : msgs) CHECK_MESSAGE(m.find("brace 'bx'") == std::string::npos, m);
 }
+
+// ---------------------------------------------------------------- space (3D)
+
+TEST_CASE("space: a point is where the projection puts it, and it moves when the camera turns") {
+  Engine e(instant());
+  played(e, "schema space x=[-2,2] y=[-2,2] z=[-2,2]\nmark p dot x=1 y=1 z=1 label=\"p\"\nmark q dot x=-1 y=-1 z=-1\n");
+  place::Picture before = e.picture();
+  const place::Ink *p = body(before, "p"), *q = body(before, "q");
+  REQUIRE((p && q));
+  CHECK(p->box.y < q->box.y);                      // higher in space, higher on screen
+  float px = p->box.x;
+  played(e, "schema space x=[-2,2] y=[-2,2] z=[-2,2]\nmark p dot x=1 y=1 z=1 label=\"p\"\nmark q dot x=-1 y=-1 z=-1\ncamera orbit=90\n");
+  CHECK(body(e.picture(), "p")->box.x != doctest::Approx(px)); // turned: it moved on screen
+}
+
+TEST_CASE("space: points lined up in this view are not 'equal'; only a meeting in 3D says so") {
+  Engine e(instant());
+  // from the front, (0, -1, 0) and (0, 1, 0) are one behind the other
+  played(e, "schema space x=[-2,2] y=[-2,2] z=[-2,2]\nmark a dot x=0 y=-1 z=0\nmark b dot x=0 y=1 z=0\ncamera view=front\n"
+            "mark c dot x=1 y=1 z=1\nmark d dot x=1 y=1 z=1\n");
+  std::string rb = e.readback(true);
+  CHECK(rb.find("# overlapping: a b") == std::string::npos);
+  CHECK(rb.find("# overlapping: c d") != std::string::npos);
+}
+
+TEST_CASE("space: the camera lines that turned it come back in the readback, in order, and spin stays last") {
+  Engine e(instant());
+  played(e, "schema space\nmark p dot x=1 y=1 z=1\ncamera view=top\ncamera spin\ncamera orbit=45\n");
+  std::string rb = e.readback(false);
+  size_t top = rb.find("camera view=top"), orbit = rb.find("camera orbit=45"), spin = rb.find("camera spin");
+  REQUIRE(top != std::string::npos);
+  REQUIRE(orbit != std::string::npos);
+  REQUIRE(spin != std::string::npos);
+  CHECK(top < orbit);
+  CHECK(orbit < spin);
+}
+
+TEST_CASE("space: every name in a scene of every kind is clear of the others, of the lines and of the numbers") {
+  Engine e(instant());
+  played(e, R"scene(schema space x=[-3,3] y=[-3,3] z=[-2,3]
+mark B sphere x=1.5 y=-1.5 z=1 r=0.8 label="sphere"
+mark P plane normal=[0,0,1] d=2.2 label="z = 2.2"
+mark h path xt={2*cos(t)} yt={2*sin(t)} zt={t/5} range=[0,12] label="helix"
+mark a vector dx=2 dy=0 dz=0 label="a"
+mark b vector dx=0 dy=2 dz=0 label="b"
+mark c vector dx=0 dy=0 dz=2 label="a × b"
+mark F polygon pts=[0,0,0, 2,0,0, 2,2,0, 0,2,0] label="area 4"
+mark q dot x=-2 y=2 z=1.5 drop=true label="q"
+camera spin
+)scene");
+  std::vector<std::string> msgs;
+  e.layoutCheck(&msgs);
+  for (auto &m : msgs) CHECK_MESSAGE(m.find("overlaps") == std::string::npos, m);
+}

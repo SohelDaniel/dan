@@ -220,7 +220,7 @@ place::Picture Engine::picture() {
     }
   }
   for (auto &id : order_) // trails: strokes owned by the thing that leaves them
-    if (Mark *m = mark(id); m && m->positioned && findProp(m->props, "trail") && isAxes(schemaOf(*m))) {
+    if (Mark *m = mark(id); m && m->positioned && findProp(m->props, "trail") && (isAxes(schemaOf(*m)) || isSpace(schemaOf(*m)))) {
       int owner = idx.count(id) ? idx[id] : -1;
       lineInk(id + "~trail", "the trail of '" + id + "'", trailLine(*m), owner, -1);
     }
@@ -1014,7 +1014,7 @@ void Engine::markLabelRequests(LabelPass &lp) {
     }
     if (!stroke.empty()) lp.world.strokes.push_back(thin(stroke));
     if (isSpace(schemaOf(*m)) && k != "dot") stroke = spaceStroke(*m); // for its name's spots (labelObstacles made it a stroke)
-    if (findProp(m->props, "trail") && isAxes(schemaOf(*m))) { // labels keep off trails too
+    if (findProp(m->props, "trail") && (isAxes(schemaOf(*m)) || isSpace(schemaOf(*m)))) { // labels keep off trails too
       std::vector<place::Vec> tl;
       for (auto &q : trailLine(*m)) tl.push_back({q.x, q.y});
       if (tl.size() > 1) lp.world.strokes.push_back(tl);

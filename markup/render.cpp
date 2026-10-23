@@ -920,6 +920,7 @@ void Engine::draw() {
   for (auto &id : order_) // trails under the things that leave them, clipped to their own plot
     if (Mark *m = mark(id); m && findProp(m->props, "trail")) {
       DataScope ds(*this, dataViewOf(*m));
+      if (isSpace(schemaNow())) { drawTrail(*m); continue; }
       if (!isAxes(schemaNow())) continue;
       BeginScissorMode((int)axes_.area.x, (int)axes_.area.y, (int)axes_.area.width, (int)axes_.area.height);
       drawTrail(*m);

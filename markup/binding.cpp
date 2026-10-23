@@ -263,7 +263,8 @@ Engine::StageFacts Engine::stageFacts() {
       for (auto &p : m->props) {
         if (p.val.type == Value::STR) texts.push_back(p.val.str);
         else if (p.val.type == Value::LIST) for (auto &it : p.val.list) texts.push_back(it);
-        else if (p.key == magProp(*m)) texts.push_back(fmtNum(num(p.val)));
+        else if (p.key == magProp(*m) && !(k == "label" && findProp(m->props, "text"))) // a label with text= shows only that
+          texts.push_back(fmtNum(num(p.val)));
       }
       for (auto &a : actives_) // a value on its way (instant runs land it on the next tick)
         if (a.kind == Active::NUM && a.id == id) texts.push_back(fmtNum(a.to));
@@ -447,7 +448,8 @@ void Engine::checkBinding(size_t sayIdx, size_t nextIdx) {
     flush();
     for (auto &[name, sym] : greek)
       if (onStage.count(name)) onStage.insert(sym); // \theta in a formula
-    if (isAxes(schemaNow())) { onStage.insert("x"); onStage.insert("y"); }
+    if (isAxes(schemaNow()) || isSpace(schemaNow())) { onStage.insert("x"); onStage.insert("y"); }
+    if (isSpace(schemaNow())) onStage.insert("z"); // its axes are named (its coordinates are not readable off a 3D picture)
     std::set<std::string> said;
     std::string w;
     auto word = [&](std::string t) {

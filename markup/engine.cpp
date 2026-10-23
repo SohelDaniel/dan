@@ -127,11 +127,17 @@ void Engine::analyze(bool fresh) {
     cur.isInt[k] = cur.isInt.count(k) ? (cur.isInt[k] && isInt) : isInt;
   };
   bool hasAxes = false, hasT = false, hasLinks = false, hasMag = false, hasWorld = false, hasFn = false, hasBox = false, hasSpace = false;
+  bool hasSurface = false, camMoves = false; // a space's surface, and whether the camera ever turns while it is shown
   autoSchemas_.clear();
   int blockLines = 0; // blocks this scene will hold (to choose the band's arrangement before they arrive)
   std::set<std::string> sceneBlockIds;
   sceneBlocks_.clear();
   auto closeScene = [&] {
+    // a still picture of a surface is ambiguous (a bowl or a dome?): shape reads from motion (the kinetic depth effect)
+    if (hasSurface && !camMoves)
+      warn("space: a surface is shown but the camera never moves; its shape reads from motion: add `camera spin` (or an "
+           "`orbit=`) while the surface is the subject");
+    hasSurface = camMoves = false;
     sceneBlocks_.push_back(blockLines);
     blockLines = 0;
     sceneBlockIds.clear();
@@ -165,6 +171,7 @@ void Engine::analyze(bool fresh) {
       if (isWorldKind(ln.kind)) hasWorld = true;
       if (ln.kind == "box") hasBox = true;
       if (isSpaceKind(ln.kind)) hasSpace = true;
+      if (ln.kind == "surface" || (findProp(ln.props, "fn") && hasSpace)) hasSurface = true;
       for (auto &p : ln.props) // [1,000, 2,500]: a thousands comma splits a number in two
         if (p.val.type == Value::LIST)
           for (size_t i = 1; i < p.val.list.size(); i++) {
@@ -183,6 +190,9 @@ void Engine::analyze(bool fresh) {
       if (isBlockKind(ln.kind) && sceneBlockIds.insert(ln.id).second) blockLines++;
       if (ln.kind == "slope") hasAxes = hasFn = true;                                   // y against x
       else if (isFieldKind(ln.kind) || ln.kind == "solution") { hasWorld = true; hasFn = false; } // the plane
+      break;
+    case Verb::CAMERA:
+      if (ln.kind == "spin" || findProp(ln.props, "orbit") || findProp(ln.props, "view") || findProp(ln.props, "tilt")) camMoves = true;
       break;
     case Verb::LINK: defined.insert(ln.id); hasLinks = true; break;
     case Verb::SEND: // a formula part named by send is a part, like one an annotation names
