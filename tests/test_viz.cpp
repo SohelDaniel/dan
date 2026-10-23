@@ -1,8 +1,9 @@
-// Unit and property tests for markup/viz (camera path, ticks, contours, streamlines, colour, trails).
+// Unit and property tests for markup/viz (camera path, ticks, contours, streamlines, colour, trails, 3D space).
 //   make test
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest/doctest.h"
 #include "../markup/viz/viz.hpp"
+#include "../markup/viz/space.hpp"
 #include <algorithm>
 
 using namespace viz;
@@ -229,4 +230,70 @@ TEST_CASE("compile: same values as the tree walk, outside names folded once") {
   std::string err;
   auto e = mk::parseExpr("f(x) + y", err);
   CHECK_FALSE(mk::compile(*e, ctx).ok); // an engine call of x: fall back to eval
+}
+
+// ---------------------------------------------------------------- space (3D)
+
+static void dirOf(const Space &s, V3 d, double &dx, double &dy) { s.screenDir(d, dx, dy); }
+
+TEST_CASE("space: the default view has x coming towards the viewer on the left, y going right, z up") {
+  Space s;
+  double dx, dy;
+  dirOf(s, {1, 0, 0}, dx, dy);
+  CHECK(dx < 0); CHECK(dy > 0); // left and down (towards the viewer, seen from above)
+  dirOf(s, {0, 1, 0}, dx, dy);
+  CHECK(dx > 0.5);
+  dirOf(s, {0, 0, 1}, dx, dy);
+  CHECK(dy < -0.9); CHECK(std::fabs(dx) < 1e-9); // straight up: the vertical stays vertical
+}
+
+TEST_CASE("space: named views put the axes where a textbook does") {
+  Space s;
+  double dx, dy;
+  REQUIRE(namedView("top", s.view));
+  dirOf(s, {1, 0, 0}, dx, dy); CHECK(dx == doctest::Approx(1).epsilon(0.01));
+  dirOf(s, {0, 1, 0}, dx, dy); CHECK(dy == doctest::Approx(-1).epsilon(0.01));
+  REQUIRE(namedView("front", s.view));
+  dirOf(s, {1, 0, 0}, dx, dy); CHECK(dx == doctest::Approx(1).epsilon(0.01));
+  dirOf(s, {0, 0, 1}, dx, dy); CHECK(dy == doctest::Approx(-1).epsilon(0.01));
+  REQUIRE(namedView("side", s.view));
+  dirOf(s, {0, 1, 0}, dx, dy); CHECK(dx == doctest::Approx(1).epsilon(0.01));
+  dirOf(s, {0, 0, 1}, dx, dy); CHECK(dy == doctest::Approx(-1).epsilon(0.01));
+  CHECK_FALSE(namedView("diagonal", s.view));
+}
+
+TEST_CASE("space: the whole box fits from every side, and its centre stays put (no breathing while turning)") {
+  Space s;
+  s.lo[0] = -3; s.hi[0] = 3; s.lo[1] = -2; s.hi[1] = 4; s.lo[2] = 0; s.hi[2] = 5;
+  s.ax = 100; s.ay = 50; s.aw = 900; s.ah = 500;
+  for (double phi : {10.0, 45.0, 70.0, 90.0})
+    for (int t = 0; t < 360; t += 15) {
+      s.view.theta = t * kDeg;
+      s.view.phi = phi * kDeg;
+      Projected c = s.project(s.centre());
+      CHECK(c.x == doctest::Approx(550)); CHECK(c.y == doctest::Approx(300));
+      for (int k = 0; k < 8; k++) {
+        Projected p = s.project({k & 1 ? s.hi[0] : s.lo[0], k & 2 ? s.hi[1] : s.lo[1], k & 4 ? s.hi[2] : s.lo[2]});
+        CHECK(p.x >= s.ax); CHECK(p.x <= s.ax + s.aw);
+        CHECK(p.y >= s.ay); CHECK(p.y <= s.ay + s.ah);
+      }
+    }
+}
+
+TEST_CASE("space: nearer is shallower; equal units keep a cube a cube, box units fit a tall range") {
+  Space s;
+  Projected nearPt = s.project({1, 0.6, 0}), farPt = s.project({-1, -0.6, 0}); // the eye is out along +x, +y
+  CHECK(nearPt.depth < farPt.depth);
+  CHECK(nearPt.scale > farPt.scale);
+  namedView("front", s.view);
+  s.fov = 1e-3; // nearly orthographic: lengths comparable
+  s.lo[2] = -1; s.hi[2] = 1;
+  double wx = s.project({1, 0, 0}).x - s.project({0, 0, 0}).x, hz = s.project({0, 0, 0}).y - s.project({0, 0, 1}).y;
+  CHECK(wx == doctest::Approx(hz).epsilon(0.01));
+  s.lo[2] = -50; s.hi[2] = 50; // a tall z range
+  s.equal = false;              // box units: each axis the same length on screen
+  double tall = s.project({0, 0, 0}).y - s.project({0, 0, 50}).y, wide = s.project({1, 0, 0}).x - s.project({0, 0, 0}).x;
+  CHECK(tall == doctest::Approx(wide).epsilon(0.01));
+  CHECK(clampTilt(-1) > 0);
+  CHECK(clampTilt(2) == doctest::Approx(90 * kDeg));
 }
