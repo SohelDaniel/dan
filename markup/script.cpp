@@ -427,7 +427,7 @@ static bool readHideShow(Reading &r) {
   if (toks.size() < 2) return r.fail(verb + " needs a thing");
   ln.id = toks[1];
   ln.prop = "opacity";
-  ln.to = Value::number(verb == "hide" ? 0.12 : 1);
+  ln.to = Value::number(verb == "hide" ? kGhostOpacity : 1);
   ln.dur = 0.6f;
   for (size_t i = 2; i < toks.size(); i++) {
     float d;

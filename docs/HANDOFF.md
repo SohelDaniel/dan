@@ -369,6 +369,31 @@ and the lesson resumes where it paused.
   - gated per-beat repair: +0.8 points;
   - training a local model: Qwen3 8B's best of 4 is far below Claude's first try.
 
+## 8h. 2026-10-23: overlap needs a relation
+
+A pause-and-ask answer drew a matrix over a plane view, row names over the wrong rows and a ghost cross over the
+corrected formula. Research (Mackinlay's expressiveness, Engelhardt's syntax of graphics, Marks & Reiter on false
+implicatures, TeX boxes, map labelling) says the same thing: touching is read as a relation, so two things may share
+ink only when the script relates them. `reports/Overlap needs a relation.md` has the sources and the numbers.
+
+- **The checker sees views** (`picture()`, `addFrames`, `regionOf`): each view's plot area, tick numbers, title and
+  dividing line are ink, and every ink belongs to a region (the band, or a view). A frame is ground only for its own
+  region's things (`place::check`, `Ink::Frame`). The screenshot's scene scored 79/100 with the blind checker, 10
+  with the one that sees views, and 97 after the fixes below.
+- **The band never spills onto a plot** (`layoutBand`, `bandFit`, `bandNeed_`): above a plot the band is capped at 60%
+  and the whole stage is drawn smaller instead (uniformly, so scales and baselines hold). The band's need only grows
+  within a scene; letting it shrink made blocks re-wrap between rows and column every frame.
+- **A note's name stays off the rest of a formula it names a part of** (`annotationHost`, `partLabelSide`): an enclose
+  of a row is named above the formula for upper rows, below for lower ones, and the band keeps that room. Arrays
+  are left as they were: their cell notes are named off the strip already.
+- **A hidden note leaves no ghost** (`opacityOf`): hide fades a brace, enclose, cross, … to nothing; the readback
+  keeps `opacity=0.12`, so decodability is unchanged.
+- **A graph leaves room for a named brace on a column** (`layoutGraph`), on the side away from its links.
+- Measured on 309 recorded lessons (`--layout-report`, worst moment): neutral overall (92.2 to 92.3), because
+  two views and row notes are rare there; the screenshot's scene went from 10 to 97. Golden layouts unchanged.
+  Not fixed: names crossing shapes' outlines in geometry and plots (the largest class, about 110 lessons; making a
+  crossing cost more did nothing), and overlaps that last only during a transition.
+
 ## 9. Known loose ends
 
 - A loophole in "position comes from structure": `schema plane … axes=false` used as a free canvas to place boxes by

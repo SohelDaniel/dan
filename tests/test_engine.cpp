@@ -307,3 +307,74 @@ TEST_CASE("the voice never reads code aloud: a word property is spoken, a formul
   for (auto &l : e.lintMessages()) if (l.find("{f.tex} is a formula") != std::string::npos) told = true;
   CHECK(told);
 }
+
+// the follow-up answer that overlapped (pause and ask, 2026-10-22): a code box, two formulas and a graph, then a
+// plane view beside the graph. Overlap needs a relation; nothing here relates the band to the plane
+static const char *kBandOverPlot = R"scene(schema graph
+mark src code text="a;\nb;\nc;\nd;\ne;\nf;\ng;\nh;" line=4 label=layer::backward
+mark x1 box input label="x₁ = 2"
+mark x2 box input label="x₂ = 1"
+mark x3 box input label="x₃ = 3"
+mark u1 box unit label="unit 1"
+mark u2 box unit label="unit 2"
+link a arrow x1 -> u1
+link b arrow x2 -> u1
+link c arrow x3 -> u2
+mark bx brace of=[x1, x2, x3] label="from the layer before"
+mark eq tex tex="dz = da \odot \text{drelu}([1.5,\ 0.7]) = [0.5,\ -0.25]" size=28
+mark mm tex tex="\begin{pmatrix}1 & 0.5 & 1.5\\ \textcolor{bot}{-0.5} & \textcolor{bot}{-0.25} & \textcolor{bot}{-0.75}\end{pmatrix}" size=26
+mark nope cross of=mm
+hide nope
+mark rb enclose of=mm[bot] label="dz₂ · x = −0.25 · (2, 1, 3)"
+schema geo plane x=[-1.2,3] y=[-2.2,1.6] grid=false label="unit 1's weights"
+mark xv vector input x=0 y=0 dx=2 dy=1 label="x = (2, 1)"
+)scene";
+
+TEST_CASE("a band too tall for the room above a plot shrinks the stage, it never spills onto the plot") {
+  Engine e(instant());
+  played(e, kBandOverPlot);
+  place::Picture p = e.picture();
+  const place::Ink *plot = nullptr;
+  for (auto &i : p.ink) if (i.kind == place::Ink::Frame && i.what == "the plot 'geo'") plot = &i;
+  REQUIRE(plot); // the checker sees the plot
+  for (const char *id : {"src", "eq", "mm"}) {
+    const place::Ink *b = body(p, id);
+    REQUIRE(b);
+    CHECK_MESSAGE(b->box.y + b->box.h <= plot->box.y, id << " reaches into the plot");
+  }
+}
+
+TEST_CASE("a hidden note leaves no ghost: a faint cross would still say wrong; the readback keeps it") {
+  Engine e(instant());
+  played(e, kBandOverPlot);
+  CHECK(anyInk(e.picture(), "nope") == nullptr);
+  std::string rb = e.readback(false);
+  CHECK(rb.find("mark nope cross of=mm opacity=0.12") != std::string::npos);
+}
+
+TEST_CASE("a named enclose of a formula's row is named off the formula, never on another row") {
+  Engine e(instant()); // a code box right above: the corners above the top row are taken
+  played(e, R"scene(mark src code text="matrix da = blame;\nmatrix dz = da;\ndw = dz * x.transpose();" line=3
+mark mm tex tex="\begin{pmatrix}\textcolor{top}{1} & \textcolor{top}{0.5}\\ \textcolor{bot}{-0.5} & \textcolor{bot}{-0.25}\end{pmatrix}" size=26
+mark ra enclose of=mm[top] label="dz₁ · x = 0.5 · (2, 1)"
+mark rb enclose of=mm[bot] label="dz₂ · x = −0.25 · (2, 1)"
+mark eq tex tex="dw = dz\, x^T" size=28
+)scene");
+  place::Picture p = e.picture();
+  const place::Ink *mm = body(p, "mm"), *top = nullptr, *bot = nullptr;
+  for (auto &i : p.ink) {
+    if (i.kind == place::Ink::Label && i.id == "ra") top = &i;
+    if (i.kind == place::Ink::Label && i.id == "rb") bot = &i;
+  }
+  REQUIRE((mm && top && bot));
+  CHECK(top->box.y + top->box.h <= mm->box.y + 1); // the upper row's name: above the formula
+  CHECK(bot->box.y >= mm->box.y + mm->box.h - 1);  // the lower row's name: below it
+}
+
+TEST_CASE("a named brace beside a column of inputs gets room beside the graph: on the screen, off the links") {
+  Engine e(instant());
+  played(e, kBandOverPlot);
+  std::vector<std::string> msgs;
+  e.layoutCheck(&msgs);
+  for (auto &m : msgs) CHECK_MESSAGE(m.find("brace 'bx'") == std::string::npos, m);
+}

@@ -213,6 +213,8 @@ public:
   std::string linkLabel(const Link &l);   // the text on a link: its label (with its value), else its properties
   std::vector<Rectangle> furniture();   // tick numbers and axis titles (placement.cpp)
   std::vector<Rectangle> furnitureHere(); // the current data view's
+  int regionOf(const Mark &m, int depth = 0); // the band (1) or its view (2, 3, ...): the part of the stage it belongs to
+  void addFrames(place::Picture &p);      // each view's frame: its plot, ticks, title and the line between views
   const Value *attachment(const Mark &m) const; // on= / in= / over=: touching a thing on purpose
   // the new placer (--placer new): every movable label placed together, each frame, with hysteresis
   // where the placer put a label (box, side) and where it is drawn now. The springs act on the label's
@@ -319,6 +321,9 @@ private:
   std::string schemaNow() const;
   void layout(float dt);
   Rectangle layoutBand(const std::string &schema, bool alone, float dt); // blocks at the top; the rest of the stage
+  bool inBand(const Mark &m) const;                               // a block the band places
+  bool plotOnStage() const;                                       // the scene or a view is a plot
+  float bandFit() const;                                          // the scale at which the band leaves a plot its room
   void layoutPointers();                                          // at= / on= / in= / over=
   void layoutFree(Rectangle area, const std::vector<std::string> &ids);
   void layoutGraph(Rectangle area, const std::vector<std::string> &ids, const std::string &view = "");
@@ -566,6 +571,8 @@ private:
   Annotation annotation(const Mark &m, int variant = -1);
   std::map<std::string, int> annVariant_; // each annotation's chosen placement (kept while it stays clear)
   bool annotationTarget(const Mark &m, Rectangle &out);
+  bool annotationHost(const Mark &m, Rectangle &out); // the formulas it names a part of (its name stays off the rest)
+  int partLabelSide(const Mark &m, const Mark &block); // -1 above, 1 below: where its name goes off a formula it names a row of
   bool texPartBox(const Mark &m, const std::string &part, Rectangle &out);
   void layoutAnnotations();
   bool refBox(const std::string &ref, Rectangle &out); // a thing, cell, span or formula part, as drawn now
@@ -581,6 +588,7 @@ private:
   float annotationRoom(const Mark &block);
   void drawAnnotation(const Mark &m);
   Vector2 infoOrigin();                  // where labels with no place of their own stack: below the band, or in the plot's corner
+  float bandNeed_ = 0;              // the band's full height (bandH_ is capped above a plot, and eased)
   float bandH_ = -1;                // the block band's height, eased (-1: not laid out yet)
   bool blockRows_ = false;         // this scene's blocks flow in rows (once chosen, kept: no mid-scene reshuffle)
   std::map<std::string, float> crossedSince_; // label key -> when a line started crossing it

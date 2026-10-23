@@ -15,7 +15,12 @@ float Engine::opacityOf(const Obj &o) {
   const Value *v = findProp(o.props, "opacity");
   if (!v) return 1;
   double x = num(*v);
-  return std::isfinite(x) ? std::clamp((float)x, 0.f, 1.f) : 1.f;
+  float op = std::isfinite(x) ? std::clamp((float)x, 0.f, 1.f) : 1.f;
+  // a note (a brace, a box, a cross) says something about a thing; hidden, it says nothing, so it leaves no
+  // ghost: a faint cross over a corrected formula would still say "wrong"
+  if (const Mark *m = mark(o.id); m == &o && isAnnotationKind(effectiveKind(*m)))
+    op = std::max(0.f, (op - (float)kGhostOpacity) / (1 - (float)kGhostOpacity));
+  return op;
 }
 bool Engine::ghost(const Obj &o) {
   if (opacityOf(o) < 0.3f) return true;

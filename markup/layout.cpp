@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <limits>
 
 namespace mk {
 
@@ -372,6 +373,7 @@ float Engine::seatGap(const Mark &seated, const Mark &target) {
 float Engine::roomAbove(const Mark &target) {
   float room = 0;
   for (auto &[id, o] : marks_) {
+    if (alphaOf(o) > 0.01f && partLabelSide(o, target) == -1) room = std::max(room, 26.f); // an upper row's enclose name
     const Value *on = findProp(o.props, "on");
     if (!on || on->type != Value::STR || baseId(on->str) != target.id || effectiveKind(o) != "array") continue;
     room = std::max(room, bodyBounds(o).height + seatGap(o, target) + (findProp(o.props, "label") ? 26.f : 0.f));
@@ -587,8 +589,7 @@ Rectangle Engine::layoutBand(const std::string &s, bool alone, float dt) {
   float total = 0;
   for (auto &id : order_) {
     Mark *m = mark(id);
-    if (!m || !isBlockKind(effectiveKind(*m)) || attachment(*m)) continue;
-    if (isAxes(s) && findProp(m->props, "x") && findProp(m->props, "y")) continue;
+    if (!m || !inBand(*m)) continue;
     // a hidden block keeps its slot as a ghost: nothing after it moves (a new scene makes room)
     blocks.push_back(m);
     if (m->appear < 0.05f) arriving.push_back(m);
@@ -629,16 +630,39 @@ Rectangle Engine::layoutBand(const std::string &s, bool alone, float dt) {
     m->positioned = true;
     y += above + h + annotationRoom(*m) + 14;
   }
-  // the picture below the band moves with it, eased (a new formula never snaps a plot aside), and
-  // keeps a good part of the stage: plots get at least 40% (the band is capped); anything else may
-  // run past the bottom, and then the whole stage is drawn smaller to fit (fitStage)
-  float want = total > 0 && !alone ? (isAxes(s) ? std::min(total + 6, S.height * 0.6f) : total + 6) : 0;
+  // the picture below the band moves with it, eased (a new formula never snaps a plot aside). A plot keeps
+  // at least 40% of the stage, and the band never spills onto it: a taller band has the whole stage drawn
+  // smaller (fitStage, bandFit), as anything else that runs past the bottom does. The room it needs only
+  // grows within a scene (blocks flowed into rows on the larger stage must not let it grow back and re-wrap them)
+  bandNeed_ = std::max(bandNeed_, total > 0 && !alone ? total + 6 : 0.f);
+  float want = plotOnStage() ? std::min(bandNeed_, S.height * 0.6f) : bandNeed_;
   bandH_ = opt_.instant || bandH_ < 0 ? want : smoothApproach(bandH_, want, dt, 9);
-  if (bandH_ < want - 4) // room first, then the newcomer: a block arriving in a growing band waits for it
+  // room first, then the newcomer: a block arriving in a growing band waits for it (and for the stage to shrink)
+  if (bandH_ < want - 4 || bandNeed_ > want + 4)
     for (Mark *m : arriving) m->appear = 0;
   stage.y += bandH_;
   stage.height = std::max(S.height - bandH_, S.height * 0.4f);
   return stage;
+}
+
+// a plot is on stage: the scene's, or one view's
+bool Engine::plotOnStage() const {
+  if (views_.empty()) return isAxes(schemaNow());
+  return std::any_of(views_.begin(), views_.end(), [](const View &v) { return isAxes(v.schema); });
+}
+
+// the largest scale at which the band fits above a plot's 40% (a plot is never drawn larger than 1, nor anything
+// smaller than 0.6, as fitStage); no limit with no plot on stage
+float Engine::bandFit() const {
+  if (!plotOnStage()) return std::numeric_limits<float>::infinity();
+  if (bandNeed_ <= 0) return 1;
+  return std::clamp(0.6f * kStage.height / bandNeed_, 0.6f, 1.f);
+}
+
+// on a plot, a block with x= y= sits at its data point instead
+bool Engine::inBand(const Mark &m) const {
+  if (!isBlockKind(effectiveKind(m)) || attachment(m)) return false;
+  return !(isAxes(schemaNow()) && findProp(m.props, "x") && findProp(m.props, "y"));
 }
 
 // at=<thing> or at=a[3]: a pointer label names what it points at. Under an array cell it sits below the
@@ -860,11 +884,11 @@ Rectangle Engine::stageRect() const { return toStage(kStage); }
 // The extent of what was laid out this frame (where things are going, not where they are drawn yet);
 // if it outgrew the stage, the target scale drops so it fits. Axes and planes always fit their area.
 void Engine::fitStage(float dt) {
-  if (isAxes(schemaNow())) { // a plot always fits its area: back to full size
+  if (isAxes(schemaNow())) { // a plot always fits its area: full size, or as large as the band above it allows
     zoomFresh_ = false;
     zoomSettle_ = 0;
-    zoomT_ = 1;
-    zoom_ = opt_.instant ? 1 : smoothApproach(zoom_, 1.f, dt, 6);
+    zoomT_ = bandFit();
+    zoom_ = opt_.instant ? zoomT_ : smoothApproach(zoom_, zoomT_, dt, 6);
     return;
   }
   float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
@@ -903,12 +927,13 @@ void Engine::fitStage(float dt) {
   float most = schemaNow() == "numberline" || schemaNow() == "timeline" ? 1.f : 1.4f;
   if (zoomSettle_ > 0) {
     zoomSettle_ -= opt_.instant ? 0.2f : dt;
-    zoomT_ = std::clamp(zoom_ / need, 0.6f, most);
+    zoomT_ = std::min(std::clamp(zoom_ / need, 0.6f, most), bandFit());
     zoom_ = zoomFresh_ || opt_.instant ? zoomT_ : smoothApproach(zoom_, zoomT_, dt, 8);
     zoomFresh_ = false;
     return;
   }
   if (need > 1.01f) zoomT_ = std::max(0.6f, std::min(zoomT_, zoom_ / need));
+  zoomT_ = std::min(zoomT_, bandFit());
   zoom_ = opt_.instant ? zoomT_ : smoothApproach(zoom_, zoomT_, dt, 6);
 }
 
@@ -1061,6 +1086,23 @@ void Engine::layoutFree(Rectangle area, const std::vector<std::string> &ids) {
 // top-level groups are lanes. Laid out again only when the structure or a size changes.
 void Engine::layoutGraph(Rectangle area, const std::vector<std::string> &ids, const std::string &view) {
   if (ids.empty()) return;
+  // a named brace along a column of its things goes beside it, away from their links: the flow leaves it room
+  // on the left of things links only leave (inputs), on the right of things they only reach, else on both
+  float left = 0, right = 0;
+  for (auto &[bid, b] : marks_) {
+    const Value *of = findProp(b.props, "of");
+    if (effectiveKind(b) != "brace" || !of || !findProp(b.props, "label") || alphaOf(b) <= 0.01f) continue;
+    bool in = false, out = false, here = false;
+    for (auto &ref : of->type == Value::LIST ? of->list : std::vector<std::string>{of->str}) {
+      if (std::find(ids.begin(), ids.end(), baseId(ref)) == ids.end()) continue;
+      here = true;
+      for (auto &[lid, l] : links_) { in |= l.b == baseId(ref); out |= l.a == baseId(ref); }
+    }
+    float room = 28 + measure(displayName(b), 19).x;
+    if (here && (!in || out)) left = std::max(left, room);
+    if (here && (in || !out)) right = std::max(right, room);
+  }
+  if (area.width > left + right + 300) { area.x += left; area.width -= left + right; }
   place::FlowInput in;
   in.area = {area.x, area.y, area.width, area.height};
   std::map<std::string, int> idx, cats, lanes;

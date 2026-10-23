@@ -1,8 +1,9 @@
 // place: the exact layout checker. Everything drawn is "ink": bodies, labels, link lines, group
-// boxes, furniture (axes, ticks) and reserved screen zones (title, subtitles). The checker finds the
-// overlaps nobody asked for, things off the canvas or in a reserved zone, labels far from what they
-// name and links that cut through things, and turns them into short messages a scene author (Claude)
-// can act on, plus a 0..100 score.
+// boxes, furniture (axes, ticks), view frames and reserved screen zones (title, subtitles). The checker
+// finds the overlaps nobody asked for (two things may share ink only when the scene relates them),
+// things off the canvas or in a reserved zone, labels far from what they name and links that cut
+// through things, and turns them into short messages a scene author (Claude) can act on, plus a
+// 0..100 score.
 #pragma once
 #include "geom.hpp"
 #include <set>
@@ -13,7 +14,7 @@
 namespace place {
 
 struct Ink {
-  enum Kind : uint8_t { Body, Label, Link, Group, Furniture, Zone } kind = Body;
+  enum Kind : uint8_t { Body, Label, Link, Group, Furniture, Zone, Frame } kind = Body;
   std::string id;            // the thing's id (owner's id for labels)
   std::string what;          // in words: "bar 'bob'", "name of 'alice'", "link a->b"
   Rect box;                  // for links: the bounding box of the line
@@ -23,6 +24,9 @@ struct Ink {
   std::vector<int> members;  // groups: the inks they enclose
   int priority = 1;          // weighs overlaps in the score (focus/emphasis higher)
   float maxDist = 60;        // labels: how far from their owner still reads as "theirs"
+  // the part of the stage it belongs to: the band of formulas and code, or one view (0: not said). A
+  // view's frame (its plot, its title) is ink only for the things of other regions
+  int region = 0;
 };
 
 struct Picture {

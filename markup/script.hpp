@@ -20,6 +20,9 @@
 
 namespace mk {
 
+// what `hide` fades a thing to: a ghost, still there (identity), taking no room
+constexpr double kGhostOpacity = 0.12;
+
 struct Value {
   enum Type { NUM, STR, EXPR, LIST } type = NUM;
   double num = 0;

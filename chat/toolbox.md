@@ -311,7 +311,7 @@ Say: "Each cell is the |sum|sum of the one above and the one to the left."
 
 ### Tidy what's done
 Use when the stage fills up or a part of the explanation is over.
-Tools: `hide <id>` dims it to a ghost in place (nothing else moves); `scene "…"` starts a fresh stage for a new topic.
+Tools: `hide <id>` dims it to a ghost in place (nothing else moves; a note such as a cross or an enclose disappears); `scene "…"` starts a fresh stage for a new topic.
 ```
 mark a box step label="step 1"
 mark b box step label="step 2"

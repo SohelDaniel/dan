@@ -78,7 +78,8 @@ send x -> y via=<link>         the copy travels along that link (a token through
 indicate a[0:4] stagger=0.4s   the cells pulse one after another: counting, going through items in order
 send a[0:3] -> t stagger=0.3s  each cell's copy goes in turn (parts poured into a total); onto a span as long
                                (send a[0:3] -> b[0:3] stagger=0.3s) each goes to its own cell
-hide <id> [0.6s]               fade it to a faint ghost (it stays a thing: opacity=0.12)
+hide <id> [0.6s]               fade it to a faint ghost (it stays a thing: opacity=0.12); a note (brace, enclose,
+                               cross, …) fades out completely: a faint cross would still say "wrong"
 show <id> [0.6s]               bring it back (opacity=1)
 ```
 
@@ -322,7 +323,7 @@ If no schema is given, one is inferred. Paths, regions or `x=` give `axes`. `t=`
 
 1. **Identity.** There is no delete verb. A re-mark updates in place. A `morph … from X` that doesn't match the real value is warned about and animated from the real value, so there are no jump cuts.
 2. **Structure.** Bars share a zero baseline. Scales are per property and never jump mid-script, because the whole script is pre-scanned.
-3. **Zero.** Unrelated things never share a color. Accidental overlaps are pulled apart in graph layouts. Where position is data (axes, number line), an overlap is reported as a lint, because coinciding reads as "equal".
+3. **Zero.** Unrelated things never share a color. Two things share ink only when the script relates them (`of=`, `on=`/`in=`/`over=`, `at=`, a name and its thing, data placed on one plot), because touching reads as a relation. Everything else is kept apart by construction where it can be (the band of formulas never reaches into a plot; a note's name never sits on another part of a formula), pulled apart in graph layouts, and otherwise reported by the checker, which sees every view's plot, ticks and title too. Where position is data (axes, number line), an overlap is reported as a lint, because coinciding reads as "equal".
 4. **Continuity.** Every change is a morph with easing. New marks grow in, links draw themselves, and focus fades.
 5. **Bounded focus.** `focus` lights one thing (or a group and its parts) and dims the rest, for one sentence: the one it is cued in, or the next one if it stands between sentences. Then everything is at full strength again.
 6. **Decodability.** `--readback` prints the final scene in the same vocabulary, plus derived facts (max, mean, order), overlaps, recent changes and lint. `--check` re-parses that readback and confirms it rebuilds the same scene.

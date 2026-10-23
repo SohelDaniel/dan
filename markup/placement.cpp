@@ -53,6 +53,53 @@ std::vector<std::pair<std::string, Rectangle>> Engine::screenZones() {
   return z;
 }
 
+// a note, a pointer or a seated thing belongs where what it is about is; a block with no place of its own to the
+// band; anything else to its view
+int Engine::regionOf(const Mark &m, int depth) {
+  const bool note = isAnnotationKind(effectiveKind(m));
+  for (std::string about : {"of", "at", "on", "in", "over"}) {
+    if ((about == "of") != note || depth > 4) continue; // a note is about its of=; anything else about at=, on=, …
+    const Value *v = findProp(m.props, about);
+    std::string ref = !v ? "" : v->type == Value::STR ? v->str : v->type == Value::LIST && !v->list.empty() ? v->list[0] : "";
+    if (Mark *t = ref.empty() ? nullptr : mark(baseId(ref)); t && t != &m) return regionOf(*t, depth + 1);
+  }
+  if (inBand(m)) return 1;
+  for (size_t i = 0; i < views_.size(); i++) if (views_[i].id == m.view) return 2 + (int)i;
+  return 2; // the only view, or marks from before the first one
+}
+
+// what each view draws for itself: a plot's area and tick numbers, its title, and the quiet line between views
+void Engine::addFrames(place::Picture &p) {
+  auto frame = [&](place::Ink::Kind kind, const std::string &what, Rectangle r, int region) {
+    place::Ink ink{kind, kind == place::Ink::Furniture ? "axes" : "", what, toRect(r)};
+    ink.region = region;
+    p.add(ink);
+  };
+  auto plot = [&](const std::string &name, int region) {
+    if (!isAxes(schemaNow())) return;
+    frame(place::Ink::Frame, name, axes_.area, region);
+    for (const Rectangle &f : furnitureHere()) frame(place::Ink::Furniture, "the axis numbers", f, region);
+  };
+  if (views_.empty()) { plot("the plot", 2); return; }
+  for (size_t i = 0; i < views_.size(); i++) {
+    const View &v = views_[i];
+    int region = 2 + (int)i;
+    if (dataCtx_.count(v.id) || v.id == curData_) {
+      DataScope ds(*this, v.id);
+      plot("the plot '" + v.id + "'", region);
+    }
+    if (auto l = findProp(v.props, "label"); l && l->type == Value::STR) {
+      Vector2 sz = measure(l->str, 19);
+      frame(place::Ink::Frame, "the title of view '" + v.id + "'", {v.area.x + 4, v.area.y + 2, sz.x, sz.y}, region);
+    }
+    if (i > 0) { // as draw() draws it: left of a view beside, above a view below
+      const Rectangle &a = v.area;
+      bool beside = a.x > views_[i - 1].area.x + 1;
+      frame(place::Ink::Frame, "the line between views", beside ? Rectangle{a.x - 21, a.y, 2, a.height} : Rectangle{a.x, a.y - 21, a.width, 2}, region);
+    }
+  }
+}
+
 place::Picture Engine::picture() {
   place::Picture p;
   std::map<std::string, int> idx; // mark id -> ink
@@ -142,11 +189,15 @@ place::Picture Engine::picture() {
     std::string what = effectiveKind(*m) + " '" + id + "'";
     int si = lineInk(id, what, stroke, owner, -1);
     for (auto &ref : refs) if (auto r = idx.find(baseId(ref)); r != idx.end()) p.allow(si, r->second);
-    if (a.labelBox.width > 0) {
+    if (a.labelBox.width > 0) { // its name may touch what it names, but not the rest of a formula it names a part of
       place::Ink ink{place::Ink::Label, id, "name of " + what, toRect(a.labelBox)};
       ink.owner = si;
       int li = p.add(ink);
-      for (auto &ref : refs) if (auto r = idx.find(baseId(ref)); r != idx.end()) p.allow(li, r->second);
+      for (auto &ref : refs) {
+        Mark *t = mark(baseId(ref));
+        bool partOfFormula = ref != baseId(ref) && t && effectiveKind(*t) == "tex";
+        if (auto r = idx.find(baseId(ref)); r != idx.end() && !partOfFormula) p.allow(li, r->second);
+      }
     }
   }
   for (auto &id : order_) // trails: strokes owned by the thing that leaves them
@@ -230,7 +281,14 @@ place::Picture Engine::picture() {
       if (const Value *v = findProp(m->props, k); v && v->type == Value::STR)
         if (auto t = idx.find(baseId(v->str)); t != idx.end()) p.allow(i, t->second);
   }
-  for (const Rectangle &f : furniture()) p.add({place::Ink::Furniture, "axes", "the axis numbers", toRect(f)});
+  addFrames(p);
+  // each thing's part of the stage: its own, a name its owner's, a link its first end's
+  for (auto &k : p.ink) {
+    if (k.kind == place::Ink::Group || k.kind == place::Ink::Furniture || k.kind == place::Ink::Frame) continue;
+    if (Mark *m = mark(k.id)) k.region = regionOf(*m);
+    else if (auto l = links_.find(k.id); l != links_.end())
+      if (Mark *a = mark(l->second.a)) k.region = regionOf(*a);
+  }
   // reserved screen zones
   for (auto &[name, r] : screenZones()) p.add({place::Ink::Zone, name, name, toRect(r)});
   if (!seqRow_.empty()) // a conversation's lifelines are ink too

@@ -55,6 +55,22 @@ TEST_CASE("check: accidental overlaps are found, intended ones are not") {
   CHECK(check(p).overlaps == 0);
 }
 
+TEST_CASE("check: a view's frame is the ground of its own things only") {
+  Picture p;
+  int dot = body(p, "d", {700, 400, 10, 10});
+  p.ink[dot].region = 3;                       // its own data: fine
+  int f = body(p, "f", {650, 280, 300, 60});
+  p.ink[f].region = 1;                         // a formula of the band, spilled onto the plot
+  Ink plot{Ink::Frame, "", "the plot 'geo'", {600, 300, 400, 250}};
+  plot.region = 3;
+  p.add(plot);
+  auto r = check(p);
+  REQUIRE(r.overlaps == 1);
+  CHECK(describe(p, r, r.diags[0]) == "bar 'f' overlaps the plot 'geo'");
+  p.ink[f].region = 0;                         // a region not said: no verdict
+  CHECK(check(p).overlaps == 0);
+}
+
 TEST_CASE("check: a label on another thing, off the screen, far away, in a zone") {
   Picture p;
   int a = body(p, "a", {200, 200, 50, 50});

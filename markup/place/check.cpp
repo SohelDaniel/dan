@@ -27,8 +27,15 @@ static bool intended(const Picture &p, int i, int j) {
   };
   if (encloses(a, j) || encloses(b, i)) return true;
   if (a.kind == Ink::Furniture && b.kind == Ink::Furniture) return true;
-  // furniture is text (ticks, axis titles): data marks may sit on it, labels may not
-  if ((a.kind == Ink::Furniture && b.kind == Ink::Body) || (b.kind == Ink::Furniture && a.kind == Ink::Body)) return true;
+  auto sameRegion = [&] { return a.region == 0 || b.region == 0 || a.region == b.region; };
+  // a view's frame is its own things' ground; anything from another region on it is out of place
+  if (a.kind == Ink::Frame || b.kind == Ink::Frame) {
+    const Ink &o = a.kind == Ink::Frame ? b : a;
+    if (o.kind == Ink::Frame || o.kind == Ink::Furniture || o.kind == Ink::Zone || o.kind == Ink::Group) return true;
+    return sameRegion();
+  }
+  // furniture is text (ticks, axis titles): its plot's data marks may sit on it, labels and other things may not
+  if ((a.kind == Ink::Furniture && b.kind == Ink::Body) || (b.kind == Ink::Furniture && a.kind == Ink::Body)) return sameRegion();
   // links crossing links is a matter of taste, not an overlap
   if (a.kind == Ink::Link && b.kind == Ink::Link) return true;
   // group boxes against group boxes: nesting is fine (members checked separately)

@@ -306,6 +306,7 @@ void Engine::reset() {
   graphPos_.clear();
   flowMemo_.clear();
   bandH_ = -1;
+  bandNeed_ = 0;
   zoom_ = zoomT_ = 1;
   zoomFresh_ = true;
   zoomSettle_ = 0.6f;
@@ -635,6 +636,7 @@ void Engine::clearStage() {
   graphPos_.clear();
   flowMemo_.clear();
   bandH_ = -1;
+  bandNeed_ = 0;
   zoom_ = zoomT_ = 1;
   zoomFresh_ = true;
   zoomSettle_ = 0.6f;

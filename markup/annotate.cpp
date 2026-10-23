@@ -60,6 +60,40 @@ bool Engine::annotationTarget(const Mark &m, Rectangle &out) {
   return out.width > 0;
 }
 
+// the formulas an annotation names a part of (a row, a term), where they are going this frame. Its box may sit
+// on that part; its name sits on none of the formula, or it would read as the name of another part. False when
+// it names whole things. (An array's cells are one strip: a note's name is off it at any corner already.)
+bool Engine::annotationHost(const Mark &m, Rectangle &out) {
+  const Value *of = findProp(m.props, "of");
+  if (!of) return false;
+  out = {0, 0, 0, 0};
+  for (auto &ref : of->type == Value::LIST ? of->list : std::vector<std::string>{of->str}) {
+    Mark *t = mark(baseId(ref));
+    if (ref.find('[') == std::string::npos || !t || !t->positioned || effectiveKind(*t) != "tex") continue;
+    Rectangle b = bodyBounds(*t);
+    b.x += t->tpos.x - t->pos.x;
+    b.y += t->tpos.y - t->pos.y;
+    out = unite(out, b);
+  }
+  return out.width > 0;
+}
+
+// a named enclose of a row of the formula `block`: its name goes off the formula on the row's side, above for the
+// upper rows and below for the lower ones, and the band keeps room there (roomAbove, annotationRoom)
+int Engine::partLabelSide(const Mark &m, const Mark &block) {
+  if (effectiveKind(m) != "enclose" || !findProp(m.props, "label") || effectiveKind(block) != "tex") return 0;
+  const Value *of = findProp(m.props, "of");
+  if (!of) return 0;
+  for (auto &ref : of->type == Value::LIST ? of->list : std::vector<std::string>{of->str}) {
+    size_t b = ref.find('[');
+    Rectangle part;
+    if (b == std::string::npos || baseId(ref) != block.id || !texPartBox(block, ref.substr(b + 1, ref.find(']') - b - 1), part)) continue;
+    float mid = block.tpos.y, c = part.y + part.height / 2; // texPartBox is laid out around tpos too
+    return c < mid - 2 ? -1 : c > mid + 2 ? 1 : 0;
+  }
+  return 0;
+}
+
 // variant: 0 is the preferred placement; 1, 2 the alternatives layoutAnnotations tries when it would land
 // on an annotation placed before it (the other side for a brace, above or left for a check, another
 // corner for a name). -1: the variant layout chose this frame.
@@ -124,14 +158,23 @@ Engine::Annotation Engine::annotation(const Mark &m, int variant) {
     a.labelAnchor = a.side == 0 ? Vector2{0.5f, 0} : a.side == 1 ? Vector2{0, 0.5f} : a.side == 2 ? Vector2{0.5f, 1} : Vector2{1, 0.5f};
   } else if (k == "enclose") {
     a.box = {T.x - gap, T.y - gap, T.width + 2 * gap, T.height + 2 * gap};
-    // its name goes on the first corner clear of other things: above right, below right, above left, below left
+    // its name goes on the first corner clear of other things: above right, below right, above left, below left;
+    // naming a part of something, off that thing on the part's side if no corner is clear of it
     const Rectangle &B = a.box;
-    const std::pair<Vector2, Vector2> spots[] = {{{B.x + B.width, B.y - 4}, {1, 1}}, {{B.x + B.width, B.y + B.height + 4}, {1, 0}},
-                                                 {{B.x, B.y - 4}, {0, 1}}, {{B.x, B.y + B.height + 4}, {0, 0}}};
-    a.labelAt = spots[variant % 4].first;
-    a.labelAnchor = spots[variant % 4].second;
-    for (int s = 0; s < 4; s++) {
-      auto &[at, anchor] = spots[(s + variant) % 4];
+    std::vector<std::pair<Vector2, Vector2>> spots = {{{B.x + B.width, B.y - 4}, {1, 1}}, {{B.x + B.width, B.y + B.height + 4}, {1, 0}},
+                                                      {{B.x, B.y - 4}, {0, 1}}, {{B.x, B.y + B.height + 4}, {0, 0}}};
+    if (Rectangle host; annotationHost(m, host)) {
+      float x = std::min(B.x + B.width, host.x + host.width);
+      std::pair<Vector2, Vector2> above{{x, host.y - 4}, {1, 1}}, below{{x, host.y + host.height + 4}, {1, 0}};
+      bool upper = T.y + T.height / 2 < host.y + host.height / 2;
+      spots.push_back(upper ? above : below);
+      spots.push_back(upper ? below : above);
+    }
+    const int n = (int)spots.size();
+    a.labelAt = spots[variant % n].first;
+    a.labelAnchor = spots[variant % n].second;
+    for (int s = 0; s < n; s++) {
+      auto &[at, anchor] = spots[(s + variant) % n];
       Rectangle lb{at.x - ls.x * anchor.x, at.y - ls.y * anchor.y, ls.x, ls.y};
       bool clear = true;
       for (auto &[oid, o] : marks_) {
@@ -165,11 +208,13 @@ Engine::Annotation Engine::annotation(const Mark &m, int variant) {
   return a;
 }
 
-// the room a block in the band needs under it for its braces and underlines (they go below wide things)
+// the room a block in the band needs under it for its braces and underlines (they go below wide things), and
+// for the names of its lower rows' encloses
 float Engine::annotationRoom(const Mark &block) {
   float room = 0;
   for (auto &[id, m] : marks_) {
     std::string k = effectiveKind(m);
+    if (alphaOf(m) > 0.01f && partLabelSide(m, block) == 1) room = std::max(room, 26.f);
     if ((k != "brace" && k != "underline") || alphaOf(m) <= 0.01f) continue;
     const Value *of = findProp(m.props, "of");
     if (!of) continue;
@@ -193,7 +238,7 @@ void Engine::layoutAnnotations() {
     taken.push_back({r.x - 2, r.y, 4, r.height});
     taken.push_back({r.x + r.width - 2, r.y, 4, r.height});
   }
-  auto ink = [&](const Annotation &a, const std::string &k) { // what an annotation adds to the picture
+  auto ink = [&](const Annotation &a, const std::string &k) { // what an annotation adds to the picture, its name first
     std::vector<Rectangle> r;
     if (a.labelBox.width > 0) r.push_back(a.labelBox);
     if (k == "check") r.push_back(a.box);
@@ -207,16 +252,20 @@ void Engine::layoutAnnotations() {
   // what a placement would sit on: annotations placed before it, group outlines, other things, link lines
   std::vector<std::vector<Vector2>> lines;
   for (auto &[lid, l] : links_) lines.push_back(linkGeometryAt(l).line);
-  auto hits = [&](const std::vector<Rectangle> &r, const Mark &self) {
-    Rectangle T;
+  auto hits = [&](const std::vector<Rectangle> &r, const Mark &self, const Annotation &a) {
+    Rectangle T, host;
     annotationTarget(self, T);
+    bool ofPart = annotationHost(self, host);
     int n = 0;
-    for (auto &x : r) {
+    for (size_t i = 0; i < r.size(); i++) {
+      const Rectangle &x = r[i];
+      bool name = i == 0 && a.labelBox.width > 0;
       for (auto &t : taken) n += CheckCollisionRecs(x, t);
       for (auto &[oid, o] : marks_) {
         if (&o == &self || !o.positioned || ghost(o) || isAnnotationKind(effectiveKind(o))) continue;
         Rectangle b = bodyBounds(o);
-        if (b.width > 0 && CheckCollisionRecs(x, b) && !CheckCollisionRecs(b, T)) n++; // its own target is fine
+        // its own target is fine, except for a name on the rest of what it names a part of
+        if (b.width > 0 && CheckCollisionRecs(x, b) && (!CheckCollisionRecs(b, T) || (name && ofPart))) n++;
       }
       // sitting on an arrow is worse than touching an outline; arrowheads reach past a line's last point
       place::Rect near{x.x - 8, x.y - 8, x.width + 16, x.height + 16};
@@ -230,9 +279,10 @@ void Engine::layoutAnnotations() {
     Mark *m = mark(id);
     std::string k = m ? effectiveKind(*m) : "";
     if (!m || !isAnnotationKind(k)) continue;
-    int prev = annVariant_.count(id) ? annVariant_[id] : 0, chosen = prev, best = hits(ink(annotation(*m, prev), k), *m);
+    auto cost = [&](int v) { Annotation a = annotation(*m, v); return hits(ink(a, k), *m, a); };
+    int prev = annVariant_.count(id) ? annVariant_[id] : 0, chosen = prev, best = cost(prev);
     for (int v = 0; v < 3 && best > 0; v++) // the placement that sits on the least; last frame's on a tie
-      if (int h = v == prev ? best : hits(ink(annotation(*m, v), k), *m); h < best) { best = h; chosen = v; }
+      if (int h = v == prev ? best : cost(v); h < best) { best = h; chosen = v; }
     annVariant_[id] = chosen;
     Annotation a = annotation(*m, chosen);
     if (!a.ok) continue;
