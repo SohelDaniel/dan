@@ -1,0 +1,6 @@
+title "A magnetic field and a spiralling charge"
+schema space x=[-3,3] y=[-3,3] z=[0,6]
+mark B field vx={0} vy={0} vz={1} label="B, straight up"
+mark q path xt={1.5*cos(t)} yt={1.5*sin(t)} zt={t/4} range=[0,20] label="the charge's path"
+camera spin
+Say: "The field points up; the charge circles around it while drifting along it: a helix."

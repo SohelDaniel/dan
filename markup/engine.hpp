@@ -346,6 +346,7 @@ private:
       std::vector<viz::V3> pts;
       Color c{};
       float width = 3, alpha = 1;
+      float headSize = 14;  // pixels, at most 40% of the arrow as drawn (a short arrow is not all head)
       bool head = false, dashed = false, ink = true; // ink: a line the checker and the placer see (not mesh, not shadow)
     };
     struct Tri {
@@ -640,6 +641,8 @@ private:
   void drawAnnotation(const Mark &m);
   Vector2 infoOrigin();                  // where labels with no place of their own stack: below the band, or in the plot's corner
   float bandNeed_ = 0;              // the band's full height (bandH_ is capped above a plot, and eased)
+  double z_ = 0;                    // a 3D field's layer: what z means in its expressions while it is sampled
+  bool hasZ_ = false;
   float bandH_ = -1;                // the block band's height, eased (-1: not laid out yet)
   bool blockRows_ = false;         // this scene's blocks flow in rows (once chosen, kept: no mid-scene reshuffle)
   std::map<std::string, float> crossedSince_; // label key -> when a line started crossing it

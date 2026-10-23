@@ -545,6 +545,7 @@ std::string Engine::displayName(const Obj &o) const {
 
 // ================================================================ EvalCtx
 bool Engine::var(const std::string &name, double &out) {
+  if (hasZ_ && name == "z") { out = z_; return true; } // a 3D field's layer (space.cpp)
   Mark *m = mark(name);
   if (!m) return false;
   std::string k = magProp(*m);

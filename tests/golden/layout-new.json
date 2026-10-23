@@ -251,6 +251,12 @@
   "final": 100,
   "maxOverlaps": 4
  },
+ "scripts/space-field.txt": {
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
+ },
  "scripts/space-kinds.txt": {
   "mean": 99.8,
   "worst": 97,

@@ -335,6 +335,29 @@ Engine::SpaceShape Engine::spaceShape(const Mark &m) {
       auto &s = stroke({q[f[0]], q[f[1]], q[f[2]], q[f[3]], q[f[0]]}, 2);
       s.c = cube; s.alpha = 0.8f; s.ink = false;
     }
+  } else if (k == "field") { // vx vy vz in x, y, z: arrows on a sparse lattice (a 3D field drawn densely is a thicket)
+    // compiled in two variables at a time: z is fixed per layer of the lattice
+    const Value *ex = findProp(m.props, "vx"), *ey = findProp(m.props, "vy"), *ez = findProp(m.props, "vz");
+    if (!ex || !ey) return sh;
+    const int n = 5;
+    double cell = std::min({P.hi[0] - P.lo[0], P.hi[1] - P.lo[1], P.hi[2] - P.lo[2]}) / n, L = cell * 0.8;
+    for (int kz = 0; kz < n; kz++) {
+      double z = P.lo[2] + (P.hi[2] - P.lo[2]) * (kz + 0.5) / n;
+      double oz = this->z_; // the layer's z, read by the expressions as a variable
+      z_ = z; hasZ_ = true;
+      auto fx = fn2(m, "vx"), fy = fn2(m, "vy"), fz = ez ? fn2(m, "vz") : nullptr;
+      for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++) {
+          double x = P.lo[0] + (P.hi[0] - P.lo[0]) * (i + 0.5) / n, y = P.lo[1] + (P.hi[1] - P.lo[1]) * (j + 0.5) / n;
+          V3 v{fx(x, y), fy(x, y), fz ? fz(x, y) : 0};
+          double len = viz::norm(v);
+          if (!std::isfinite(len) || len < 1e-9) continue;
+          V3 tail{x, y, z}, d = v * (viz::arrowLength(len, L) / len); // L tanh(|v|/L): zero vectors vanish
+          auto &s = stroke({tail - d * 0.5, tail + d * 0.5}, 2, true);
+          s.alpha = 0.75f; s.ink = false; s.headSize = 8;
+        }
+      z_ = oz; hasZ_ = false;
+    }
   } else {
     return sh;
   }
@@ -494,7 +517,7 @@ void Engine::layoutSpace(Rectangle area, float dt) {
     Mark *m = mark(id);
     if (!m || !inDataView(*m)) continue;
     std::string k = effectiveKind(*m);
-    if (k != "dot" && k != "vector" && k != "line" && k != "arrow" && k != "path" && k != "polygon" && k != "grid" && !isSpaceKind(k)) continue;
+    if (k != "dot" && k != "vector" && k != "line" && k != "arrow" && k != "path" && k != "polygon" && k != "grid" && k != "field" && !isSpaceKind(k)) continue;
     SpaceShape s = spaceShape(*m);
     // a thing the box doesn't hold leaves the picture: say so (against the ranges it is easing to)
     auto outside = [&](V3 q) {
@@ -721,9 +744,10 @@ void Engine::drawSpace() {
         Vector2 tip = proj(st.pts.back(), d0), back = proj(st.pts[st.pts.size() - 2], d1);
         if (len(tip - back) < 1) continue;
         Vector2 dir = norm(tip - back), side{-dir.y, dir.x};
+        float hl = std::min(st.headSize, 0.4f * len(tip - proj(st.pts.front(), d1)));
         Piece h;
         h.kind = Piece::Head;
-        h.a = tip + dir * 4; h.b = tip - dir * 14 + side * 7; h.c = tip - dir * 14 - side * 7;
+        h.a = tip + dir * (hl * 0.3f); h.b = tip - dir * hl + side * (hl / 2); h.c = tip - dir * hl - side * (hl / 2);
         h.depth = d0 - 0.001f;
         h.col = fade(st.c, a);
         h.thing = true;
