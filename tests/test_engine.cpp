@@ -432,3 +432,47 @@ camera spin
   e.layoutCheck(&msgs);
   for (auto &m : msgs) CHECK_MESSAGE(m.find("overlaps") == std::string::npos, m);
 }
+
+// the rest after a formula step: the second sentence starts this long after the first ended and its formula settled
+static float restBetween(const std::string &text) {
+  EngineOptions o; // live timing: the rest is time
+  o.quiet = true;
+  o.voice = false;
+  Engine e(o);
+  REQUIRE(e.loadText(text));
+  for (int i = 0; i < 60 * 60 && !e.finished(); i++) e.update(1.f / 60);
+  float end1 = -1, settled = -1, start2 = -1;
+  int says = 0;
+  for (auto &ev : e.timeline) {
+    float t = std::stof(ev);
+    std::string kind = ev.substr(ev.find(' ') + 1, 3);
+    if (kind == "say" && ++says == 2) start2 = t;
+    else if (kind == "end" && says == 1) end1 = t;
+    else if (kind == "tex" && says == 1) settled = t;
+  }
+  REQUIRE(start2 >= 0);
+  return start2 - std::max(end1, settled);
+}
+
+TEST_CASE("a sentence that changed a formula rests a second before the next one; no change, no rest; a wait counts") {
+  const std::string f = "mark f tex tex=\"a+b\"\n";
+  CHECK(restBetween(f + "Say: \"One.\"\nmorph f.tex -> \"a+b=c\" 1.2s\nSay: \"Two.\"\n") >= 0.95f);            // a step after the sentence
+  CHECK(restBetween(f + "Say: \"One |go|two.\"\n@go morph f.tex -> \"a+b=c\" 1.2s\nSay: \"Two.\"\n") >= 0.95f); // a step on a word
+  CHECK(restBetween(f + "Say: \"One.\"\nSay: \"Two.\"\n") < 0.1f);                                                // nothing changed
+  float w = restBetween(f + "Say: \"One.\"\nmorph f.tex -> \"a+b=c\" 1.2s\nwait 2s\nSay: \"Two.\"\n");           // Claude's own beat
+  CHECK(w >= 1.95f);
+  CHECK(w < 2.3f);
+}
+
+TEST_CASE("a formula part pointed at with indicate f[part] is a named part: no tex lint, as with an annotation") {
+  Engine e(instant());
+  played(e, "mark f tex tex=\"\\textcolor{sq}{(x+3)^2} = 7\"\nSay: \"One thing |sq|squared.\"\n@sq indicate f[sq]\n");
+  bool texLint = false;
+  for (auto &w : e.lintMessages()) if (w.find("textcolor{sq}") != std::string::npos) texLint = true;
+  CHECK(!texLint);
+  Engine bare(instant());
+  played(bare, "mark f tex tex=\"\\textcolor{sq}{(x+3)^2} = 7\"\nSay: \"One thing squared.\"\n");
+  bool bareLint = false;
+  for (auto &w : bare.lintMessages()) if (w.find("textcolor{sq}") != std::string::npos) bareLint = true;
+  CHECK(bareLint);
+}

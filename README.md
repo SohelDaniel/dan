@@ -321,7 +321,7 @@ mark k array items=[1,1,1] on=x[0:2]      # a row of cells seated over another's
 title "..."
 scene "Part 2"             # fade the stage out and start a fresh one (ids, colors, schema reset)
 schema free | numberline [prop=score range=[0,100] bin=5] | axes [x=[a,b] y=[c,d] zero=false] | timeline | graph | sequence
-wait 1s
+wait 2s                    # a beat: nothing moves, nothing is said, the last words stay up (after a step that matters)
 pause                      # wait for space / →
 ```
 

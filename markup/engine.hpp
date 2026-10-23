@@ -196,6 +196,7 @@ public:
   // stop what is playing: the rest of the script so far runs instantly (state stays consistent), voice stops
   void interrupt();
   void emit(const std::string &ev);         // "@ev <ev>" on stdout when events are on
+  void logTime(const std::string &ev);      // appends "<clock> ev" to timeline (not when instant)
   void reset();                             // back to t=0
   void update(float dt);
   void draw();
@@ -249,6 +250,7 @@ public:
   std::map<std::string, LabelSlot> linkSlots_;
   int labelFlips = 0;                   // labels that changed side between frames (stability metric)
   std::vector<std::string> flipLog;     // which, when (the first 40), for the layout report
+  std::vector<std::string> timeline;    // "t say|end|tex id": when sentences start and end and formulas settle (pacing)
   // curve and line geometry shared by drawing and labels
   std::vector<Vector2> curvePoints(const Mark &m);
   bool curveEnd(const Mark &m, Vector2 &p);  // where a curve visibly ends: its last point inside its plot
@@ -465,6 +467,12 @@ private:
   float captionT_ = 0;
   bool paused_ = false, showDict_ = true, waitingPause_ = false;
   float clock_ = 0;
+  // the rest after a formula step: a sentence that changed a formula is followed by kRest seconds with nothing
+  // moving before the next one starts (3Blue1Brown's wait after a transform; research_notes/Pacing/)
+  static constexpr float kRest = 1.0f;
+  float quiet_ = 0;            // seconds with nothing moving and no voice (an explicit wait counts)
+  bool restDue_ = false;       // a formula changed since the last sentence started
+  bool anySay_ = false;        // a sentence has been spoken in this scene (set-up formulas before the first need no rest)
   bool readbackPrinted_ = false;
   bool idleSent_ = false;
 

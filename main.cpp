@@ -1,16 +1,16 @@
 // tutor: reads an explanation written in the markup and plays it.
 //
-//   ./tutor scripts/bank.txt                 play it (hot-reloads when the file changes)
-//   ./tutor scripts/bank.txt                 narrated by Inworld TTS (streamed) when an API key is found
-//   ./tutor scripts/bank.txt --mute          no voice: estimated word timing
-//   ./tutor scripts/bank.txt --voice-id Ashley --speed 1.1
-//   ./tutor scripts/bank.txt --record out.mp4
-//   ./tutor scripts/bank.txt --readback      no window: run to the end, print the scene as markup
-//   ./tutor scripts/bank.txt --check         no window: decodability test (readback -> parse -> same scene)
-//   ./tutor s.txt --snapshot out --at 2,5.5,end   frames at those times -> out_2.png ... (hidden window, muted)
-//   ./tutor s.txt --layout-report out.json  no window: play it, check the layout every 0.5 s, write scores
-//   ./tutor s.txt --placer old               labels at their old fixed offsets (also TUTOR_PLACER=old); default: placed
-//   ./tutor live.txt --stdin                 live: lines arriving on stdin continue the running script
+//   ./tutor scripts/bank.dan                 play it (hot-reloads when the file changes)
+//   ./tutor scripts/bank.dan                 narrated by Inworld TTS (streamed) when an API key is found
+//   ./tutor scripts/bank.dan --mute          no voice: estimated word timing
+//   ./tutor scripts/bank.dan --voice-id Ashley --speed 1.1
+//   ./tutor scripts/bank.dan --record out.mp4
+//   ./tutor scripts/bank.dan --readback      no window: run to the end, print the scene as markup
+//   ./tutor scripts/bank.dan --check         no window: decodability test (readback -> parse -> same scene)
+//   ./tutor s.dan --snapshot out --at 2,5.5,end   frames at those times -> out_2.png ... (hidden window, muted)
+//   ./tutor s.dan --layout-report out.json  no window: play it, check the layout every 0.5 s, write scores (and the timeline)
+//   ./tutor s.dan --placer old               labels at their old fixed offsets (also TUTOR_PLACER=old); default: placed
+//   ./tutor live.dan --stdin                 live: lines arriving on stdin continue the running script
 //                                            (no restart); a line "#!load <file>" reloads from scratch
 #include "markup/engine.hpp"
 #include "rm/raymanim.hpp"
@@ -47,7 +47,7 @@ static void keepAwake() {
 
 static int usage() {
   std::fprintf(stderr,
-               "usage: tutor <script.txt> [--mute] [--voice-id Brian] [--speed 1.0] [--model inworld-tts-2]\n"
+               "usage: tutor <script.dan> [--mute] [--voice-id Brian] [--speed 1.0] [--model inworld-tts-2]\n"
                "             [--inworld-key KEY] [--record out.mp4] [--readback] [--check] [--font file.ttf]\n"
                "voice: Inworld TTS; key from --inworld-key, $INWORLD_API_KEY or ./.inworld_key\n");
   return 2;
@@ -150,6 +150,8 @@ int main(int argc, char **argv) {
     for (size_t i = 0; i < worstMsgs.size(); i++) std::fprintf(f, "%s\"%s\"", i ? "," : "", esc(worstMsgs[i]).c_str());
     std::fprintf(f, "],\"flips\":[");
     for (size_t i = 0; i < eng.flipLog.size(); i++) std::fprintf(f, "%s\"%s\"", i ? "," : "", esc(eng.flipLog[i]).c_str());
+    std::fprintf(f, "],\"timeline\":[");
+    for (size_t i = 0; i < eng.timeline.size(); i++) std::fprintf(f, "%s\"%s\"", i ? "," : "", esc(eng.timeline[i]).c_str());
     std::fprintf(f, "],\"composition\":{\"fill\":%.2f,\"offset\":%.2f}}\n", last.fill, last.offset);
     if (f != stdout) std::fclose(f);
     return 0;
@@ -433,7 +435,7 @@ int main(int argc, char **argv) {
     shotClock += dt;
     if (shotAt > 0 && shotClock >= shotAt) { TakeScreenshot(shotFile.c_str()); break; }
 
-    // hot reload: edit the .txt, the stage restarts
+    // hot reload: edit the .dan, the stage restarts
     reloadCheck += dt;
     if (!live && reloadCheck > 0.5f) {
       reloadCheck = 0;

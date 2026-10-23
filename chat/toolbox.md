@@ -275,6 +275,24 @@ Say: "Distance is speed times |time|time."
 @time indicate f
 ```
 
+### A derivation that grows, with a beat after the step that matters
+Use for algebra: one step per sentence, each a morph of the one formula; after the step the next step builds on
+(the subgoal), a digest sentence that reads the result off the stage in other words, pointing, then silence.
+Tools: `morph f.tex` per step; `[f]` and `f[part]` to point while reading it back; `wait 2s` (a subgoal),
+`wait 3s` (the crux, with a question or a re-framing instead of a digest). Not after routine steps.
+```
+mark f tex tex="\begin{aligned} x^2 + 6x + 2 &= 0 \end{aligned}"
+Say: "Move the two to the other |side|side."
+@side morph f.tex -> "\begin{aligned} x^2 + 6x + 2 &= 0 \\ x^2 + 6x &= -2 \end{aligned}" 1.2s
+Say: "Take half of the six and square it, and add that nine to |both|both sides."
+@both morph f.tex -> "\begin{aligned} x^2 + 6x + 2 &= 0 \\ x^2 + 6x &= -2 \\ x^2 + 6x + 9 &= 7 \end{aligned}" 1.2s
+Say: "Now the left side is a perfect |sq|square."
+@sq morph f.tex -> "\begin{aligned} x^2 + 6x + 2 &= 0 \\ x^2 + 6x &= -2 \\ x^2 + 6x + 9 &= 7 \\ \textcolor{sq}{(x+3)^2} &= 7 \end{aligned}" 1.2s
+Say: "So what we |have|have now: x plus three, all squared, is seven. One thing squared, nothing else on the left."
+@have mark b enclose of=f[sq] label="one square"
+wait 2s
+```
+
 ### Two views of one thing
 Use when a second picture adds something: a network and its loss, a signal and its spectrum. Tie them by colour.
 Tools: named schemas (`schema net graph label="…"`, `schema loss axes … label="…"`), each followed by its marks.

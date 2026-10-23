@@ -12,7 +12,7 @@
   "maxOverlaps": 0
  },
  "chat/examples/derivative.dan": {
-  "mean": 97.3,
+  "mean": 97.4,
   "worst": 81.8,
   "final": 100,
   "maxOverlaps": 1
@@ -36,13 +36,13 @@
   "maxOverlaps": 0
  },
  "chat/exemplars/derivative.dan": {
-  "mean": 97.8,
+  "mean": 97.9,
   "worst": 81.8,
   "final": 100,
   "maxOverlaps": 1
  },
  "chat/exemplars/descent.dan": {
-  "mean": 94.3,
+  "mean": 94,
   "worst": 85.8,
   "final": 85.9,
   "maxOverlaps": 1
@@ -72,7 +72,7 @@
   "maxOverlaps": 0
  },
  "chat/exemplars/vectors.dan": {
-  "mean": 86.9,
+  "mean": 86.4,
   "worst": 72.2,
   "final": 72.2,
   "maxOverlaps": 2
@@ -240,10 +240,10 @@
   "maxOverlaps": 3
  },
  "scripts/space-determinant.dan": {
-  "mean": 100,
-  "worst": 100,
-  "final": 100,
-  "maxOverlaps": 0
+  "mean": 98.3,
+  "worst": 79.1,
+  "final": 79.1,
+  "maxOverlaps": 1
  },
  "scripts/space-downhill.dan": {
   "mean": 94.6,

@@ -6,14 +6,14 @@ what is open. The dated story of how it got here (what was tried, measured, kept
 **Keep this file current.** Each session ends by updating it (see `CLAUDE.md`): change the map where the code
 changed, add gotchas, move finished items out of "Open", and add a dated entry to `docs/history.md`.
 
-Last updated: 2026-10-23 (pacing research and plan; append fails on two 3D scripts).
+Last updated: 2026-10-23 (the beat after an algebra step; the language is called Dan, files end in `.dan`).
 
 ## 1. What it is
 
 A live AI tutor in the spirit of 3Blue1Brown. The learner asks a question in the browser, and Claude answers by
 speaking (Inworld text-to-speech) while drawing on a stage window (`./tutor`, C++20 + raylib 6).
-- Claude writes a small declarative markup: `mark`, `link`, `morph`, `focus`, `Say:` with `|cue|` words, schemas,
-  formulas, a camera, fields, 3D.
+- Claude writes a small declarative markup called **Dan** (files end in `.dan`): `mark`, `link`, `morph`, `focus`,
+  `Say:` with `|cue|` words, schemas, formulas, a camera, fields, 3D.
 - **Claude never gives pixels.** The engine owns layout, timing, colour, scales and the camera numbers.
 - The stage plays the lines while Claude is still writing them, one beat at a time.
 - The chat server (`chat/server.mjs`) runs one persistent `claude -p` per chat on the user's subscription.
@@ -40,7 +40,7 @@ make                                  # ./tutor
 ./tutor F --check                     # decodable? lints (layout:, binding:, zero:, tex:, hook:, pointing:) + score
 ./tutor F --readback                  # the scene as markup
 ./tutor F --snapshot OUT --at 3,8,end # PNG frames from a hidden window
-./tutor F --layout-report -           # JSON: layout score every 0.5 s, worst moment, label flips
+./tutor F --layout-report -           # JSON: layout score every 0.5 s, worst moment, label flips, the timeline (say/end/tex)
 ```
 
 Regressions, run after every engine change:
@@ -60,11 +60,12 @@ Measuring with Claude in the loop (`tools/eval/`):
 node tools/eval/run.mjs --variant full --prompts prompts-broad.json --out DIR   # Claude writes scenes
 node tools/eval/judge.mjs --out DIR --variants full --rubric v2                  # a judge scores frames 1-5
 node tools/eval/sentences.mjs --out DIR                                          # is each spoken claim shown?
+node tools/eval/pacing.mjs --out DIR --variants full-opus-xhigh                  # the beat after a formula step (rests, gaps)
 node tools/audit-sessions.mjs [--last 8] [--frames DIR]                          # replay the user's real chats
 ```
 
 Question sets: `prompts-broad` (44, every subject), `prompts-types` (question types), `prompts-3d` (24 spatial,
-12 that only tempt 3D), `prompts-compute` (python), `prompts-novel`. The judge's noise is about ±0.15, so run twice
+12 that only tempt 3D), `prompts-compute` (python), `prompts-novel`, `prompts-algebra` (20 derivations, for pacing). The judge's noise is about ±0.15, so run twice
 before believing a small difference.
 
 ## 3. The axioms
@@ -91,7 +92,7 @@ engine stays the only author of pixels.
 |---|---|
 | `main.cpp` | CLI: play, `--check`, `--readback`, `--snapshot`, `--layout-report`, `--stdin` (the live mode the chat uses), voice flags |
 | `markup/script.*` | the parser: verbs, kinds, schemas, `[id]` pointers and `{expr}` in Say |
-| `markup/engine.*` | model and timeline: steps, cues, morphs (`Active`), history, readback, lints, the prescan, the instant **shadow** engine (values known before they are spoken), key sets `kPositional`/`kTextKeys` |
+| `markup/engine.*` | model and timeline: steps, cues, morphs (`Active`), history, readback, lints, the prescan, the instant **shadow** engine (values known before they are spoken), key sets `kPositional`/`kTextKeys`, the **rest** after a formula step (`kRest`, `quiet_`, `restDue_`) and the `timeline` log |
 | `markup/layout.cpp` | per-frame layout: ranges, the formula band (`layoutBand`, `bandFit`), schema layouts, pointers and attachments, easing, `fitStage` |
 | `markup/placement.cpp` | engine side of placement: `picture()` (all ink for the checker, with regions and view frames), labels, link geometry |
 | `markup/place/*` | pure C++, unit-tested: `flow` (layered graph layout), `qp`, the label placer, the exact checker (`check.*`), springs |
@@ -154,6 +155,10 @@ code, no stubs left behind.
 - **3D:** labels, the placer and the checker all go through `Space::project`; never compute a 3D screen position
   any other way. The fit has a 0.96 margin; an exact fit fails tests on rounding.
 - `ANTHROPIC_API_KEY` in the environment makes `claude -p` bill the API; the server warns.
+- **Changing the engine's timing shifts the golden samples.** A 1 s rest moved every later sample; one 3D script
+  then caught a transient overlap with the old placer. Re-baseline (`--save`) only when the shift is the intent.
+- Chats from before 2026-10-23 keep `.txt` files (`state.txt`, `turns/*.txt`); newer ones write `.dan`. The server
+  and the audit tool read both.
 
 ## 7. Rules from the user
 
@@ -171,6 +176,9 @@ Done and measured (details in `docs/history.md`):
 - Teaching: a decide-first prompt, the toolbox of 27 checked moves, 4 annotated examples, `{expr}` in Say,
   pointing ahead, python blocks, pause and ask.
 - Voice: 48 kHz, sentence context, a picker in the browser.
+- Pacing: one formula step per sentence and a 1 s rest after it (engine); a digest sentence and `wait 2s`/`3s`
+  after subgoal and crux steps (prompt). On 20 derivations: 2+ changes per sentence 15-21% -> 0-4%, rest >= 0.8 s
+  1-2% -> 98-100%, gaps >= 2 s 0-2% -> 14-16%; judge's teaching 4.05 -> 3.88 (noise ±0.15).
 - Overlap needs a relation: the checker sees views; the band never spills onto a plot.
 - 3D (`schema space`): chosen right for 34/36 questions; on spatial questions picture 2.88 to 3.46, teaching
   3.12 to 3.58.
@@ -189,8 +197,8 @@ Next candidates, roughly by value:
 - A lint for the invisible-plane loophole (`schema plane axes=false` used as a free canvas).
 - Ideas offered, not started: "prepare like Grant" (plan the whole lesson first), a taste judge trained on the
   user's clicks.
-- **Pacing after an algebra step** (plan in `docs/history.md` 8j, sources in `research_notes/Pacing/`): one
-  step per sentence, an automatic rest, a digest sentence and `wait` after subgoal and crux steps. Awaiting a yes.
+- **Pacing, next:** the share of gaps >= 2 s (14-16%) is above the 4-10% bar set from 3Blue1Brown; watch real
+  lessons before tuning "one step in six". The judge can't see time: a pacing criterion needs the timeline.
 - **`make append` fails on `space-saddle` and `space-downhill`** (streamed != whole in chunks of 2/3/5).
 - Small: no camera pan for long arrays or timelines; contour labels and field legends aren't in the checker;
   `scripts/*.readback` files are generated junk.

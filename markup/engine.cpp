@@ -199,6 +199,10 @@ void Engine::analyze(bool fresh) {
       for (auto *ref : {&ln.a, &ln.b})
         if (size_t b = ref->find('['); b != std::string::npos) parts.insert(ref->substr(b + 1, ref->find(']') - b - 1));
       break;
+    case Verb::INDICATE: // pointing at a part (indicate f[sq]) names it too
+      if (size_t b = ln.id.find('['); b != std::string::npos && ln.id.find(':') == std::string::npos)
+        parts.insert(ln.id.substr(b + 1, ln.id.find(']') - b - 1));
+      break;
     case Verb::GROUP: defined.insert(ln.id); break;
     case Verb::MORPH:
       if (ln.hasFrom) see(ln.prop, ln.from);
@@ -339,6 +343,10 @@ void Engine::reset() {
   waitingPause_ = false;
   readbackPrinted_ = false;
   idleSent_ = false;
+  quiet_ = 0;
+  restDue_ = false;
+  anySay_ = false;
+  timeline.clear();
   emit("reset");
   // runtime lint is regenerated, static lint kept
   for (auto it = lint_.begin(); it != lint_.end();)
@@ -354,6 +362,13 @@ static std::string jsonStr(const std::string &s) {
     else o += (char)c;
   }
   return o + "\"";
+}
+
+void Engine::logTime(const std::string &ev) {
+  if (opt_.instant) return;
+  char b[32];
+  std::snprintf(b, sizeof b, "%.2f ", clock_);
+  timeline.push_back(b + ev);
 }
 
 void Engine::emit(const std::string &ev) {
@@ -805,6 +820,7 @@ void Engine::execLine(const Line &ln) {
     a.kind = Active::WAIT;
     a.dur = opt_.instant ? 0 : ln.dur;
     actives_.push_back(a);
+    say_.lingering = std::max(say_.lingering, a.dur + 0.6f); // the words stay readable while the stage rests
     break;
   }
   case Verb::PAUSE:
@@ -883,6 +899,7 @@ void Engine::doMark(const Line &ln) {
     m.appear = opt_.instant ? 1 : 0;
     m.enterIn = entranceDelay();
     m.view = curView_;
+    if (findProp(m.props, "tex")) { logTime("texnew " + ln.id); restDue_ = anySay_; } // a formula appearing is a formula changing (settled 1 s later); the opening formula needs no rest
     order_.push_back(ln.id);
     Mark &mm = marks_.emplace(ln.id, m).first->second;
     bornAt_[ln.id] = clock_;
@@ -1064,8 +1081,10 @@ void Engine::startSay(const Line &ln) {
   if (opt_.instant) sayFacts_ = stageFacts(); // for the binding check at the end of the sentence
   say_ = SayRun{};
   say_.active = true;
+  anySay_ = true;
   say_.uid = ln.uid;
   if (opt_.events && !opt_.instant) emit("say " + std::to_string(ln.uid) + " " + jsonStr(spokenText(ln)));
+  if (!opt_.instant) logTime("say " + std::to_string(ln.uid));
   say_.words = ln.words;
   if (!opt_.instant)
     if (auto said = spokenWords(ln); said.size() == say_.words.size())
@@ -1258,6 +1277,7 @@ void Engine::tickSay(float dt) {
     }
     closeSentence();
     emit("end " + std::to_string(say_.uid));
+    logTime("end " + std::to_string(say_.uid));
     if (say_.utt && tts_) tts_->stop();
     say_.active = false;
     say_.lingering = 2.0f;
@@ -1330,7 +1350,7 @@ void Engine::tickActives(float dt) {
       if (a.kind == Active::NUM && o) setProp(o->props, a.prop, a.finalVal);
       if (a.kind == Active::STR && o) {
         if (auto it = o->strBlend.find(a.prop); it != o->strBlend.end() && a.prop == "tex")
-          if (Mark *mk = mark(o->id)) { mk->texPrev = it->second.first; mk->texSettledAt = clock_; }
+          if (Mark *mk = mark(o->id)) { mk->texPrev = it->second.first; mk->texSettledAt = clock_; logTime("tex " + o->id); restDue_ = true; }
         o->strBlend.erase(a.prop);
       }
       if (!a.log.empty()) {
@@ -1353,7 +1373,7 @@ void Engine::skip() {
     say_.t = say_.total = std::max(say_.t, 0.f);
     for (auto &st : say_.start) st = std::min(st, say_.t);
     tickSay(0);
-    if (say_.active) emit("end " + std::to_string(say_.uid));
+    if (say_.active) { emit("end " + std::to_string(say_.uid)); logTime("end " + std::to_string(say_.uid)); }
     say_.active = false;
     say_.lingering = 2.0f;
   }
@@ -1390,12 +1410,28 @@ void Engine::update(float dt) {
   clock_ += dt;
   frameDt_ = dt;
   while (!blocking() && cursor_ < script_.steps.size()) {
+    const Step &next = script_.steps[cursor_];
+    if (next.hook.empty() && next.main.verb == Verb::SAY && restDue_ && !opt_.instant) {
+      // a formula changed in the last sentence: it rests, still, before the next sentence starts
+      restDue_ = false;
+      if (float need = kRest - quiet_; need > 0.01f) {
+        Active a;
+        a.kind = Active::WAIT;
+        a.dur = need;
+        actives_.push_back(a);
+        say_.lingering = std::max(say_.lingering, need + 0.6f);
+        break;
+      }
+    }
     size_t idx = cursor_++;
     if (!script_.steps[idx].hook.empty()) continue; // armed: runs when the voice reaches |hook|
     execStep(idx);
   }
   tickSay(dt);
   tickActives(dt);
+  bool moving = say_.active;
+  for (auto &a : actives_) if (a.kind != Active::WAIT) moving = true;
+  quiet_ = moving ? 0 : quiet_ + dt;
   captionT_ += dt;
   // the name heads the empty stage; when the first thing arrives it goes to the corner (0.6 s)
   if (headline_ < 1 && (opt_.instant || !stageEmpty())) headline_ = opt_.instant ? 1 : std::min(1.f, headline_ + dt / 0.6f);

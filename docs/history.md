@@ -468,3 +468,30 @@ Plan proposed (awaiting the user's yes): one formula change per sentence and an 
 sentence (engine); a digest sentence that reads the result off the stage in other words plus `wait 2s` after a
 subgoal step, a prompt or re-framing plus `wait 3s` after the crux, none at `expert` (prompt + toolbox); a gap
 metric from the engine's say/end events, a `prompts-algebra` set, pre-registered bar. No axiom bent.
+
+## 8k. 2026-10-23 (later): the beat after an algebra step, built; the language named Dan
+
+The user said yes to the plan (8j) and asked for the markup to have a name and its own extension.
+
+**Built.** Engine: after a sentence whose beat created or changed a formula, a 1 s rest with nothing moving before
+the next sentence (`kRest`, `quiet_`, `restDue_`); an explicit `wait` counts toward it; the subtitle stays up
+through a rest or a wait; a `timeline` log (say start, say end, formula settled) in `--layout-report`; `indicate
+f[part]` names a part for the `\textcolor` lint (the digest's pointers tripped it: 16/40 check failures, now
+the baseline's 3/20). Prompt: "Pacing a derivation" (one step per sentence, digest + `wait 2s` after a subgoal
+step, question or re-framing + `wait 3s` after the crux, none at expert, label routine steps), a `beats:` plan
+line, `wait` allowed only as that beat. Toolbox: "A derivation that grows, with a beat after the step that
+matters". Tests: the rest (three cases plus the wait), the lint; toolbox 31/31.
+
+**Measured** (`tools/eval/pacing.mjs`, `prompts-algebra.json`, two runs each, opus xhigh; table in
+`research_notes/Pacing/`): changes per formula sentence 1.18-1.23 -> 1.00-1.05 (2+ in a sentence 15-21% -> 0-4%);
+rest after a formula sentence median 0.02 -> 1.02 s (>= 0.8 s: 1-2% -> 98-100%); gaps >= 2 s 0-1.8% -> 14-16%
+(above the 4-10% bar: 1.7 beats per 12-sentence answer); judge's teaching 4.05 -> 3.88 (noise ±0.15), binding
+lints 18 -> 28-30 per 20 scenes; check-ok equal after the lint fix. Golden: the old placer caught a transient
+overlap on space-determinant once the timing shifted; re-baselined. `make append` still fails on the two 3D
+scripts from before.
+
+**Dropped / not done:** a structural word (`beat`) instead of seconds, until the seconds version is watched; a
+judge criterion for pacing (the judge can't see time); an editor grammar for `.dan`.
+
+**Dan.** The markup is called Dan; files end in `.dan` (scripts, examples, exemplars, idioms renamed; new chats
+and library saves write `.dan`, older `.txt` chats still open; golden baselines re-keyed).

@@ -1,0 +1,22 @@
+[
+  {"id": "rational_sum", "type": "why", "subject": "number theory", "q": "explain why the addition of two rational numbers is rational"},
+  {"id": "complete_square", "type": "how", "subject": "algebra", "q": "How do I complete the square on x^2 + 6x + 2?"},
+  {"id": "quadratic_formula", "type": "why", "subject": "algebra", "q": "Where does the quadratic formula come from?"},
+  {"id": "geometric_series", "type": "why", "subject": "sequences", "q": "Why is 1 + r + r^2 + ... equal to 1/(1-r) when |r| < 1?"},
+  {"id": "difference_of_squares", "type": "why", "subject": "algebra", "q": "why does a^2 - b^2 factor into (a-b)(a+b)?"},
+  {"id": "log_product", "type": "why", "subject": "algebra", "q": "Why is log(ab) = log a + log b?"},
+  {"id": "chain_rule_example", "type": "how", "subject": "calculus", "q": "Differentiate sin(x^2) step by step and explain each step."},
+  {"id": "product_rule", "type": "why", "subject": "calculus", "q": "Where does the product rule (fg)' = f'g + fg' come from?"},
+  {"id": "integration_by_parts", "type": "how", "subject": "calculus", "q": "How does integration by parts work? Do the integral of x e^x."},
+  {"id": "sum_first_n", "type": "why", "subject": "sequences", "q": "Why is 1 + 2 + ... + n equal to n(n+1)/2?"},
+  {"id": "solve_linear_system", "type": "how", "subject": "linear algebra", "q": "Solve 2x + y = 5 and x - y = 1 by elimination, showing every step."},
+  {"id": "eigen_2x2", "type": "how", "subject": "linear algebra", "q": "Find the eigenvalues of the matrix [[2,1],[1,2]] and show the algebra."},
+  {"id": "bayes_derive", "type": "why", "subject": "probability", "q": "Derive Bayes' theorem from the definition of conditional probability."},
+  {"id": "variance_formula", "type": "why", "subject": "statistics", "q": "Why is Var(X) = E[X^2] - (E[X])^2?"},
+  {"id": "sqrt2_irrational", "type": "why", "subject": "number theory", "q": "Prove that the square root of 2 is irrational."},
+  {"id": "induction_powers", "type": "how", "subject": "proof", "q": "Prove by induction that 2^n > n for all n >= 1."},
+  {"id": "projectile_time", "type": "how", "subject": "physics", "q": "A ball is thrown up at 20 m/s. Solve for when it lands, showing the algebra."},
+  {"id": "ohm_series", "type": "how", "subject": "physics", "q": "Two resistors 4 ohm and 6 ohm in series with a 20 V battery: find the current and each voltage drop, step by step."},
+  {"id": "compound_interest", "type": "why", "subject": "finance", "q": "Why does continuous compounding give e^(rt)?"},
+  {"id": "gradient_descent_step", "type": "how", "subject": "machine learning", "q": "For the loss L(w) = (w-3)^2, do two steps of gradient descent from w = 0 with learning rate 0.25, showing the arithmetic."}
+]

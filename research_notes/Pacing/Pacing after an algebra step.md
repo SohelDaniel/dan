@@ -93,6 +93,38 @@ Axioms: none bent. No new ink, no placement, no delete; a rest is a still frame 
 the digest are `indicate`/`[id]`, not model; `wait` already reads back. The one engine change (the automatic rest)
 moves timing further *into* the engine.
 
+## 4b. Built and measured (2026-10-23, same day)
+
+Built: the engine's rest (`kRest` = 1 s after a sentence whose beat changed a formula, counting any explicit
+`wait`; the subtitle stays up through it), `wait 2s`/`3s` beats and the digest sentence in the prompt and toolbox,
+a `beats:` line in the plan, `indicate f[part]` counted as naming a part (the lint fired on the digest's pointers),
+`--layout-report` carries a timeline, `tools/eval/pacing.mjs` reads it, `prompts-algebra.json` (20 derivations).
+
+Pre-registered bar: changes per formula sentence <= 1.1; 4-10% of sentence gaps >= 2 s; judge's teaching not
+down; the user prefers it on lessons they watch. Two runs each, opus at xhigh (the chat's setting):
+
+| | base1 | base2 | new1 | new2 |
+|---|---|---|---|---|
+| sentences | 194 | 188 | 238 | 242 |
+| formula sentences | 56% | 59% | 48% | 47% |
+| changes per formula sentence | 1.23 | 1.18 | 1.00 | 1.05 |
+| 2+ changes in one sentence | 21% | 15% | 0% | 4% |
+| rest after a formula sentence, median | 0.02 s | 0.02 s | 1.02 s | 1.02 s |
+| rest >= 0.8 s | 1% | 2% | 100% | 98% |
+| gaps >= 2 s (all sentences) | 0.0% | 1.8% | 15.6% | 14.0% |
+| gaps >= 3 s | 0.0% | 1.2% | 8.7% | 8.1% |
+| next beat points at the formula | 29% | 28% | 36% | 30% |
+| waits written | 0 | 0 | 67 in 40 scenes (29 x 2 s, 38 x 3 s) | |
+| judge: teaching | 3.95 | 4.15 | 3.95 | 3.80 |
+| judge: binding / layout / accuracy | 3.55 / 3.00 / 4.00 | 3.60 / 3.05 / 3.90 | 3.45 / 3.15 / 4.05 | 3.35 / 2.80 / 3.90 |
+| check ok (fixed lint) | 17/20 | 18/20 | 17/20 | 18/20 |
+
+The engine alone (base scenes replayed with the rest): rest median 1.02 s, >= 0.8 s in 98-99%.
+Met: one change per sentence, the rest. Not met: the >= 2 s share is above the band (the answers are short, 12
+sentences, with 1.7 beats each: about 6% of the answer's time is silence). Borderline: teaching 4.05 -> 3.88, at
+the judge's noise, and the judge cannot see time; binding lints 18 -> 28-30 per 20 scenes (longer answers say
+more). The user's own watching decides.
+
 ## 5. Open questions
 
 - Should Claude write seconds (`wait 2s`, the existing word) or a structural word (`beat`, `beat long`) with the

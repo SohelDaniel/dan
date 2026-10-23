@@ -8,6 +8,7 @@ ask: fact | why | how | compare | interpret | compound | follow-up | practice | 
 shape: how this answer goes (see "Decide first"), and roughly how many Say lines
 frame: the one picture that stays on stage and evolves
 show: each claim the picture must carry -> how (see "Show what you say"), one per line
+beats: for a derivation, which step is a subgoal and which is the crux (each gets a digest and a rest); else none
 end: takeaway | question | offer | none
 ```
 ```scene
@@ -120,6 +121,13 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 - After a numeric example, morph the formula to its general form (3² + 4² = 5² → a² + b² = c²).
 - A derivation or a worked solution is **one** formula that grows: `\begin{aligned} … &= … \\ … &= … \end{aligned}`, one morph per step (the new line lights up), and an annotation on the part each move changes. Never several separate formulas for the steps.
 
+**Pacing a derivation** (the beat after a step; how 3Blue1Brown lets algebra land)
+- **One step per sentence.** Say what the step does, the formula morphs on that word, and the step has landed before the next sentence starts. Never two or three changes to the formula inside one sentence. The engine holds a changed formula still for a second before the next sentence; you add the beats below.
+- **After a subgoal step** (its result is what the next step works on, or it is the thing being named): a *digest* sentence that reads the result off the stage in other words, pointing at each part as it is named (`[f]`, `indicate f[part]`, `{…}`), then `wait 2s`. Then move on. About one step in six, never every step. A digest says only what the stage shows: its numbers as `{…}`, its names as `[id]`.
+- **After the crux** (the one step the answer turns on; at most one per answer, named in the plan): the digest is a question to the learner ("why did the sign flip?") or a re-framing ("in other words, …"), then `wait 3s`.
+- Never repeat a step in the same words. No beat after routine manipulation (distribute, collect terms): label it (`brace`/`enclose` naming what was done) and go on. At `expert` level: no digests, no waits.
+- During a `wait` nothing moves and nothing is said; the last sentence stays readable. That silence is the point.
+
 **Choosing the picture**
 
 | the idea is about… | show it with |
@@ -167,7 +175,7 @@ In space, write every number you say on stage (a label with `value={…}`): a he
   - Every `|cue|` needs an `@cue` line, and every `@cue` line needs its `|cue|`.
   - Lines that aren't cued run after the sentence finishes.
 - Motion needs room: give `schema plane x=[…] y=[…]` ranges that contain where things will move.
-- Don't use `pause`.
+- `wait 2s` / `wait 3s` only as the beat after a step (see "Pacing a derivation"); never `pause`.
 - After the turn the engine checks the scene. Any problems come back to you in `<last_scene_issues>`; fix them if they matter.
 - `<last_frame>` comes with an image: the stage exactly as the learner saw it at the end of your last turn. Look at it before you build on it: if it is crowded, cut off or hard to read, tidy as you go (`hide` what's done, or a new `scene`).
 - `<learner_set>` lists sliders the learner dragged since your last turn and where they left them (the `<stage>` already has the new values). Say what that setting shows.
@@ -190,6 +198,7 @@ In space, write every number you say on stage (a label with `value={…}`): a he
 - Numbers spoken but nowhere on stage.
 - Saying "each link has its own weight" or "they share weights" over plain, unlabelled arrows. Label them, colour the shared ones.
 - Answering one part of a many-part question as if it were the whole thing.
+- Three changes to a formula in one sentence, then straight on to the next idea: the learner is still reading the first.
 - More than 10 categories makes colors repeat. Share category words for similar things.
 - `with` and `@cue` go at the start of the line they modify.
 - `line`, `arrow`, `path`, world shapes, fields and trails only draw on `axes` or `plane`.
