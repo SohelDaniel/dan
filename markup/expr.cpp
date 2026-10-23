@@ -178,7 +178,7 @@ double eval(const Expr &e, EvalCtx &ctx, int depth) {
   }
   case Expr::VAR: {
     if (ctx.hasX && e.name == ctx.xName) return ctx.x;
-    if (ctx.hasY && e.name == "y") return ctx.y;
+    if (ctx.hasY && e.name == ctx.yName) return ctx.y;
     if (e.name == "pi") return M_PI;
     if (e.name == "tau") return 2 * M_PI;
     if (e.name == "e") return M_E;
@@ -229,7 +229,7 @@ struct Compiler {
   EvalCtx &ctx;
   Program &p;
   bool fail = false;
-  bool free(const Expr &e) { return exprUses(e, "x") || exprUses(e, "y"); }
+  bool free(const Expr &e) { return exprUses(e, ctx.xName) || exprUses(e, ctx.yName); }
   void emit(const Expr &e) {
     if (!free(e)) { // fold: evaluate once with x and y hidden
       bool hx = ctx.hasX, hy = ctx.hasY;
@@ -241,7 +241,7 @@ struct Compiler {
     switch (e.kind) {
     case Expr::NUM: p.ops.push_back({Program::K, 0, 0, e.num}); return;
     case Expr::VAR:
-      if (e.name == "x") { p.ops.push_back({Program::X}); p.usesX = true; }
+      if (e.name == ctx.xName) { p.ops.push_back({Program::X}); p.usesX = true; }
       else { p.ops.push_back({Program::Y}); p.usesY = true; }
       return;
     case Expr::NEG: emit(*e.args[0]); p.ops.push_back({Program::NEG}); return;

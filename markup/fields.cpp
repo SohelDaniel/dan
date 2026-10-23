@@ -24,21 +24,25 @@ namespace mk {
 using namespace rm;
 
 // ---------------------------------------------------------------- evaluating f(x, y)
-std::function<double(double, double)> Engine::fn2(const Mark &m, const char *key) {
+// (a, b: the names of the two variables; u and v for a parametric surface)
+std::function<double(double, double)> Engine::fn2(const Mark &m, const char *key, const char *a, const char *b) {
   const Value *v = findProp(m.props, key);
   if (!v) return {};
   if (v->type == Value::NUM) { double k = v->num; return [k](double, double) { return k; }; }
   if (v->type != Value::EXPR || !v->expr) return {};
+  const char *ox = xName, *oy = yName;
+  xName = a; yName = b;
   auto prog = std::make_shared<Program>(compile(*v->expr, *this));
+  xName = ox; yName = oy;
   if (prog->ok) return [prog](double x, double y) { return prog->run(x, y); };
-  ExprPtr e = v->expr; // an engine call of x or y: the tree walk, with x and y set
-  return [this, e](double X, double Y) {
+  ExprPtr e = v->expr; // an engine call of the variables: the tree walk, with them set
+  return [this, e, a, b](double X, double Y) {
     double ox = this->x, oy = this->y;
     bool ohx = hasX, ohy = hasY;
-    const char *on = xName;
-    this->x = X; this->y = Y; hasX = hasY = true; xName = "x";
+    const char *on = xName, *om = yName;
+    this->x = X; this->y = Y; hasX = hasY = true; xName = a; yName = b;
     double r = eval(*e, *this);
-    this->x = ox; this->y = oy; hasX = ohx; hasY = ohy; xName = on;
+    this->x = ox; this->y = oy; hasX = ohx; hasY = ohy; xName = on; yName = om;
     return r;
   };
 }

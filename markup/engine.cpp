@@ -20,10 +20,11 @@ static const std::set<std::string> kPositional = {"x",  "y",     "t",     "at", 
                                                   "opacity", "dx", "dy", "h", "height", "pts", "cols", "line",
                                                   "grid", "axes", "equal", "index", "cells", "items", "n", "m", "xlabel", "ylabel",
                                                   "vx", "vy", "levels", "labels", "trail", "colors",
-                                                  "parts", "by", "bylabels", "bycolors"};
+                                                  "parts", "by", "bylabels", "bycolors",
+                                                  "z", "z1", "z2", "dz", "zt", "normal", "units", "zlabel", "drop"};
 static const std::set<std::string> kTextKeys = {"label", "name", "text", "set", "fn",   "of",   "color",
                                                 "shape", "ease", "unit", "note", "title", "tex",
-                                                "at", "to", "side", "style", "cmap", "levels", "trail"};
+                                                "at", "to", "side", "style", "cmap", "levels", "trail", "drop", "units"};
 
 Engine::Engine(EngineOptions opt) : opt_(std::move(opt)) {}
 Engine::~Engine() {
@@ -125,7 +126,7 @@ void Engine::analyze(bool fresh) {
     bool isInt = std::fabs(v.num - std::round(v.num)) < 1e-9;
     cur.isInt[k] = cur.isInt.count(k) ? (cur.isInt[k] && isInt) : isInt;
   };
-  bool hasAxes = false, hasT = false, hasLinks = false, hasMag = false, hasWorld = false, hasFn = false, hasBox = false;
+  bool hasAxes = false, hasT = false, hasLinks = false, hasMag = false, hasWorld = false, hasFn = false, hasBox = false, hasSpace = false;
   autoSchemas_.clear();
   int blockLines = 0; // blocks this scene will hold (to choose the band's arrangement before they arrive)
   std::set<std::string> sceneBlockIds;
@@ -134,12 +135,13 @@ void Engine::analyze(bool fresh) {
     sceneBlocks_.push_back(blockLines);
     blockLines = 0;
     sceneBlockIds.clear();
-    autoSchemas_.push_back(hasWorld && !hasFn ? "plane"
+    autoSchemas_.push_back(hasSpace           ? "space"
+                           : hasWorld && !hasFn ? "plane"
                            : hasAxes          ? "axes"
                            : hasT             ? "timeline"
                            : (hasBox || (hasLinks && !hasMag)) ? "graph" // boxes are graph things from the first one,
                                                                  : "free");  // so links or numbers arriving later don't re-lay the scene
-    hasAxes = hasT = hasLinks = hasMag = hasWorld = hasFn = hasBox = false;
+    hasAxes = hasT = hasLinks = hasMag = hasWorld = hasFn = hasBox = hasSpace = false;
     scenePrescan_.push_back(cur);
     cur = Prescan{};
   };
@@ -155,11 +157,14 @@ void Engine::analyze(bool fresh) {
         if (p.key == "x" || p.key == "x1" || p.key == "fn" || p.key == "xt") hasAxes = true;
         if (p.key == "fn" || p.key == "xt") hasFn = true;
         if ((p.key == "t" || p.key == "at" || p.key == "year") && p.val.isNumeric()) hasT = true;
-        if ((!kPositional.count(p.key) || (p.key == "m" && ln.kind != "grid")) && p.val.isNumeric() && ln.kind != "label" && ln.kind != "param") hasMag = true;
+        if (p.key == "z" || p.key == "dz" || p.key == "zt" || p.key == "z1") hasSpace = true;
+        bool planeOffset = p.key == "d" && ln.kind == "plane"; // a x + b y + c z = d: where the plane is, not how much
+        if ((!kPositional.count(p.key) || (p.key == "m" && ln.kind != "grid")) && !planeOffset && p.val.isNumeric() && ln.kind != "label" && ln.kind != "param") hasMag = true;
       }
       if (ln.kind == "path" || ln.kind == "region") hasAxes = hasFn = true;
       if (isWorldKind(ln.kind)) hasWorld = true;
       if (ln.kind == "box") hasBox = true;
+      if (isSpaceKind(ln.kind)) hasSpace = true;
       for (auto &p : ln.props) // [1,000, 2,500]: a thousands comma splits a number in two
         if (p.val.type == Value::LIST)
           for (size_t i = 1; i < p.val.list.size(); i++) {
@@ -312,6 +317,7 @@ void Engine::reset() {
   zoomSettle_ = 0.6f;
   linkRoute_.clear();
   cam_ = Camera{};
+  spc_ = SpaceView{};
   hist_.clear();
   bornAt_.clear();
   clock_ = 0;
@@ -429,7 +435,7 @@ double Engine::num(const Obj &o, const std::string &key, bool *ok, int depth) {
 }
 
 std::string Engine::magProp(const Mark &m) const {
-  if (m.kind == "path" || m.kind == "region" || isFieldKind(m.kind) || m.kind == "solution") return "";
+  if (m.kind == "path" || m.kind == "region" || isFieldKind(m.kind) || m.kind == "solution" || isSpaceKind(m.kind)) return "";
   for (auto &p : m.props) {
     bool positional = kPositional.count(p.key) && !(p.key == "m" && m.kind != "grid"); // m= is a matrix only on a grid
     if (p.val.isNumeric() && !positional && !kTextKeys.count(p.key)) return p.key;
@@ -457,6 +463,11 @@ std::string Engine::effectiveKind(const Mark &m) const {
   if (findProp(m.props, "shape")) return "dot"; // shape is a channel only dots carry
   if (s == "graph" || s == "sequence") return "box";
   if (s == "numberline" || s == "timeline") return "dot";
+  if (isSpace(s)) { // fn: a surface over x and y; xt yt zt: a curve (in u and v: a surface); else a point
+    if (findProp(m.props, "fn")) return "surface";
+    if (findProp(m.props, "xt")) return findProp(m.props, "u") || findProp(m.props, "v") ? "surface" : "path";
+    return "dot";
+  }
   if (s == "axes") {
     if (findProp(m.props, "x") && findProp(m.props, "y")) return "dot";
     if (findProp(m.props, "fn") || findProp(m.props, "xt")) return "path";
@@ -644,6 +655,7 @@ void Engine::clearStage() {
   rangeSig_.clear();
   rangesInit_ = false;
   cam_ = Camera{};
+  spc_ = SpaceView{};
   blockRows_ = false;
   pointerSide_.clear();
   annVariant_.clear();
@@ -793,7 +805,7 @@ void Engine::execLine(const Line &ln) {
     if (!ln.id.empty() && views_.empty() && schema_ != "auto") {
       views_.push_back({"main", schema_, schemaProps_});
       for (auto &[id, m] : marks_) if (m.view.empty()) m.view = "main";
-      if (isAxes(schema_) || schema_ == "numberline" || schema_ == "timeline") curData_ = "main";
+      if (isAxes(schema_) || isSpace(schema_) || schema_ == "numberline" || schema_ == "timeline") curData_ = "main";
     }
     if (!ln.id.empty() || !views_.empty()) { // a named view: create it, or select it for the marks that follow
       Line named = ln;
@@ -803,7 +815,7 @@ void Engine::execLine(const Line &ln) {
       if (v == views_.end()) { views_.push_back({ln.id, ln.kind.empty() ? "free" : ln.kind, ln.props}); v = views_.end() - 1; }
       else if (!ln.kind.empty()) { v->schema = ln.kind; v->props = ln.props; }
       curView_ = ln.id;
-      bool data = isAxes(v->schema) || v->schema == "numberline" || v->schema == "timeline";
+      bool data = isAxes(v->schema) || isSpace(v->schema) || v->schema == "numberline" || v->schema == "timeline";
       if (data && !ln.kind.empty()) { // the first data view's state is the members'; each later one has its own
         if (curData_.empty() || curData_ == v->id) {
           curData_ = v->id;
@@ -1280,6 +1292,9 @@ void Engine::tickActives(float dt) {
       if (it != o->strBlend.end()) it->second.second = e;
     } else if (a.kind == Active::CAM) {
       cam_.k = e;
+    } else if (a.kind == Active::ORBIT) {
+      DataScope ds(*this, a.id);
+      spc_.k = e;
     } else if (a.kind == Active::CLEAR) {
       stageFade_ = 1 - e;
       if (k >= 1) {
@@ -1511,7 +1526,7 @@ std::string Engine::readback(bool comments) {
       if (!m.category.empty()) o << " " << Value::string(m.category).markup();
       for (auto &p : m.props) {
         o << " " << p.key << "=" << p.val.markup();
-        if (p.val.type == Value::EXPR && p.key != "fn" && p.key != "xt" && p.key != "yt" && p.key != "vx" && p.key != "vy") {
+        if (p.val.type == Value::EXPR && p.key != "fn" && p.key != "xt" && p.key != "yt" && p.key != "zt" && p.key != "vx" && p.key != "vy" && p.key != "vz") {
           double v = num(p.val);
           evals.push_back(m.id + "." + p.key + " = " + fmtNum(v));
           if (!std::isfinite(v))
@@ -1535,6 +1550,7 @@ std::string Engine::readback(bool comments) {
   }
   if (!focus_.empty()) o << "focus " << focus_ << "\n";
   if (cam_.on && !cam_.spec.empty()) o << cam_.spec << "\n";
+  for (auto &l : spc_.spec) o << l << "\n"; // a space's camera: the lines that turned it, in order
   if (!comments) return o.str();
 
   for (auto &e : evals) o << "# value: " << e << "\n";
@@ -1569,6 +1585,10 @@ std::string Engine::readback(bool comments) {
       std::string ka = effectiveKind(a), kb = effectiveKind(b);
       if (ka == "path" || kb == "path" || ka == "region" || kb == "region" || ka == "label" || kb == "label") continue;
       if (isFieldKind(ka) || isFieldKind(kb) || ka == "solution" || kb == "solution") continue;
+      if (int c = spaceCoincide(a, b); c >= 0) { // in space: at one point in 3D, not lined up in this view
+        if (c == 1) o << "# overlapping: " << a.id << " " << b.id << "\n";
+        continue;
+      }
       if (CheckCollisionRecs(bodyBounds(a), bodyBounds(b))) o << "# overlapping: " << a.id << " " << b.id << "\n";
     }
   if (!since_.empty()) {

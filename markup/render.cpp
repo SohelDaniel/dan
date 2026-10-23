@@ -506,6 +506,7 @@ void Engine::drawLabels(const Mark &m) {
     if (l.leader) DrawLineEx(l.leaderFrom, l.leaderTo, l.leaderWidth, fade(c, a * l.leaderAlpha));
     Color tc = l.ink == TextLabel::Fg ? fade(col::fg, a) : l.ink == TextLabel::Muted ? fade(col::muted, a) : fade(c, a);
     if (!l.blendKey.empty()) blendText(m, l.blendKey, l.text, l.at, l.size, tc, l.ax, l.ay);
+    else if (isSpace(schemaOf(m))) textOutlined(l.text, l.at, l.size, tc, l.ax, l.ay); // over a 3D picture
     else text(l.text, l.at, l.size, tc, l.ax, l.ay);
   }
 }
@@ -516,6 +517,10 @@ void Engine::drawMark(const Mark &mc) {
   if (!m.positioned && effectiveKind(m) != "label") return;
   std::string k = effectiveKind(m), s = schemaOf(m);
   if (k == "tex") { drawTex(m); return; }
+  if (isSpace(s) && !isBlockKind(k) && !isAnnotationKind(k) && k != "label") { // drawn by drawSpace, in depth order
+    drawLabels(m);
+    return;
+  }
   if (isWorldKind(k)) {
     // under a camera, shapes are clipped to the axes like curves are
     if (cam_.on) BeginScissorMode((int)axes_.area.x - 4, (int)axes_.area.y - 4, (int)axes_.area.width + 8, (int)axes_.area.height + 8);
@@ -852,6 +857,8 @@ void Engine::draw() {
   // schema furniture, for every data view with its own axes
   drawFurniture();
   for (auto &[vid, c] : dataCtx_) if (vid != curData_) { DataScope ds(*this, vid); drawFurniture(); }
+  if (isSpace(schemaNow())) drawSpace(); // a 3D view: its furniture and things, back to front (names come later)
+  for (auto &[vid, c] : dataCtx_) if (vid != curData_) { DataScope ds(*this, vid); if (isSpace(schemaNow())) drawSpace(); }
   const float F = stageFade_;
 
   // shared zero baselines, one per run of bars with the same property
@@ -923,6 +930,8 @@ void Engine::draw() {
       std::string k = effectiveKind(*m);
       if (k == "dot" || k == "bar" || k == "box" || k == "label" || isBlockKind(k)) drawMark(*m);
     }
+  for (auto &id : order_) // the names of a space's own kinds (the rest come with the passes above)
+    if (Mark *m = mark(id); m && isSpaceKind(effectiveKind(*m))) drawMark(*m);
   for (auto &id : order_) // annotations on top of what they are about
     if (Mark *m = mark(id); m && isAnnotationKind(effectiveKind(*m))) drawMark(*m);
   drawPulses();

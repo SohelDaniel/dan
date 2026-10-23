@@ -19,6 +19,7 @@
 #include "place/labels.hpp"
 #include "place/spring.hpp"
 #include "viz/viz.hpp"
+#include "viz/space.hpp"
 #include <functional>
 #include "tts.hpp"
 #include <memory>
@@ -31,6 +32,10 @@
 namespace mk {
 
 inline bool isAxes(const std::string &schema) { return schema == "axes" || schema == "plane"; }
+// a 3D world, z up (space.cpp): projected through one mapping, drawn as 2D strokes and triangles by depth
+inline bool isSpace(const std::string &schema) { return schema == "space"; }
+// kinds only a space has (the others there are the 2D ones given a z: dot, vector, line, arrow, path, polygon, grid)
+inline bool isSpaceKind(const std::string &k) { return k == "surface" || k == "sphere" || k == "plane"; }
 // placement words: never colours, magnitudes or box rows. Only on= / in= / over= still place (touching on
 // purpose); the rest are retired (position comes from structure) and only linted.
 inline bool isPlacementKey(const std::string &k) {
@@ -74,6 +79,9 @@ struct Obj {
   std::map<std::string, std::pair<std::string, float>> strBlend;
 };
 
+// text over a busy 3D picture: a dark outline, then the text (space.cpp)
+void textOutlined(const std::string &s, Vector2 at, float size, Color c, float ax, float ay);
+
 struct Mark : Obj {
   std::string view;          // the named view it belongs to ("" with a single schema)
   std::string texPrev;       // formulas: what it was before its last change, and when that change settled
@@ -87,6 +95,7 @@ struct Mark : Obj {
   float labelLift = 0;       // raises a name label that would collide with a neighbour's
   int labelQuad = 0;         // axes: which corner of its dot the name sits at (0 NE, 1 NW, 2 SE, 3 SW)
   bool culled = false;       // outside the camera's view this frame: not drawn, no labels
+  Rectangle spaceBox{0, 0, 0, 0}; // in a space: where it is on screen this frame (projected)
 };
 
 // a piece of text placed outside (or beside) the thing it belongs to: a name, a value, a category.
@@ -123,7 +132,7 @@ struct Group : Obj {
 };
 
 struct Active {
-  enum Kind { NUM, STR, WAIT, PAUSE, CLEAR, PULSE, CAM, FLIGHT } kind = NUM;
+  enum Kind { NUM, STR, WAIT, PAUSE, CLEAR, PULSE, CAM, FLIGHT, ORBIT } kind = NUM; // ORBIT: a space view's camera (id: the view)
   std::string id, prop;
   std::string dest, via;    // FLIGHT: where the copy goes, and the link it travels along
   double from = 0, to = 0;
@@ -285,6 +294,7 @@ private:
   void doGroup(const Line &ln);
   void doMorph(const Line &ln);
   void doCamera(const Line &ln);
+  void doSpaceCamera(const Line &ln);         // view=, orbit=, tilt=, spin, zoom= on= in a space (space.cpp)
   void settleActive(const std::string &id, const std::string &prop);
   void startSay(const Line &ln);
   void fireHook(const std::string &name);
@@ -329,6 +339,34 @@ private:
   void layoutGraph(Rectangle area, const std::vector<std::string> &ids, const std::string &view = "");
   void layoutNumberline(Rectangle area);
   void layoutAxes(Rectangle area);
+  // ---- space (space.cpp)
+  // a thing in space, in data units: what it draws, and what its name, the placer and the checker see of it
+  struct SpaceShape {
+    struct Stroke {
+      std::vector<viz::V3> pts;
+      Color c{};
+      float width = 3, alpha = 1;
+      bool head = false, dashed = false, ink = true; // ink: a line the checker and the placer see (not mesh, not shadow)
+    };
+    struct Tri {
+      viz::V3 a, b, c;
+      Color col{};
+      float alpha = 1;
+    };
+    std::vector<Stroke> strokes;
+    std::vector<Tri> tris;
+    std::vector<viz::V3> dots;
+    bool ok = false;
+  };
+  SpaceShape spaceShape(const Mark &m);
+  bool spacePoint(const Mark &m, viz::V3 &p); // where a thing is: a point, a tip, a centre
+  void spaceRanges();
+  void layoutSpace(Rectangle area, float dt);
+  void drawSpace();                           // the current space view: furniture and things, back to front
+  std::vector<Vector2> spaceStroke(const Mark &m); // its line on screen (vectors, lines, curves), for labels and the checker
+  bool spaceName(const Mark &m, Vector2 &at, float &ax, float &ay); // where its name goes
+  std::vector<std::pair<Rectangle, std::string>> spaceTicks(); // tick numbers and axis names, on screen
+  int spaceCoincide(const Mark &a, const Mark &b); // -1: not both in a space; 1: they are at one point in 3D; 0: only in projection
   void layoutTimeline(Rectangle area);
   void zeroCheck();
   float footprint(const Mark &m);
@@ -523,6 +561,18 @@ private:
   // A view that holds data (axes, plane, number line, timeline) owns all the state above that maps data
   // to the screen. The current one lives in the members (so the code that reads axes_, nl_, cam_ … is
   // unchanged); the others wait in dataCtx_. DataScope makes a view's state current for a while.
+  // a space view's camera: the projection (its ranges, area and orbit), a move in progress, the slow spin
+  struct SpaceView {
+    viz::Space proj;
+    viz::Orbit from, to;
+    float k = 1;                        // eased progress of the move, 0..1
+    bool spin = false;
+    float spinRate = 0;                 // radians per second, easing towards the spin's speed or 0
+    bool rangesInit = false;
+    std::string rangeSig;               // the ranges are worked out again when this changes (things added)
+    double lo[3] = {-3, -3, -3}, hi[3] = {3, 3, 3}; // where the ranges are easing to
+    std::vector<std::string> spec;      // the camera lines that brought it here, as readback writes them
+  } spc_;
   struct DataCtx {
     std::string schema = "auto", nlProp, rangeSig;
     Props props;
@@ -532,6 +582,7 @@ private:
     rm::Axes axes;
     rm::NumberLine nl;
     Camera cam;
+    SpaceView spc;
   };
   std::map<std::string, DataCtx> dataCtx_; // by view id: every data view but the current one (its slot is idle)
   std::string curData_;                    // the data view whose state is in the members ("" without views)
@@ -598,7 +649,7 @@ private:
   void camApply(Rectangle area);  // called by layoutAxes once the schema's view is known
 
   // ---- fields (fields.cpp)
-  std::function<double(double, double)> fn2(const Mark &m, const char *key);
+  std::function<double(double, double)> fn2(const Mark &m, const char *key, const char *a = "x", const char *b = "y");
   std::function<viz::V2(viz::V2)> vecField(const Mark &m);
   void drawFieldMark(Mark &m);
   void drawVecField(Mark &m, float a, Color c);

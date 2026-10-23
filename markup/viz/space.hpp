@@ -4,7 +4,8 @@
 //
 // The data box is seen by a camera orbiting its centre: azimuth theta around the vertical (z) axis, measured
 // from +x towards +y, and tilt phi down from straight above. z is up, the frame is right-handed. A narrow
-// perspective, and a scale fitted to the box's bounding sphere, so turning never makes the scene breathe.
+// perspective, and a scale fitted to the cylinder the box sweeps as it turns about z (the spin), so turning never
+// makes the scene breathe while the stage's width is used.
 #pragma once
 #include <cmath>
 #include <string>
@@ -60,9 +61,13 @@ struct Space {
   double radius() const;          // the box's bounding sphere, in world units
   Projected project(V3 data) const;
   V3 eye() const;                 // where the camera is, in world units
+  double focal() const;           // screen pixels per world unit at unit depth, fitted to the area
   V3 forward() const;             // the view direction, world units
   // how a world direction looks on screen (unit length when it lies flat in the view): which way an axis points
   double screenDir(V3 dataDir, double &dx, double &dy) const;
+
+private:
+  mutable double fitKey_[12] = {}, fit_ = 0; // focal() for the view, area and box it was worked out for
 };
 
 } // namespace viz

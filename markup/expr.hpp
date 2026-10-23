@@ -22,9 +22,10 @@ struct Expr {
 struct EvalCtx {
   double x = 0;
   bool hasX = false;
-  const char *xName = "x";  // "t" while sampling a parametric path
+  const char *xName = "x";  // "t" while sampling a parametric path, "u" for a parametric surface
   double y = 0;             // the second free variable of a field f(x, y)
   bool hasY = false;
+  const char *yName = "y";  // "v" for a parametric surface
   virtual ~EvalCtx() = default;
   virtual bool var(const std::string &name, double &out) = 0;
   virtual bool member(const std::string &id, const std::string &prop, double &out) = 0;
@@ -37,7 +38,7 @@ double eval(const Expr &e, EvalCtx &ctx, int depth = 0);
 void exprNames(const Expr &e, std::vector<std::string> &out);
 bool exprUses(const Expr &e, const std::string &name);
 
-// A compiled expression: a flat stack program in the free variables x and y. Everything that doesn't
+// A compiled expression: a flat stack program in the free variables x and y (named by ctx.xName, ctx.yName). Everything that doesn't
 // depend on them (other marks, params, constants) is evaluated once, at compile time, through ctx.
 // Fields evaluate f at thousands of points per frame; the tree walk does string lookups per node.
 // ok is false when a part depending on x or y can't be compiled (an engine call such as f(x) on a

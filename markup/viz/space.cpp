@@ -35,11 +35,32 @@ V3 Space::forward() const {
 // far enough that the bounding sphere just fills the field of view at zoom 1
 V3 Space::eye() const { return world(aim()) - forward() * (radius() / std::sin(fov / 2)); }
 
+// the scale at which the box fits the area from any azimuth: the cylinder it sweeps turning about z (its corners'
+// circle, at the bottom and the top of the box), seen from this tilt, projected and fitted to the area
+double Space::focal() const {
+  double key[12] = {view.theta, view.phi, view.zoom, ax, ay, aw, ah, fov, hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2], equal ? 1.0 : 0.0};
+  if (fit_ > 0 && std::equal(key, key + 12, fitKey_)) return fit_;
+  std::copy(key, key + 12, fitKey_);
+  V3 f = forward(), r = unit(cross(f, {0, 0, 1})), u = cross(r, f), e = eye();
+  V3 a = world({lo[0], lo[1], lo[2]}), b = world({hi[0], hi[1], hi[2]}), c = (a + b) * 0.5;
+  double rxy = std::sqrt((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y)) / 2;
+  double sx = 1e-9, sy = 1e-9;
+  for (int i = 0; i < 32; i++)
+    for (double z : {a.z, b.z}) {
+      double t = i * 3.14159265358979 / 16;
+      V3 q = V3{c.x + rxy * std::cos(t), c.y + rxy * std::sin(t), z} - e;
+      double d = std::max(1e-6, dot(q, f));
+      sx = std::max(sx, std::fabs(dot(q, r)) / d);
+      sy = std::max(sy, std::fabs(dot(q, u)) / d);
+    }
+  return fit_ = std::min(aw / 2 / sx, ah / 2 / sy) * 0.96 * view.zoom; // a little air at the edges
+}
+
 Projected Space::project(V3 data) const {
   V3 f = forward(), r = unit(cross(f, {0, 0, 1})), u = cross(r, f);
   V3 q = world(data) - eye();
   double depth = std::max(1e-6, dot(q, f));
-  double focal = std::min(aw, ah) / 2 / std::tan(fov / 2) * view.zoom;
+  double focal = this->focal();
   Projected p;
   p.depth = depth;
   p.scale = focal / depth;

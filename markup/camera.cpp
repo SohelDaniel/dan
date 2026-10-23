@@ -15,6 +15,7 @@ namespace mk {
 
 void Engine::doCamera(const Line &ln) {
   std::string s = schemaNow();
+  if (isSpace(s)) { doSpaceCamera(ln); return; }
   if (s != "axes" && s != "plane") {
     warn("camera: line " + std::to_string(ln.lineNo) + " needs an axes or plane scene (this one is " + s + ")");
     return;

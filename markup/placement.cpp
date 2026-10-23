@@ -76,6 +76,17 @@ void Engine::addFrames(place::Picture &p) {
     p.add(ink);
   };
   auto plot = [&](const std::string &name, int region) {
+    if (isSpace(schemaNow())) { // the box as drawn, and its numbers
+      const viz::Space &S = spc_.proj;
+      float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
+      for (int c = 0; c < 8; c++) {
+        viz::Projected q = S.project({c & 1 ? S.hi[0] : S.lo[0], c & 2 ? S.hi[1] : S.lo[1], c & 4 ? S.hi[2] : S.lo[2]});
+        x0 = std::min(x0, (float)q.x); y0 = std::min(y0, (float)q.y); x1 = std::max(x1, (float)q.x); y1 = std::max(y1, (float)q.y);
+      }
+      frame(place::Ink::Frame, name, {x0, y0, x1 - x0, y1 - y0}, region);
+      for (auto &[box, s] : spaceTicks()) frame(place::Ink::Furniture, "the axis numbers", box, region);
+      return;
+    }
     if (!isAxes(schemaNow())) return;
     frame(place::Ink::Frame, name, axes_.area, region);
     for (const Rectangle &f : furnitureHere()) frame(place::Ink::Furniture, "the axis numbers", f, region);
@@ -116,6 +127,7 @@ place::Picture Engine::picture() {
       if (isFieldKind(k) || k == "solution") continue;
       if (k == "polygon" || k == "angle" || k == "circle" || k == "rect") continue; // outlines, added below
       if (isAnnotationKind(k)) continue;                                            // stroke and name, added below
+      if (isSpace(schemaOf(*m)) && k != "dot") continue;                              // lines added below; shapes are ground
       if ((alphaOf(*m) < 0.05f && m->appear >= 1) || m->appear <= 0 || ghost(*m)) continue; // hidden, or not entered yet
       std::string target = pointerTarget(*m);
       if ((pass == 0) != target.empty()) continue;
@@ -145,6 +157,13 @@ place::Picture Engine::picture() {
     ink.other = other;
     return p.add(ink);
   };
+  for (auto &id : order_) // in space: vectors, lines and curves, as projected
+    if (Mark *m = mark(id); m && m->positioned && alphaOf(*m) >= 0.05f && isSpace(schemaOf(*m)) && effectiveKind(*m) != "dot") {
+      DataScope ds(*this, dataViewOf(*m));
+      std::vector<Vector2> line = spaceStroke(*m);
+      std::string k = effectiveKind(*m);
+      if (k == "vector" || k == "line" || k == "arrow" || k == "path") idx[id] = lineInk(id, inkName(*m), line, -1, -1);
+    }
   // curves, lines and vectors are strokes, not boxes: polylines (a vector may touch what it's attached to)
   for (auto &id : order_) {
     Mark *m = mark(id);
@@ -352,6 +371,7 @@ std::vector<Rectangle> Engine::furniture() {
 std::vector<Rectangle> Engine::furnitureHere() {
   std::vector<Rectangle> out;
   std::string s = schemaNow();
+  if (isSpace(s)) { for (auto &[box, t] : spaceTicks()) out.push_back(box); return out; }
   if (!isAxes(s)) return out;
   if (s == "plane") {
     auto ax = findProp(schemaProps_, "axes");
@@ -525,7 +545,7 @@ std::vector<TextLabel> Engine::markLabelsAt(const Mark &m) {
       l.leaderWidth = 1.5f;
       l.leaderAlpha = 0.7f;
       category(lp + Vector2{0, i ? 22.f : -22.f}, 0.5f, i ? 0.f : 1.f);
-    } else if (isAxes(s)) { // the corner layout found free of other labels and dots
+    } else if (isAxes(s) || isSpace(s)) { // the corner layout found free of other labels and dots
       int q = m.labelQuad;
       add(name, {ctr.x + (q % 2 ? -10.f : 10.f), ctr.y + (q >= 2 ? 10.f : -10.f)}, 17, q % 2 ? 1.f : 0.f,
           q >= 2 ? 0.f : 1.f, TextLabel::Fg, "name");
@@ -536,6 +556,13 @@ std::vector<TextLabel> Engine::markLabelsAt(const Mark &m) {
   }
   if (k == "label" && s == "numberline" && !nlProp_.empty() && findProp(m.props, nlProp_)) { // ▲ mean 62
     add(labelText(m) + " " + valueText(m, nlProp_), {m.pos.x, nl_.a.y + 42}, 18, 0.5f, 0, TextLabel::Mark, "label");
+    return out;
+  }
+  if (isSpace(s)) { // a thing in space: its name upright at a projected point (space.cpp)
+    Vector2 at;
+    float ax, ay;
+    if ((findProp(m.props, "label") || findProp(m.props, "name")) && m.appear > 0.6f && spaceName(m, at, ax, ay))
+      add(name, at, 19, ax, ay, TextLabel::Mark, "name");
     return out;
   }
   if (!isAxes(s)) return out;
@@ -838,7 +865,8 @@ float Engine::stickyFor(const std::string &key) {
 bool Engine::movableLabel(const Mark &m, const TextLabel &l) {
   std::string k = effectiveKind(m), s = schemaOf(m);
   if (l.role == "inside") return false;
-  if (k == "dot") return !m.anchorBottom && (isAxes(s) || s == "graph");
+  if (k == "dot") return !m.anchorBottom && (isAxes(s) || isSpace(s) || s == "graph");
+  if (isSpace(s)) return k != "grid"; // in space: around where its name belongs (labelSpots)
   if (isCurveKind(k) || k == "line" || k == "arrow") return true;
   if (k == "vector" || k == "circle" || k == "rect") return true;
   return false;
@@ -863,6 +891,13 @@ void Engine::labelObstacles(LabelPass &lp) {
     Mark *m = mark(id);
     if (!m || !m->positioned || alphaOf(*m) < 0.05f) continue;
     std::string k = effectiveKind(*m);
+    if (isSpace(schemaOf(*m)) && k != "dot") { // in space: a surface or a plane is ground; a vector's or a curve's line is a stroke
+      DataScope ds(*this, dataViewOf(*m));
+      std::vector<place::Vec> line;
+      for (auto &q : spaceStroke(*m)) line.push_back({q.x, q.y});
+      if (line.size() > 1) lp.world.strokes.push_back(line);
+      continue;
+    }
     if (k == "path" || k == "region" || k == "line" || k == "arrow" || k == "param" || k == "grid" || k == "vector") continue;
     if (isFieldKind(k) || k == "solution") continue;
     if (k == "rect" || k == "circle" || k == "polygon" || k == "angle") { // an area: names may sit inside it, not on its edge
@@ -887,9 +922,23 @@ void Engine::labelObstacles(LabelPass &lp) {
 void Engine::labelSpots(const Mark &m, const std::string &k, const std::vector<Vector2> &stroke, Rectangle box, place::LabelReq &r) {
   using S = place::Side;
   auto spot = [&](Rectangle a) { r.anchor = R(a); };
+  if (isSpace(schemaOf(m)) && k != "dot") { // in space: around where its name belongs (a tip, an end, a shape's top), or along its line
+    Vector2 at;
+    float ax, ay;
+    if (!spaceName(m, at, ax, ay)) at = {box.x + box.width / 2, box.y + box.height / 2};
+    spot({at.x - 4, at.y - 4, 8, 8});
+    r.sides = {S::NE, S::NW, S::SE, S::SW, S::E, S::W, S::N, S::S};
+    for (float f : {0.75f, 0.5f, 0.25f})
+      if (stroke.size() > 1) {
+        Vector2 q = stroke[std::min(stroke.size() - 1, (size_t)(f * (stroke.size() - 1)))];
+        r.along.push_back({q.x, q.y - box.height / 2 - 10});
+        r.along.push_back({q.x, q.y + box.height / 2 + 10});
+      }
+    return;
+  }
   if (k == "dot") {
     spot(bodyBounds(m));
-    r.sides = isAxes(schemaOf(m)) ? std::vector<S>{S::NE, S::NW, S::SE, S::SW, S::E, S::W, S::N, S::S}
+    r.sides = isAxes(schemaOf(m)) || isSpace(schemaOf(m)) ? std::vector<S>{S::NE, S::NW, S::SE, S::SW, S::E, S::W, S::N, S::S}
                                   : std::vector<S>{S::S, S::N, S::E, S::W, S::SE, S::SW, S::NE, S::NW};
   } else if (isCurveKind(k) && !stroke.empty()) { // near where the curve visibly ends (inside the axes), above or below it
     size_t end = visibleEnd(stroke);
@@ -964,6 +1013,7 @@ void Engine::markLabelRequests(LabelPass &lp) {
       else if (k == "vector") { Vector2 a, b; if (vectorEnds(*m, a, b)) stroke = {a, b}; }
     }
     if (!stroke.empty()) lp.world.strokes.push_back(thin(stroke));
+    if (isSpace(schemaOf(*m)) && k != "dot") stroke = spaceStroke(*m); // for its name's spots (labelObstacles made it a stroke)
     if (findProp(m->props, "trail") && isAxes(schemaOf(*m))) { // labels keep off trails too
       std::vector<place::Vec> tl;
       for (auto &q : trailLine(*m)) tl.push_back({q.x, q.y});

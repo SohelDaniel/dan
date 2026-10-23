@@ -39,7 +39,8 @@ static bool parseNumber(const std::string &s, double &out) {
 bool isMarkKind(const std::string &k) {
   static const char *kinds[] = {"dot",   "bar",  "box",  "line",    "arrow", "label", "path",  "region", "tex",
                                 "circle", "rect", "polygon", "angle", "vector", "card", "code", "array", "table", "param", "grid",
-                                "field", "slope", "heat", "contour", "solution", "brace", "enclose", "underline", "cross", "check", "area"};
+                                "field", "slope", "heat", "contour", "solution", "brace", "enclose", "underline", "cross", "check", "area",
+                                "surface", "sphere", "plane"};
   for (auto c : kinds) if (k == c) return true;
   return false;
 }
@@ -457,13 +458,13 @@ static bool readSchema(Reading &r) {
   auto &[toks, verb, raw, ln, err] = r;
   ln.verb = Verb::SCHEMA;
   if (toks.size() < 2) return r.fail("schema needs a name");
-  static const char *ok[] = {"free", "numberline", "axes", "plane", "timeline", "graph", "sequence", "auto"};
+  static const char *ok[] = {"free", "numberline", "axes", "plane", "space", "timeline", "graph", "sequence", "auto"};
   auto schemaName = [&](std::string k) {
     k = lower(k);
     if (k == "number-line") k = "numberline";
     return std::any_of(std::begin(ok), std::end(ok), [&](const char *s) { return k == s; }) ? k : std::string();
   };
-  const std::string names = " (free, numberline, axes, plane, timeline, graph, sequence)";
+  const std::string names = " (free, numberline, axes, plane, space, timeline, graph, sequence)";
   size_t rest = 2;
   if (std::string k = schemaName(toks[1]); !k.empty()) ln.kind = k;
   else if (toks[1].find('=') != std::string::npos) return r.fail("unknown schema '" + toks[1] + "'" + names);
@@ -489,9 +490,9 @@ static bool readCamera(Reading &r) {
     if (splitKV(toks[i], k, v)) {
       if (k == "ease") { ln.ease = v; continue; }
       if (k == "dur" || k == "duration") { double x; if (parseNumber(v, x)) ln.dur = (float)x; continue; }
-      static const char *keys[] = {"zoom", "on", "x", "y", "fit", "follow"};
+      static const char *keys[] = {"zoom", "on", "x", "y", "fit", "follow", "view", "orbit", "tilt", "spin"}; // the last four: space
       if (std::none_of(std::begin(keys), std::end(keys), [&](const char *s) { return k == s; }))
-        return r.fail("unknown camera option '" + k + "' (zoom= on= x= y= fit= follow=, or camera fit / camera reset)");
+        return r.fail("unknown camera option '" + k + "' (zoom= on= x= y= fit= follow=, in space view= orbit= tilt= spin; or camera fit / camera reset)");
       Value val = Value::parse(v);
       if (k == "fit" && val.type != Value::LIST) { // fit=a,b
         val = Value{};
@@ -504,6 +505,7 @@ static bool readCamera(Reading &r) {
     }
     std::string w = lower(toks[i]);
     if (w == "fit" || w == "reset" || w == "home") { ln.kind = w == "home" ? "reset" : w; continue; }
+    if (w == "spin") { ln.kind = w; continue; } // space: a slow turn until spin=off
     return r.fail("camera: unexpected '" + toks[i] + "'");
   }
   if (ln.kind.empty() && ln.props.empty()) ln.kind = "reset";

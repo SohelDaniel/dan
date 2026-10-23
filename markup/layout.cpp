@@ -21,7 +21,7 @@ static const Rectangle kStage{40, 66, 1200, 494};
 std::string Engine::schemaNow() const { return schema_ != "auto" ? schema_ : autoSchema_; }
 bool Engine::inDataView(const Mark &m) const { return views_.empty() || (!curData_.empty() && dataViewOf(m) == curData_); }
 
-static bool isDataSchema(const std::string &s) { return isAxes(s) || s == "numberline" || s == "timeline"; }
+static bool isDataSchema(const std::string &s) { return isAxes(s) || isSpace(s) || s == "numberline" || s == "timeline"; }
 
 std::string Engine::dataViewOf(const Mark &m) const {
   if (views_.empty()) return "";
@@ -37,6 +37,7 @@ void Engine::swapData(DataCtx &c) {
   std::swap(axY0_, c.axY0); std::swap(axY1_, c.axY1); std::swap(tlMin_, c.tlMin); std::swap(tlMax_, c.tlMax);
   std::swap(nlTarget_, c.nlTarget); std::swap(axTarget_, c.axTarget); std::swap(tlTarget_, c.tlTarget);
   std::swap(rangesInit_, c.rangesInit); std::swap(axes_, c.axes); std::swap(nl_, c.nl); std::swap(cam_, c.cam);
+  std::swap(spc_, c.spc);
 }
 
 void Engine::useData(const std::string &view) {
@@ -65,7 +66,7 @@ float Engine::dotRadius(const Mark &m) {
   if (auto r = findProp(m.props, "r")) return std::max(2.0, num(*r));
   if (s == "numberline") return findProp(schemaProps_, "bin") ? binR_ : 10;
   if (s == "timeline") return 10;
-  if (isAxes(s)) return 7;
+  if (isAxes(s) || isSpace(s)) return 7;
   std::string k = magProp(m);
   if (k.empty()) return 16;
   double mx = std::max(1e-9, maxAbs_.count(k) ? maxAbs_[k] : 1.0);
@@ -105,6 +106,7 @@ Rectangle Engine::bodyBounds(const Mark &m) {
     Annotation a = annotation(m);
     return a.ok ? a.bounds : Rectangle{p.x, p.y, 0, 0};
   }
+  if (isSpace(s) && k != "dot" && m.spaceBox.width > 0) return m.spaceBox; // in space: where its projection is
   if (k == "bar" && m.anchorBottom) {
     std::string mp = magProp(m);
     double v = mp.empty() ? 0 : num(m, mp);
@@ -647,8 +649,8 @@ Rectangle Engine::layoutBand(const std::string &s, bool alone, float dt) {
 
 // a plot is on stage: the scene's, or one view's
 bool Engine::plotOnStage() const {
-  if (views_.empty()) return isAxes(schemaNow());
-  return std::any_of(views_.begin(), views_.end(), [](const View &v) { return isAxes(v.schema); });
+  if (views_.empty()) return isAxes(schemaNow()) || isSpace(schemaNow());
+  return std::any_of(views_.begin(), views_.end(), [](const View &v) { return isAxes(v.schema) || isSpace(v.schema); });
 }
 
 // the largest scale at which the band fits above a plot's 40% (a plot is never drawn larger than 1, nor anything
@@ -791,6 +793,7 @@ void Engine::layout(float dt) {
     else if (s == "graph") layoutGraph(stage, body);
     else if (s == "numberline") layoutNumberline(stage);
     else if (isAxes(s)) layoutAxes(stage);
+    else if (isSpace(s)) layoutSpace(stage, dt);
     else if (s == "timeline") layoutTimeline(stage);
     else if (s == "sequence") layoutSequence(stage, body);
   }
@@ -845,6 +848,7 @@ void Engine::layoutViews(Rectangle area, const std::vector<std::string> &body) {
     else {
       DataScope ds(*this, v.id); // a data view lays out with its own axes and ranges
       if (isAxes(v.schema)) layoutAxes(inner);
+      else if (isSpace(v.schema)) layoutSpace(inner, lastDt_);
       else if (v.schema == "numberline") layoutNumberline(inner);
       else if (v.schema == "timeline") layoutTimeline(inner);
     }
@@ -884,7 +888,7 @@ Rectangle Engine::stageRect() const { return toStage(kStage); }
 // The extent of what was laid out this frame (where things are going, not where they are drawn yet);
 // if it outgrew the stage, the target scale drops so it fits. Axes and planes always fit their area.
 void Engine::fitStage(float dt) {
-  if (isAxes(schemaNow())) { // a plot always fits its area: full size, or as large as the band above it allows
+  if (isAxes(schemaNow()) || isSpace(schemaNow())) { // a plot always fits its area: full size, or as large as the band above it allows
     zoomFresh_ = false;
     zoomSettle_ = 0;
     zoomT_ = bandFit();
@@ -1358,6 +1362,10 @@ void Engine::zeroCheck() {
       Mark &a = *ms[i], &b = *ms[j];
       if (related(a.id, b.id)) continue;
       if (!a.positioned || !b.positioned) continue;
+      if (int c = spaceCoincide(a, b); c >= 0) { // in space: only a meeting in 3D says "equal"
+        if (c == 1) warn("zero: " + a.id + " and " + b.id + " are at one point in space but are unrelated; coinciding reads as 'equal'");
+        continue;
+      }
       Rectangle ra = bodyBounds(a), rb = bodyBounds(b);
       if (ra.width <= 0 || rb.width <= 0) continue;
       if (CheckCollisionRecs(ra, rb)) {
