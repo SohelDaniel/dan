@@ -323,6 +323,15 @@ int main(int argc, char **argv) {
   // check offscreen snapshots can't make
   std::string shotFile;
   float shotAt = 0, shotClock = 0;
+  // TUTOR_BURST=prefix:seconds:frames saves that many consecutive frames of the real window from then on (for
+  // flicker: what changes from one frame to the next, which sampled snapshots can't see)
+  std::string burstPrefix;
+  float burstAt = -1;
+  int burstFrames = 0, burstDone = 0;
+  if (const char *e = std::getenv("TUTOR_BURST"); e) {
+    char pre[512] = {0};
+    if (std::sscanf(e, "%511[^:]:%f:%d", pre, &burstAt, &burstFrames) == 3) burstPrefix = pre;
+  }
   if (const char *e = std::getenv("TUTOR_SHOT"); e && std::strchr(e, ':')) {
     shotFile.assign(e, std::strchr(e, ':'));
     shotAt = (float)std::atof(std::strchr(e, ':') + 1);
@@ -421,7 +430,8 @@ int main(int argc, char **argv) {
       TakeScreenshot(f.c_str());
       std::printf("saved %s\n", f.c_str());
     }
-    if (shotAt > 0 && (shotClock += dt) >= shotAt) { TakeScreenshot(shotFile.c_str()); break; }
+    shotClock += dt;
+    if (shotAt > 0 && shotClock >= shotAt) { TakeScreenshot(shotFile.c_str()); break; }
 
     // hot reload: edit the .txt, the stage restarts
     reloadCheck += dt;
@@ -464,6 +474,11 @@ int main(int argc, char **argv) {
     }
     EndDrawing();
     rec.frame();
+    if (!burstPrefix.empty() && burstDone < burstFrames && shotClock >= burstAt) {
+      Image img = LoadImageFromScreen();
+      ExportImage(img, (burstPrefix + "_" + std::to_string(burstDone++) + ".png").c_str());
+      UnloadImage(img);
+    }
     if (!captureDir.empty()) { // what the learner sees, and the stage as of now (not the end of the turn)
       Image img = LoadImageFromScreen();
       ExportImage(img, (captureDir + "/frame.png").c_str());
