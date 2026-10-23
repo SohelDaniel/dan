@@ -16,6 +16,7 @@ tutor_shot_*.png
 # personal data: chats and the learner profile stay local
 chat/sessions/
 chat/memory/
+chat/settings.json
 # generated eval runs
 tools/eval/out*/
 .DS_Store

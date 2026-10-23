@@ -2,7 +2,7 @@
 // console); Claude answers by speaking and drawing on the stage. The browser shows a live transcript.
 // Separate from the engine: it drives `tutor --stdin` and listens to its "@ev" events.
 //
-//   node chat/server.mjs [--prompt F] [--examples DIR|none] [--toolbox F|none] [--port 4747] [--mute] [--voice Brian] [--model sonnet] [--effort low] [--new] [--no-open]
+//   node chat/server.mjs [--prompt F] [--examples DIR|none] [--toolbox F|none] [--port 4747] [--mute] [--voice Brian] [--speed 1] [--model sonnet] [--effort low] [--new] [--no-open]
 //
 // A turn:
 //   Claude (one persistent `claude -p` process per chat, no tools) answers with a hidden ```plan,
@@ -15,6 +15,8 @@
 //   sessions/<id>/messages.jsonl   the transcript (the page reloads it; survives restarts)
 //   sessions/<id>/session.json     Claude's session id, so the conversation resumes with context
 //   memory/learner.md              what Claude knows about the learner across chats
+//
+// Settings chosen in the browser (model, thinking, voice, speed) are kept in chat/settings.json; flags win.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,16 +33,24 @@ const LIBRARY = path.join(HERE, 'library');
 const SESSIONS = path.join(HERE, 'sessions');
 const MEMORY_DIR = path.join(HERE, 'memory');
 const MEMORY = path.join(MEMORY_DIR, 'learner.md');
+const SETTINGS = path.join(HERE, 'settings.json');
 
 const argv = process.argv.slice(2);
 const flag = (name, def) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : def; };
+const saved = (() => { try { return JSON.parse(fs.readFileSync(SETTINGS, 'utf8')); } catch { return {}; } })();
 const PORT = Number(flag('--port', 4747));
 let mute = argv.includes('--mute');
-const VOICE = flag('--voice', process.env.TUTOR_VOICE || ''); // an Inworld voice id; empty: the engine's default
-let defaultModel = flag('--model', 'sonnet');
+let voice = flag('--voice', saved.voice || process.env.TUTOR_VOICE || ''); // an Inworld voice id; empty: the engine's default
+let speed = Number(flag('--speed', saved.speed || 1)); // the engine takes 0.5 .. 1.5
+let defaultModel = flag('--model', saved.model || 'sonnet');
 // how long Claude thinks before it answers: low is quickest (the default); the console can raise it per turn
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
-let defaultEffort = EFFORTS.includes(flag('--effort', 'low')) ? flag('--effort', 'low') : 'low';
+const effortFlag = flag('--effort', saved.effort || 'low');
+let defaultEffort = EFFORTS.includes(effortFlag) ? effortFlag : 'low';
+const saveSettings = () =>
+  fs.writeFileSync(SETTINGS, JSON.stringify({ model: defaultModel, effort: defaultEffort, voice, speed }, null, 2) + '\n');
+// what the stage (and a side explanation's window) is told about the voice
+const voiceArgs = () => [...(mute ? ['--mute'] : []), ...(voice ? ['--voice-id', voice] : []), ...(speed !== 1 ? ['--speed', String(speed)] : [])];
 
 if (!fs.existsSync(TUTOR)) { console.error(`no ${TUTOR}: run make first`); process.exit(1); }
 if (process.env.ANTHROPIC_API_KEY)
@@ -123,9 +133,7 @@ function stageSend(line) {
   if (stageAlive()) stage.stdin.write(line + '\n');
 }
 function spawnStage() {
-  const args = [file('live.txt'), '--stdin'];
-  if (mute) args.push('--mute');
-  if (VOICE) args.push('--voice-id', VOICE);
+  const args = [file('live.txt'), '--stdin', ...voiceArgs()];
   stage = spawn(TUTOR, args, { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'] }); // cwd ROOT: .inworld_key + caches
   stage.stdin.on('error', () => {});
   stage.stderr.on('data', (d) => fs.appendFileSync(file('stage.log'), d)); // parse errors, voice failures
@@ -263,7 +271,7 @@ function stopClaude() { if (claude) { claude.onEvent = null; claude.p.kill(); cl
 
 // ------------------------------------------------------------ pause and ask (chat/explain.mjs)
 const explainer = createExplainer({ tutor: TUTOR, root: ROOT, system: SYSTEM, model: () => defaultModel, effort: () => defaultEffort,
-  env: CLEAN_ENV, voiceArgs: () => [...(mute ? ['--mute'] : []), ...(VOICE ? ['--voice-id', VOICE] : [])] });
+  env: CLEAN_ENV, voiceArgs });
 const captureWaiters = new Map(); // dir -> resolve: the stage wrote that frame and its state
 const captured = (dir) => new Promise((resolve) => {
   const done = () => { captureWaiters.delete(dir); resolve(); };
@@ -462,6 +470,20 @@ function runTurn(text, source, model = defaultModel) {
   claude.p.stdin.write(JSON.stringify({ type: 'user', message: { role: 'user', content } }) + '\n');
 }
 
+// ------------------------------------------------------------ the voices Inworld offers (asked once per run)
+let voices = null;
+async function voiceList() {
+  if (voices) return voices;
+  try {
+    const key = fs.readFileSync(path.join(ROOT, '.inworld_key'), 'utf8').trim();
+    const r = await fetch('https://api.inworld.ai/tts/v1/voices?filter=language=en', { headers: { Authorization: 'Basic ' + key } });
+    const list = (await r.json()).voices || [];
+    voices = list.map((v) => ({ id: v.voiceId, name: v.displayName || v.voiceId, about: v.description || '' }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch { return []; } // offline or no key: the browser keeps just the current voice
+  return voices;
+}
+
 // ------------------------------------------------------------ http
 const json = (res, obj, code = 200) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
 const body = (req) => new Promise((r) => { let s = ''; req.on('data', (d) => (s += d)); req.on('end', () => { try { r(JSON.parse(s || '{}')); } catch { r({}); } }); });
@@ -483,9 +505,10 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (url.pathname === '/api/info') {
-    return json(res, { session: S.id, title: S.title, state: read('state.txt'), turn: S.turn, mute, model: defaultModel, effort: defaultEffort,
+    return json(res, { session: S.id, title: S.title, state: read('state.txt'), turn: S.turn, mute, voice, speed, model: defaultModel, effort: defaultEffort,
       busy: S.busy, messages: messages(), sessions: listSessions(), library: libraryNames() });
   }
+  if (req.method === 'GET' && url.pathname === '/api/voices') return json(res, { voices: await voiceList() });
   if (req.method === 'GET' && url.pathname === '/api/memory') return json(res, { text: fs.readFileSync(MEMORY, 'utf8'), path: MEMORY });
   if (req.method !== 'POST') return json(res, { error: 'not found' }, 404);
   const b = await body(req);
@@ -493,6 +516,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/send') {
     if (b.model) defaultModel = b.model;
     if (EFFORTS.includes(b.effort)) defaultEffort = b.effort;
+    saveSettings();
     submit(b.text, 'browser');
     return json(res, { ok: true });
   }
@@ -516,11 +540,14 @@ const server = http.createServer(async (req, res) => {
   }
   if (url.pathname === '/api/new') { newSession(); return json(res, { ok: true }); }
   if (url.pathname === '/api/open') return json(res, { ok: openSession(String(b.id || '')) });
-  if (url.pathname === '/api/voice') {
-    mute = !b.on;
+  if (url.pathname === '/api/voice') { // on/off, which voice, how fast: the stage restarts on the current scene
+    if (typeof b.on === 'boolean') mute = !b.on;
+    if (typeof b.voice === 'string') voice = b.voice;
+    if (Number(b.speed) >= 0.5 && Number(b.speed) <= 1.5) speed = Number(b.speed);
+    saveSettings();
     fs.writeFileSync(file('live.txt'), read('state.txt'));
     restartStage();
-    return json(res, { mute });
+    return json(res, { mute, voice, speed });
   }
   if (url.pathname === '/api/memory') { fs.writeFileSync(MEMORY, String(b.text ?? '')); return json(res, { ok: true }); }
   if (url.pathname === '/api/save') {

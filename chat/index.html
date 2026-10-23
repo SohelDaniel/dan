@@ -113,6 +113,13 @@
       <option value="max">thinks: longest</option>
     </select>
     <label style="font-size:13px"><input type="checkbox" id="voice"> voice</label>
+    <select id="voiceId" title="Which voice speaks (the stage restarts on the current scene)"></select>
+    <select id="speed" title="How fast it speaks">
+      <option value="0.85">slower</option>
+      <option value="1">normal speed</option>
+      <option value="1.1">a bit faster</option>
+      <option value="1.25">faster</option>
+    </select>
     <button id="replay" title="Play the last answer again on the stage">Replay</button>
     <button id="replayAll" title="Play every turn from the start, as one lesson">Lesson</button>
     <button id="save" title="Save the current stage to the library">Save scene</button>
@@ -223,6 +230,7 @@ async function load() {
   const r = await (await fetch('/api/info')).json();
   current = r.session;
   $('#model').value = r.model; $('#effort').value = r.effort || 'low'; $('#voice').checked = !r.mute;
+  voicePicker(r.voice || 'Brian', r.speed || 1);
   sidebar(r);
   log.innerHTML = ''; block = null;
   if (!r.messages.length) emptyState(r.library);
@@ -236,6 +244,19 @@ async function load() {
     details(b, m);
   }
   log.scrollTop = log.scrollHeight;
+}
+// the voice list comes from Inworld through the server; until it arrives the current voice is the only choice
+async function voicePicker(current, speed) {
+  const pick = $('#voiceId');
+  const option = (v) => `<option value="${esc(v.id)}" title="${esc(v.about)}">${esc(v.name)}</option>`;
+  pick.innerHTML = option({ id: current, name: current, about: '' });
+  pick.value = current;
+  $('#speed').value = [...$('#speed').options].some((o) => Number(o.value) === speed) ? String(speed) : '1';
+  const { voices } = await (await fetch('/api/voices')).json();
+  if (!voices.length) return;
+  if (!voices.some((v) => v.id === current)) voices.unshift({ id: current, name: current, about: '' });
+  pick.innerHTML = voices.map(option).join('');
+  pick.value = current;
 }
 async function refreshSidebar() { sidebar(await (await fetch('/api/info')).json()); }
 
@@ -302,6 +323,8 @@ input.addEventListener('input', () => { input.style.height = ''; input.style.hei
 $('#replay').onclick = () => post('/api/replay-turn');
 $('#replayAll').onclick = () => post('/api/replay-all');
 $('#voice').onchange = (e) => post('/api/voice', { on: e.target.checked });
+$('#voiceId').onchange = (e) => post('/api/voice', { voice: e.target.value });
+$('#speed').onchange = (e) => post('/api/voice', { speed: Number(e.target.value) });
 $('#toggle').onclick = () => document.body.classList.toggle(matchMedia('(max-width: 700px)').matches ? 'side-open' : 'noside');
 $('#save').onclick = async () => {
   const name = prompt('Save the current stage as:'); if (!name) return;

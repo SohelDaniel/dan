@@ -2,6 +2,8 @@
 
 Explanations that draw themselves. You write a `.txt` file in the markup language. The engine draws it with raylib, animates it, narrates it, and reads it back.
 
+To use the tutor: `tutor` (or `tutor claude` to work on it with Claude Code). See `bin/tutor` and `docs/HANDOFF.md`.
+
 ```
 make                                   # builds ./tutor and ./manim_demo
 ./tutor scripts/bank.txt               # play, narrated by Inworld TTS (edit the file while it runs: it hot-reloads)

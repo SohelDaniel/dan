@@ -1,0 +1,59 @@
+#!/bin/zsh
+# tutor: one command for the visual tutor. Linked from ~/bin/tutor, so it works from any folder.
+#
+#   tutor                 open the tutor (builds the engine if a source changed; picks up the last chat)
+#   tutor new             open it on a fresh chat
+#   tutor claude          the tutor in the background, and Claude Code here in the repo to talk about it
+#   tutor restart         restart the tutor in the background (after an engine or prompt change)
+#   tutor stop            stop it
+#   tutor log             follow the background tutor's output
+#   tutor <flags>         anything else goes to chat/server.mjs (--model fable, --effort max, --mute, ...)
+#
+# Model, thinking, voice and speed chosen in the browser are remembered in chat/settings.json.
+
+REPO=${0:A:h:h}
+PORT=4747
+LOG=$REPO/.tutor_cache/server.log
+
+running() { lsof -ti tcp:$PORT -sTCP:LISTEN >/dev/null 2>&1 }
+
+build() {
+  make -C "$REPO" -s tutor || { echo "tutor: the engine did not build"; exit 1 }
+}
+
+stop() {
+  running || return 0
+  kill $(lsof -ti tcp:$PORT -sTCP:LISTEN) # the server stops its stage and Claude with it
+  while running; do sleep 0.2; done
+}
+
+background() {
+  build
+  mkdir -p "${LOG:h}"
+  (cd "$REPO" && nohup node chat/server.mjs "$@" >"$LOG" 2>&1 &)
+  for _ in {1..50}; do running && break; sleep 0.2; done
+  running && echo "tutor: http://localhost:$PORT (log: tutor log)" || { echo "tutor: did not start"; cat "$LOG"; exit 1 }
+}
+
+case "$1" in
+  claude|-claude|--claude)
+    shift
+    running || background --no-open
+    open "http://localhost:$PORT"
+    cd "$REPO" && exec claude --dangerously-skip-permissions "$@"
+    ;;
+  restart) shift; stop; background "$@" ;;
+  stop) stop ;;
+  log) exec tail -f "$LOG" ;;
+  -h|--help|help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *)
+    [[ "$1" == new ]] && { shift; set -- --new "$@" }
+    if running; then # already open: show it rather than start a second one
+      echo "tutor: already running at http://localhost:$PORT (tutor restart to start it again)"
+      open "http://localhost:$PORT"
+      exit 0
+    fi
+    build
+    cd "$REPO" && exec node chat/server.mjs "$@"
+    ;;
+esac

@@ -1,430 +1,193 @@
-# Handoff: the visual tutor (read this first)
+# Handoff: a map of the visual tutor
 
-Written 2026-10-20 for a fresh Claude instance taking over from a long session. It covers what the project is,
-how it works, what has been tried, what the user thinks of it now, and what to do next.
+Read this first. It describes the project as it is now: where things are, the rules, how we work, what bites, and
+what is open. The dated story of how it got here (what was tried, measured, kept or dropped) is `docs/history.md`.
 
-## 1. The project in one paragraph
+**Keep this file current.** Each session ends by updating it (see `CLAUDE.md`): change the map where the code
+changed, add gotchas, move finished items out of "Open", and add a dated entry to `docs/history.md`.
 
-A **live AI visual tutor in the spirit of 3Blue1Brown**. The learner types a question. Claude answers by
-**speaking** (every `Say:` line goes to Inworld text-to-speech) while **drawing on a stage**: a C++20 + raylib 6
-window running the `tutor` engine. Claude writes a small declarative markup (`mark`, `link`, `morph`, `focus`,
-`Say:` with `|cue|` word markers, a camera, fields, formulas). The engine plays it **while Claude is still
-writing**: lines stream in beat by beat. Claude never gives pixel coordinates. The engine lays everything out
-and animates it. The chat server (`chat/server.mjs`) runs one persistent `claude -p` process per chat on the
-user's Claude subscription and streams beats to the stage.
+Last updated: 2026-10-23 (the `tutor` command, a voice picker, this map).
 
-## 2. Where the user is now (important)
+## 1. What it is
 
-The user's latest message, verbatim in spirit: **"the layout and stuff still sucks… I feel like it was even
-better before… you need to do some serious research."**
+A live AI tutor in the spirit of 3Blue1Brown. The learner asks a question in the browser, and Claude answers by
+speaking (Inworld text-to-speech) while drawing on a stage window (`./tutor`, C++20 + raylib 6).
+- Claude writes a small declarative markup: `mark`, `link`, `morph`, `focus`, `Say:` with `|cue|` words, schemas,
+  formulas, a camera, fields, 3D.
+- **Claude never gives pixels.** The engine owns layout, timing, colour, scales and the camera numbers.
+- The stage plays the lines while Claude is still writing them, one beat at a time.
+- The chat server (`chat/server.mjs`) runs one persistent `claude -p` per chat on the user's subscription.
 
-They floated two directions and asked for research on the technicalities:
-1. **A small, very fast model that decides positions** (placement/orientation), instead of hand-written rules.
-2. **A simple automatic slot layout driven by the script**: the canvas is divided by how many things there are
-   ("one object → canvas split into four sections, up/down/left/right; two objects → four squares", and so on).
-   In other words, deterministic grid/slot templates chosen by object count and role, rather than a
-   constraint solver plus nudging.
-
-Their frustration is about **visual quality as experienced in the live chat window**, not about test scores.
-Our geometric checker says scenes are nearly overlap-free (golden 99.9/100), yet the user sees bad layouts.
-**Lesson: the checker's score is not the user's judgement.** Look at real frames from real chats (see §6, audit),
-and ask the user what specifically looks bad (crowding? things jumping around? poor composition? too small?
-empty space?) before building.
-
-Things to check about "it was better before":
-- Recent layout changes are listed in §5 (camera, fields, pointer sides, block rows, edge-region reservation,
-  label stickiness, link-label staggering). Any of these could have made live scenes look worse even while
-  the checker improved. The commits are small, so `git bisect` with real chat replays is practical
-  (`tools/audit-sessions.mjs` plus `--snapshot` frames).
-- The graph layout reshuffles when links arrive. The "flow" fix keeps columns, but nodes still glide around.
-- The prompt was rewritten (decide-first, show-what-you-say, idioms), and Claude now draws more labels,
-  colours and pointers, so stages are denser.
-
-## 3. How to run things
+## 2. Running it
 
 ```
-make                      # builds ./tutor (and manim_demo)
-./tutor scripts/zoom.txt  # play a script (voice needs .inworld_key; --mute for none)
-node chat/server.mjs      # the chat: browser console + stage window (restart it after prompt/engine changes)
-
-./tutor F --check                     # decodable? lints (layout:, binding:, zero:, tex:, hook:) + layout score
-./tutor F --readback                  # the model as markup
-./tutor F --snapshot OUT --at 3,8,end # PNG frames (hidden window; fails if the Mac display is asleep)
-./tutor F --layout-report -           # JSON: per-0.5s scores, worst moment + issues, label flips (which/when)
-
-make test     # doctest: tests/test_place.cpp (placement module), tests/test_viz.cpp (viz maths + expr compiler)
-make check    # --check over scripts/*.txt (prints ok/FAIL, never fails make)
-make golden   # tests/golden.mjs: per-script layout score vs tests/golden/*.json (--save re-baselines)
-make append   # tests/append.sh: streamed (chunked --stdin) playback == whole playback (69/69)
-make bench    # placement timing
-
-node tools/audit-sessions.mjs [--last 8] [--frames DIR]   # replay the user's real chats turn by turn (LOCAL ONLY)
-node tools/eval/run.mjs --variant full --prompts prompts-types.json --out DIR   # Claude generates scenes
-node tools/eval/judge.mjs --out DIR --variants full --rubric v2                  # Claude judges frames (1-5)
+tutor                 # build if needed, open the tutor on the last chat (bin/tutor, linked from ~/bin)
+tutor new             # a fresh chat
+tutor claude          # the tutor in the background + Claude Code in the repo (--dangerously-skip-permissions)
+tutor restart | stop | log
 ```
 
-To make contact sheets: `montage a.png b.png -tile 2x -geometry 800x450+3+3 out.png` (ImageMagick is installed),
-then Read the PNG. Never take full-screen screenshots: one once captured a private window. Use `--snapshot`.
+- In the browser: model, thinking level, voice on/off, which voice (Inworld's 166 English voices) and speed.
+  The choices are remembered in `chat/settings.json` (gitignored); flags given to `tutor` win.
+- **After changing the engine, the prompt or the server, run `tutor restart`.** `bin/tutor` rebuilds the engine
+  first, and the server relaunches the stage.
 
-## 4. Architecture (files that matter)
+The engine by hand:
 
-| file | what |
+```
+make                                  # ./tutor
+./tutor scripts/zoom.txt [--mute]     # play a script
+./tutor F --check                     # decodable? lints (layout:, binding:, zero:, tex:, hook:, pointing:) + score
+./tutor F --readback                  # the scene as markup
+./tutor F --snapshot OUT --at 3,8,end # PNG frames from a hidden window
+./tutor F --layout-report -           # JSON: layout score every 0.5 s, worst moment, label flips
+```
+
+Regressions, run after every engine change:
+
+```
+make test       # unit tests: place, viz (incl. 3D maths), script parser, engine
+make check      # --check over scripts/*.txt (prints ok/FAIL)
+make golden     # layout score per script vs tests/golden/*.json (--save re-baselines, only on purpose)
+make append     # streamed playback == whole playback
+node tests/toolbox.mjs   # every toolbox move in chat/toolbox.md still plays clean
+node tests/compute.mjs   # python blocks
+```
+
+Measuring with Claude in the loop (`tools/eval/`):
+
+```
+node tools/eval/run.mjs --variant full --prompts prompts-broad.json --out DIR   # Claude writes scenes
+node tools/eval/judge.mjs --out DIR --variants full --rubric v2                  # a judge scores frames 1-5
+node tools/eval/sentences.mjs --out DIR                                          # is each spoken claim shown?
+node tools/audit-sessions.mjs [--last 8] [--frames DIR]                          # replay the user's real chats
+```
+
+Question sets: `prompts-broad` (44, every subject), `prompts-types` (question types), `prompts-3d` (24 spatial,
+12 that only tempt 3D), `prompts-compute` (python), `prompts-novel`. The judge's noise is about ±0.15, so run twice
+before believing a small difference.
+
+## 3. The axioms
+
+The project's founding rules. Every change must keep them; say so when a proposal bends one. They are enforced in
+code and listed in `README.md` ("Axioms, enforced").
+
+1. **Identity.** No delete. A re-mark updates in place; a morph from a wrong value animates from the real one.
+2. **Structure.** Shared baselines and scales, fixed for the whole script by a prescan; they never jump.
+3. **Zero.** Nothing in the picture without a meaning: unrelated things never share a colour, and two things share
+   ink only when the script relates them (`of=`, `on=/in=/over=`, `at=`, a name and its thing, data on one plot).
+4. **Continuity.** Every change is an eased morph; things grow in, links draw, focus fades.
+5. **Bounded focus.** `focus` lights one thing for one sentence, then everything returns.
+6. **Decodability.** `--readback` prints the scene in the same vocabulary; `--check` re-parses it to the same scene.
+
+And the rule that follows from them: **position comes from structure.** Placement words (`region`, `below`,
+`left-of`, `pos`, ...) are retired and ignored with a lint. Columns come from links, order from declaration,
+lanes from groups. Anything new is generated *before* the engine sees it (python blocks write plain lines), so the
+engine stays the only author of pixels.
+
+## 4. The code
+
+| where | what |
 |---|---|
-| `main.cpp` | CLI: play, `--check`, `--readback`, `--snapshot`, `--layout-report`, `--stdin` (live mode used by the chat), voice, `TUTOR_VOICE` |
-| `markup/script.{hpp,cpp}` | the parser: verbs mark/link/group/morph/focus/indicate/hide/show/Say/wait/schema/title/scene/camera; `[id]` pointers in Say; a forgiving `mark a -> b` read as a link |
-| `markup/engine.{hpp,cpp}` | the model and timeline: steps, cues (`@cue` lines fire on words), actives (morphs), history for trails, readback, lints, `analyze()` prescan, key sets `kPositional`/`kTextKeys` (an unknown STRING prop becomes a colour **category**, a classic pitfall) |
-| `markup/layout.cpp` | **per-frame layout**: `computeRanges`; block band (tex/card/code/array/table stack at top, or flow in rows when crowded); schema layouts `layoutFree/Graph/Numberline/Axes/Timeline` (`layoutGraph` is the adapter to `place/flow`); `at=` pointers (free side) and `on=/in=/over=` attachments; easing of marks and link waypoints; `placeAllLabels` |
-| `markup/placement.cpp` | the engine↔placer adapter: `picture()` (everything as ink for the checker), `layoutCheck`, `markLabels`, `placeAllLabels` (labels with springs, stickiness), link geometry (`linkGeometryAt`: routed links from `linkRoute_`, arcs, straight) |
-| `markup/place/*` | **pure C++ placement module** (no raylib; unit-tested): `flow` (the layered graph layout: model-order cycle breaking, longest-path columns, barycentre insertion with a memo for stability, lanes from groups, label-sized gaps, `solve1d` heights, routed links with spread ports), `qp` (1-D least squares under separation, Dykstra), map-style label placer, exact checker (overlaps, links through boxes, links along links, composition fill/offset), critically damped spring |
-| `markup/render.cpp` | drawing only (reads layout results); axes ticks; links; pointers; formulas (`drawTex` morph by glyph matching) |
-| `markup/camera.cpp` | camera on axes/plane (zoom/on/fit/follow/reset), anchored and van Wijk zoom paths |
-| `markup/fields.cpp` | field/slope/heat/contour/solution kinds |
-| `markup/trails.cpp` | trails recomputed from recorded history (deterministic) |
-| `markup/binding.cpp` | "words vs picture" checker (`binding:` lints, --check only) |
-| `markup/viz/*` | pure maths: zoom path, dividing tick chain, marching squares, streamlines, colormaps, trail times |
-| `markup/expr.{hpp,cpp}` | expression language + `compile()` to a stack program for fields |
-| `markup/tts.*`, `markup/tex.*` | Inworld streaming TTS (default voice Brian); LaTeX via `tools/tex` (MathJax → paths) |
-| `rm/raymanim.*` | drawing helpers (text, strokes, `strip()` tapered polylines, arrows, axes) |
-| `chat/server.mjs` | chat server: fence parser (```plan / ```scene / ```memory), beats → stage, SSE transcript, interrupts, `<last_scene_issues>` from `--check` |
-| `chat/prompt.md` | **the system prompt** (+ README "The language" section + `chat/exemplars/*.txt` appended) |
-| `README.md` | the language reference. The part between "## The language" and "## The dictionary" is fed to Claude |
-| `docs/plan-camera-fields-trails.md` | the research and plan for camera/fields/trails (with sources) |
+| `main.cpp` | CLI: play, `--check`, `--readback`, `--snapshot`, `--layout-report`, `--stdin` (the live mode the chat uses), voice flags |
+| `markup/script.*` | the parser: verbs, kinds, schemas, `[id]` pointers and `{expr}` in Say |
+| `markup/engine.*` | model and timeline: steps, cues, morphs (`Active`), history, readback, lints, the prescan, the instant **shadow** engine (values known before they are spoken), key sets `kPositional`/`kTextKeys` |
+| `markup/layout.cpp` | per-frame layout: ranges, the formula band (`layoutBand`, `bandFit`), schema layouts, pointers and attachments, easing, `fitStage` |
+| `markup/placement.cpp` | engine side of placement: `picture()` (all ink for the checker, with regions and view frames), labels, link geometry |
+| `markup/place/*` | pure C++, unit-tested: `flow` (layered graph layout), `qp`, the label placer, the exact checker (`check.*`), springs |
+| `markup/space.cpp`, `markup/viz/space.*` | 3D: one CPU projection (`viz::Space::project`), shapes, the camera in words, painter's-order drawing |
+| `markup/render.cpp` | drawing only, reads layout results |
+| `markup/annotate.cpp`, `area.cpp`, `fields.cpp`, `trails.cpp`, `camera.cpp`, `controls.cpp` | notes (brace, enclose, ...), area diagrams, fields, trails, the 2D camera, learner sliders |
+| `markup/binding.cpp` | "words vs picture": `binding:` lints and **pointing ahead** (a spoken number or name gets a pointer) |
+| `markup/expr.*` | expressions, compiled for fields |
+| `markup/tts.*`, `markup/tex.*` | Inworld streaming TTS (48 kHz, sentence context, disk cache); LaTeX through `tools/tex` (MathJax) |
+| `chat/server.mjs` | the chat: settings, fence parser (```plan / ```scene / ```python / ```memory), beats to the stage, SSE transcript, interrupts, background `--check` fed back next turn |
+| `chat/system-prompt.mjs` | builds the system prompt (shared with the eval): `chat/prompt.md` + README's language section + `chat/examples/` + `chat/toolbox.md` |
+| `chat/compute.mjs` | sandboxed python blocks (`sandbox-exec`), output written into scene lines |
+| `chat/explain.mjs` | pause and ask: `?...` answers about the paused frame in a second window |
+| `chat/index.html` | the browser console |
+| `README.md` | the language reference. **Between "## The language" and "## The dictionary" it is part of the prompt**: editing it changes what Claude writes |
+| `tools/eval/`, `tools/audit-sessions.mjs`, `tools/compare-commit.sh`, `tools/mine/` | measuring, replaying real chats, A/B against an old commit, mining 3Blue1Brown's code |
+| `reports/`, `research_notes/`, `docs/plan-*.md` | research write-ups with sources, per topic |
 
-**Layout pipeline per frame** (`Engine::layout`):
-1. ranges;
-2. blocks into a top band (or rows);
-3. schema layout of bodies in the remaining stage;
-4. `pos=`/`at=` pointers;
-5. attachments (`on=`/`in=`/`over=`), placed like pointers;
-6. easing of `pos` toward `tpos`;
-7. `placeAllLabels`.
+Layout per frame (`Engine::layout`): ranges, then the band of formulas, then the schema layout of bodies, then
+pointers and attachments, then easing, then labels. Drawing only reads the results, and the checker sees the same
+boxes. Stage `{40,66,1200,494}`, subtitles `{120,586,1040,100}`.
 
-Draw only reads the results. The checker `picture()` sees the same boxes. The stage is `kStage {40,66,1200,494}`;
-the subtitle zone is `{120,586,1040,100}`.
+## 5. How we work
 
-## 5. What was done (chronological, short)
+The user's process, and what has worked:
+1. **Research before building, widely.** Papers, docs, real source code (3Blue1Brown's repo, manim, Graphviz/ELK),
+   forums, and other fields: linguistics, cartography, typesetting, film, perception, chemistry depiction. Write it
+   up in `reports/` or `research_notes/<topic>/` with sources. Mark claims not checked against a source.
+2. **Plan, and say which axioms the plan touches.** For big changes, present the plan and wait for a yes.
+3. **Measure first.** Get a baseline on the right question set before changing anything. Pre-register the bar for
+   adopting a prompt change (`reports/Idioms A-B preregistration.md` is the model).
+4. **Build small, test, iterate.** Each fix gets a test that fails on the old engine. Run the regressions (§2).
+5. **Look at frames.** `--snapshot`, then read the PNGs (contact sheets: `montage a.png b.png -tile 2x -geometry
+   800x450+3+3 out.png`). **The checker's score is not the user's judgement**: once it said 99.9 while the user saw
+   a bad layout.
+6. **Commit each milestone** with what was measured in the message, then update this file.
+7. **Report plainly.** What improved, what didn't, numbers with their noise. Don't oversell.
 
-**Before git** (summarised from the earlier session):
-- engine, chat server, LaTeX, memory;
-- streaming and a persistent Claude process;
-- the "Jarvis" stage-as-medium mode;
-- an eval harness;
-- research on why AI layouts fail (LLM-chosen coordinates fail, solvers and relations work, exact checks beat
-  vision judges, VLM layout score uncorrelated with geometric overlaps r≈0.05);
-- the **placement engine plan** (kiwi + VPSC + map label placement + springs): milestones 1–7 implemented,
-  `pos=` deprecated in favour of `region=`/`below=`/`near=`/`on=`.
+Clean, readable code: match the surrounding style (short comments that say why, small named functions), no dead
+code, no stubs left behind.
 
-**In git, 2026-10-19:**
-- **Graph flow fix**: link-less graphs lay out in columns by category, not on a circle.
-- **Voice**: default Brian; `TUTOR_VOICE`, `--voice`. Samples were rendered for the user to choose; no pick yet.
-- **Camera / fields / trails** (research: van Wijk zoom, Laidlaw streamlines study, Jobard-Lefer, d3-contour,
-  Crameri colormaps, manim internals): see `docs/plan-camera-fields-trails.md`.
-- **Teaching overhaul** (research: Graesser question types, LearnLM, Study mode, Khanmigo, refutation texts,
-  expertise reversal, Code2Video/TheoremExplainAgent/Paper2Video). It changed:
-  - `chat/prompt.md`: decide first (question type, level, shape, frame, claims to show, ending), conditional
-    moves, no ritual "Your turn", a "show what you say" claim→encoding table, visual idioms;
-  - exemplars: varied endings, `# ask:` headers, plus a quick-fact example;
-  - engine: link `label=` + value, link `color=`, `[id]` pointers, array `colors=[…]`, span pointers `at=a[1:3]`;
-  - the binding checker.
-- **Eval results** (12 question types, 2 runs each, v2 judge, 1–5):
+## 6. Gotchas
 
-  | | Before | After |
-  |---|---|---|
-  | fit | 3.67 | 4.08 |
-  | natural | 2.75 | 3.96 |
-  | picture | 3.17 | 3.55 |
-  | layout | 2.67 | 3.42 |
-  | teaching | 3.42 | 3.75 |
-  | binding | 3.0 | 3.17 |
+- **Make skips rebuilds after `git stash`/`pop`** (same-second mtimes). Use `make -B` or `touch` the sources.
+- **Never rebuild `./tutor` while an eval is running**: the eval runs the binary, and a half-written one fails.
+- **Snapshots fail when the display sleeps.** `caffeinate -u -d -t 900 &` first.
+- **Never take full-screen screenshots** (one once caught a private window). Use `--snapshot`.
+- **`--snapshot` renders offscreen without high-DPI.** Anything about the drawing transform must also be checked in
+  the real window: `TUTOR_SHOT=out.png:3 ./tutor f.txt --mute` (a `BeginMode2D` bug once showed only on Retina).
+- **An unknown string property becomes a colour category** (`kPositional`/`kTextKeys` in engine.cpp). A new
+  positional key must be added there, or it silently turns into a category.
+- **The prompt includes part of README.md.** A wrong example there teaches Claude the mistake. Example: `height=`
+  and `z=` are positional, so a height is shown with `value={p.z}`, not by itself.
+- **Eval caches:** a run that hit a session limit can leave junk. Scan outputs for "session limit" before trusting.
+- **Layout feedback loops:** anything that sizes the band from the zoom and the zoom from the band will oscillate.
+  The band's need only grows within a scene (`bandNeed_`).
+- **`bandFit` must be infinite when no plot is on stage**, or every scene shrinks and the corpus "improves" falsely.
+- **raylib's `CheckCollisionLines` writes to its output pointer even when given null.**
+- **Name clashes with raymanim globals** (`H`, `W`, ...) in engine code: pick other names for locals.
+- **3D:** labels, the placer and the checker all go through `Space::project`; never compute a 3D screen position
+  any other way. The fit has a 0.96 margin; an exact fit fails tests on rounding.
+- `ANTHROPIC_API_KEY` in the environment makes `claude -p` bill the API; the server warns.
 
-  The judge's noise is about ±0.15.
-- **Glitch fixes from real chats**:
-  - pointers take a free side;
-  - hidden blocks take no room; crowded bands flow in rows (chosen up front);
-  - `hide` fades formulas;
-  - label stickiness limited to passing lines;
-  - tangent labels stay near their point;
-  - no duplicate slope labels;
-  - edge regions reserved;
-  - link labels staggered.
+## 7. Rules from the user
 
-  The audit improved from 298/632 bad sampled moments to 5/632. **The user still says layout sucks.**
+- API keys are shared on purpose (`.inworld_key`). Use them; no warnings about it.
+- **Chat sessions (`chat/sessions/`), learner memory (`chat/memory/`), the library (`chat/library/`) and
+  `chat/settings.json` are the user's data.** Never commit, delete or overwrite them without asking.
+- Commit progress in git. Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Plain, direct answers. Admit what's wrong. They judge by what they see on the stage.
+- Ask before big or hard-to-undo changes. Small fixes the user asked for: just do them, then report.
 
-**Engine bugs found and fixed along the way**:
-- `m=` was treated as a matrix everywhere (energy formula showed "E = ?");
-- the "opacity 0.12" link label;
-- re-marks overlapping in instant mode;
-- fixed items separated by the solver (axis bands crossing at a centred origin);
-- raylib `CheckCollisionLines` writes to its output pointer even when given null (it crashed).
+## 8. Where things stand
 
-## 6. Tools you will want first
+Done and measured (details in `docs/history.md`):
+- 2D: graphs as layered flow; annotations, views side by side, derivations, grids, area diagrams, histograms, trees.
+- Teaching: a decide-first prompt, the toolbox of 27 checked moves, 4 annotated examples, `{expr}` in Say,
+  pointing ahead, python blocks, pause and ask.
+- Voice: 48 kHz, sentence context, a picker in the browser.
+- Overlap needs a relation: the checker sees views; the band never spills onto a plot.
+- 3D (`schema space`): chosen right for 34/36 questions; on spatial questions picture 2.88 to 3.46, teaching
+  3.12 to 3.58.
 
-- `tools/audit-sessions.mjs`: replays `chat/sessions/*/turns/*.txt` cumulatively and reports per turn: worst,
-  mean, bad samples, label flips, top issue. `--frames DIR` snapshots the worst moments. **Sessions are the
-  user's private data: never commit them, never delete them** (an earlier mistake deleted `chat/memory/learner.md`;
-  it was restored).
-- `--layout-report -` JSON now includes `worstIssues` and `flips` (which label, when).
-- Eval harness under `tools/eval/` (question-type set `prompts-types.json`; v2 judge rubric with fit/binding/
-  natural/picture/layout/accuracy/teaching). Judges are noisy, so run twice.
+The newest working session's notes are the last entry of `docs/history.md`.
 
-## 7. Suggested next step (for the layout complaint)
+## 9. Open
 
-1. **Ask the user** to show 2–3 frames that look bad and say what's wrong in each. Run the audit with `--frames`
-   on their latest sessions and look at the frames yourself, not just at scores. Compare against an older commit
-   (e.g. `8407f0c` or `a1615e3`) by building it in a `git worktree` and rendering the same chat. That tells you
-   whether "it was better before" is real, and which change caused it.
-2. **Research the user's two ideas** properly (they asked for it), and present options with evidence before
-   coding:
-   - **Slot/grid layout by object count and role**: presentation-template literature (PowerPoint/Keynote
-     layouts, the "rule of thirds", Swiss grid systems), automatic slide layout (e.g. DesignScape, layout GANs,
-     LayoutGPT), Code2Video's 6×6 anchor grid (which beat free placement in their ablation), and manim's
-     `arrange`/`next_to` conventions. A deterministic "composition template chooser" (1 thing: centre;
-     2: left/right; 3: triangle or row; 4: 2×2; plus a dedicated band for formulas and subtitles) is simple and
-     predictable. It may beat solver nudging for the user's taste.
-   - **Small fast placement model**: e.g. a distilled layout model, or an LLM pass (Haiku) that picks slots
-     (not pixels) from a fixed vocabulary of anchors. Cost: latency on a live stream. Research says LLMs are bad
-     at coordinates but fine at choosing named slots.
-3. Whatever is chosen: keep Claude out of pixels, keep `--check`/golden/append green, and judge by **frames of
-   real chats** with the user.
-
-## 8. User preferences and rules
-
-- They share API keys deliberately (Inworld key in `.inworld_key`). Use them, no warnings.
-- They want: deep research (papers, docs, real code, other fields), a plan, then build, **test and iterate**, and
-  **commit progress in git** (repo at this folder; `.gitignore` excludes the key, sessions, memory, caches).
-- Plain, direct answers. Admit what's wrong. Don't oversell scores. They judge by what they see.
-- Don't delete or overwrite user data (chat sessions, `chat/memory/learner.md`) without checking.
-- Never full-screen capture; use `--snapshot`.
-- Commits end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-- Restart `node chat/server.mjs` after engine or prompt changes. It relaunches the stage.
-
-## 8b. 2026-10-20 (later): position comes from structure
-
-The user's frame of a "dense vs transformer" chat (boxes on boxes, an arrow through a box, three arrows on one
-line) traced to two layout systems owning halves of one scene: `region=`/`right-of=` took nodes out of the graph
-layout and a kiwi solver squeezed them back in. Research (dot, ELK model order, Bluefish's one-owner rule,
-Penrose, Mermaid/D2 issues; Code2Video, ALGOGEN; engraving, chemistry depiction, metro maps, film continuity)
-and the project's founding rule agreed: position is a channel of the dictionary, derived from structure.
-- Placement words (`region below above left-of right-of near align pos`) are **retired** (user's decision):
-  ignored with a lint. `at=` and `on=/in=/over=` remain. kiwi, the 2-D separator, regions and skyline are gone.
-- The graph schema is one layered flow (`markup/place/flow.cpp`, unit-tested): links make columns, declaration
-  order is order, groups are lanes with stages aligned, links routed through gaps with fanned ports.
-- `tools/compare-commit.sh` and `audit --sheet`: "it was better before" did not hold up against `8407f0c`.
-- Snapshots segfault when the display sleeps: run `caffeinate -u -d -t 900 &` first.
-- Known: boxes can overlap for ~0.5 s while gliding when a new column forms (newcomers snap, old ones ease).
-
-## 8c. 2026-10-20 (evening): 2D made solid before 3D
-
-Measured with `tools/eval/prompts-broad.json` (44 questions, every subject and question type) plus frames read by eye,
-an engine audit and research (3b1b's code, Mayer, Ainsworth, Cheng, Tversky, Code2Video). Done, each committed:
-- Robustness: whole Unicode blocks in the font; focus ends with its sentence; explicit shared `color=` is a relation;
-  self-loops; real formula sizes in headless checks; snapshots wake the display; quotes keep commas in lists.
-- Stability: boxes make a graph from the first one; the band eases and new blocks wait for room; ghosts keep their slot;
-  subtitles page in two lines; bar scales ease by time.
-- Fit: a scene that outgrows the stage is drawn smaller (`stageRect/toStage/fitStage`, `BeginMode2D` in `draw()`,
-  never below 0.6, only shrinks within a scene, not on axes). Box names wrap.
-- Vocabulary: annotations (`brace enclose underline cross check`, `of=f[part]` for `\textcolor{part}` glyphs,
-  annotate.cpp); views (named `schema` lines side by side, `schemaOf`); derivations (aligned, new glyphs lit);
-  grids (`array cols=`, `M[r][c]`, `M[r][:]`); area diagrams (`area parts= by=`, area.cpp); histograms
-  (`numberline bin=`); trees top-down (when branching is what the graph does); `schema sequence`.
-- Prompt: declare the schema first, numbers shown as spoken, physical systems drawn as their parts (heart exemplar),
-  no ritual cards.
-- Broad eval (judge, 1-5): picture 3.34 -> 3.64, layout 3.41 -> 3.52, fit 3.91 -> 4.05; cards 28/44 -> 0/44.
-  Binding (numbers spoken but not shown) stays the weakest at ~3.1: the next prompt/lint target.
-
-## 8d. 2026-10-20 (night): the 2D must-do list
-
-Each committed, regressions (test, check, append, golden) green after each:
-- 3b1b's measured habits (`docs/3b1b-habits.md`): 1 s entrances staggered 0.15 s; a clutter note above 8 things;
-  a scene's name opens as a 62 px headline on the empty stage and goes to the corner when content arrives.
-  Axis numbers were already 15-16 px; boxes already rise 10 px; formulas write glyph by glyph (no further rise-in).
-- Annotations try their placements and keep the one sitting on the least; a group encloses its return arcs; link
-  labels may sit on their own link, keep off group outlines and out of groups that don't hold both ends.
-- Cue pre-flight: an `@score` line whose sentence never speaks `|score|` glues to the word it names ("scores").
-  First parser unit tests: `tests/test_script.cpp`.
-- Claude sees its frame: verified in a real session (the second message carries `frame: true` and the image).
-- Server: the after-turn check and readback run in the background (no `spawnSync`). Frames cost 0.1-2 ms, so the
-  engine needs no speed work yet.
-- `set=learner` params get a slider under the stage (`markup/controls.cpp`); a drag reports `@ev set k v`, the
-  server folds it into the stage text and sends `<learner_set>`. Simulated drags verified; a real mouse drag on a
-  Retina window has not been tried yet.
-
-Latency, measured (2026-10-21, probe and A/B evals on the 44 broad questions):
-- Most of the ~9 s is Claude *thinking* before its first word (5-14 s in real chats; Haiku and Sonnet decide this
-  themselves, `MAX_THINKING_TOKENS=0` doesn't stop them). A prompt line "don't deliberate" stops Sonnet thinking
-  (first sentence ~4 s instead of ~7.5 s) but costs accuracy 3.70 -> 3.34, teaching 3.68 -> 3.41, binding
-  3.18 -> 2.80. Rejected: the thinking is what makes answers right.
-- Dropping the ```plan block saves ~1.5 s at equal judge scores but raises spoken-but-not-shown lints 41 -> 54.
-  Kept.
-- Done instead: the voice for each Say starts synthesising as soon as it is written (`#!voice`), the server's
-  check runs in the background, Claude's process is warm when a chat opens.
-
-Code health: engine unit tests (`tests/test_engine.cpp`); `parseLine`, `placeAllLabels` and `layout` split,
-verified identical against the previous binary.
-
-Next: 3D, then the taste scorer (3b1b priors, an AI judge, a few clicks from the user).
-
-## 8e. 2026-10-22: spoken but not shown
-
-The user picked "the tutor says things it never shows" (binding) as the top problem. The research, plan and every
-experiment are in `reports/Fixing spoken but not shown.md` and `research_notes/Spoken but not shown/`.
-
-**The measure.** `tools/eval/sentences.mjs` takes a frame at the end of every Say, and a judge marks each sentence's
-claim as shown, partly shown or not. The scene judge sees 3 frames and can't tell. Baseline: 50% / 53% fully shown
-(two runs); numbers are 53% of claims.
-
-**Tested and rejected:**
-- *A second model editing each beat before it plays.* It bound more (63%), but layout fell −0.44 and accuracy also
-  dropped: additions made after the composition don't fit it.
-- *A storyboard in the plan.* 55–60%, but it costs +1.4 to 2.6 s before the first word, and the gain is near chance.
-
-**Built: `{expr}` in Say** (axiom-safe):
-- What it does:
-  - speaks a stage value as the word is reached, after the lines cued on that word; a morph counts at its end value;
-  - pulses the thing;
-  - `{a[3]}` / `{M[r][c]}` speak a cell's item.
-- The live engine keeps an instant **shadow** engine (`EngineOptions::shadow`: no layout, no TeX, silent), fed the
-  same text, so values are known before the voice is requested.
-- `#!voice` prefetch skips Says with refs; they're requested when the beat arrives.
-- The learner's slider release updates the shadow.
-- The binding checker reads the spoken text, so a value read off the stage but not readable on it is still flagged.
-- Readback is unchanged, which is tested; so is streamed playback against whole playback.
-- Gotcha: after `git stash pop`, `make` may not rebuild (same-second mtimes). `touch` the sources first.
-
-## 8f. 2026-10-22 (evening): visual moves mined from 3Blue1Brown
-
-`chat/idioms.md` holds 50 short idioms in our markup, covering 32 kinds of visual move. The chat server and
-`tools/eval/run.mjs` append it after the worked examples; `--no-idioms` leaves it out. Each idiom is also in
-`chat/idioms/`, which `make check` covers.
-
-How they were made: `tools/mine/` (its README is the datasheet).
-1. 3Blue1Brown's step comments, filtered.
-2. A taxonomy proposed by Claude, then hand-edited.
-3. Labels from Sonnet and Opus; only blocks both agree on are used (κ 0.63).
-4. k-center selection.
-5. Translation with engine-checked repair.
-6. A pass/fail vision judge: 102 of 180 passed.
-7. One per kind first.
-
-The pre-registered A/B test (`reports/Idioms A-B preregistration.md`):
-- claims fully shown went from 55.3% to 59.4% (+4.2 points, 95% CI +0.2 to +8.2), just short of the +5 bar set beforehand;
-- no cost to layout, accuracy, teaching or latency (+0.6 s);
-- the user tried it live and found it "way better", so it was adopted.
-
-Also new:
-- **Symbol rule:** the binding checker flags a symbol said as a name (f, P, α) that nothing on stage carries. The prompt asks for `label="f(x, y) = …"`, and `label=` on a field is its legend.
-- **Cache guard:** `tools/mine` never caches a failed or limit-hit model call. The eval scripts don't check for this, so scan their outputs for "session limit" before trusting a run.
-- Idioms cut after review (`tools/mine/rejected.txt`; assemble fills from the next passing candidate):
-  - "Park it aside": hand-positions a box on an invisible plane;
-  - "Let time pass": a bar for a process;
-  - "Dim the claim aside": built on a card.
-
-  "Slide a value, watch followers" was kept: its mid frames show the live formula.
-
-**Pointing ahead** (binding.cpp, `startSay` instant loop):
-- As each word is reached, the shadow finds the one visible thing that shows a number or name said aloud: an array cell, a label, a value, a link, else a formula. That word gets a pointer (`@pt:`), which the live engine applies (`applyPointers`) to Says that haven't started.
-- Several matches, or none: nothing happens. Small counts of things ("two groups"), ordinals ("step two") and code blocks are skipped.
-- Measured on 176 generated scenes:
-  - Claude pointed at 3% of the spoken numbers and names that were on stage;
-  - with pointing ahead, 76% are pointed at;
-  - about 90% of 30 audited pointers were right (77% before the count and ordinal rules).
-- `--check` prints a `pointing:` line; `TUTOR_DUMP_POINT=1` lists every pointer.
-- The number reader is shared with the checker and now reads "seven hundred eighty-four", "ninety-nine thousand nine hundred", "zero point one four" and "twenty one".
-
-**Voice quality** (Inworld docs, 2026; `markup/tts.*`):
-- **48 kHz:** the model's native rate. Measured: real energy above 12 kHz, −56 dB against −91 dB at 24 kHz. The audio buffer was doubled, so timing is unchanged.
-- **Text normalization:** `applyTextNormalization` ON.
-- **Denoising:** `enhanceGeneration`.
-- **Sentence context:** `synthesisContext`, the 2 previous sentences, so each sentence continues the explanation rather than starting cold.
-  - A Say prefetched by the server comes before the beat ahead of it, so the engine keeps `prefetched_` to ask with the same context its beat will.
-  - A test checks they match, or the early audio would be wasted.
-- **Cache:** the key now includes every setting.
-- **Voice choice:** samples of 9 candidate voices plus Brian step by step are in `.tutor_cache/voice-samples/`. The user picks with `--voice <id>`. `GET /voices/v1/voices` lists 166 English system voices.
-
-Wanted later (the user's idea): pause the lesson and ask about what is on screen. A second tab explains the current frame,
-and the lesson resumes where it paused.
-
-## 8g. 2026-10-22 (late): docs-first prompt, python blocks, pause and ask
-
-- **Prompt:**
-  - `chat/system-prompt.mjs` builds it for both the server and the eval;
-  - `chat/toolbox.md` holds 27 moves, each a complete scene checked by `tests/toolbox.mjs`;
-  - `chat/examples/` holds 4 annotated scenes;
-  - there's a plan-in-thinking step.
-  - The 9 old exemplars stay as regression scenes, and the mined idioms are no longer in the prompt.
-  - Measured neutral on 60 new topics (`reports/Copying vs composing.md`); adopted for structure.
-- **Python blocks** (`chat/compute.mjs`, `tests/compute.mjs`): sandboxed (`sandbox-exec`: no network, no home folder, no other programs, CPU and time limits), with data written into the scene lines before the engine sees them, so the axioms hold.
-  - `each` makes lines; a cue or `with` prefix carries through; loop arithmetic is computed.
-  - Generated marks share a category and carry no automatic names.
-  - The eval runs blocks the same way (`expandReply`).
-  - `tools/eval/prompts-compute.json` is the check set: 7–8 of 10 lessons use Python, with no syntax errors.
-- **Pause and ask** (`chat/explain.mjs`; `#!pause`, `#!capture`, `--window-pos` in `main.cpp`): `?…` on the paused stage or in the browser.
-  1. The stage captures the frame and the scene as of the playhead.
-  2. A fork of the lesson session answers.
-  3. A second window plays the answer.
-  4. The lesson hears about it next turn.
-
-  Tested end to end: about 9 s.
-- **Tested and not adopted:**
-  - gated per-beat repair: +0.8 points;
-  - training a local model: Qwen3 8B's best of 4 is far below Claude's first try.
-
-## 8h. 2026-10-23: overlap needs a relation
-
-A pause-and-ask answer drew a matrix over a plane view, row names over the wrong rows and a ghost cross over the
-corrected formula. Research (Mackinlay's expressiveness, Engelhardt's syntax of graphics, Marks & Reiter on false
-implicatures, TeX boxes, map labelling) says the same thing: touching is read as a relation, so two things may share
-ink only when the script relates them. `reports/Overlap needs a relation.md` has the sources and the numbers.
-
-- **The checker sees views** (`picture()`, `addFrames`, `regionOf`): each view's plot area, tick numbers, title and
-  dividing line are ink, and every ink belongs to a region (the band, or a view). A frame is ground only for its own
-  region's things (`place::check`, `Ink::Frame`). The screenshot's scene scored 79/100 with the blind checker, 10
-  with the one that sees views, and 97 after the fixes below.
-- **The band never spills onto a plot** (`layoutBand`, `bandFit`, `bandNeed_`): above a plot the band is capped at 60%
-  and the whole stage is drawn smaller instead (uniformly, so scales and baselines hold). The band's need only grows
-  within a scene; letting it shrink made blocks re-wrap between rows and column every frame.
-- **A note's name stays off the rest of a formula it names a part of** (`annotationHost`, `partLabelSide`): an enclose
-  of a row is named above the formula for upper rows, below for lower ones, and the band keeps that room. Arrays
-  are left as they were: their cell notes are named off the strip already.
-- **A hidden note leaves no ghost** (`opacityOf`): hide fades a brace, enclose, cross, … to nothing; the readback
-  keeps `opacity=0.12`, so decodability is unchanged.
-- **A graph leaves room for a named brace on a column** (`layoutGraph`), on the side away from its links.
-- Measured on 309 recorded lessons (`--layout-report`, worst moment): neutral overall (92.2 to 92.3), because
-  two views and row notes are rare there; the screenshot's scene went from 10 to 97. Golden layouts unchanged.
-  Not fixed: names crossing shapes' outlines in geometry and plots (the largest class, about 110 lessons; making a
-  crossing cost more did nothing), and overlaps that last only during a transition.
-
-## 8i. 2026-10-23: 3D (schema space)
-
-Plan: `docs/plan-3d.md`. Research: `research_notes/3D/explainers.md`. The code is in `markup/space.cpp` and `markup/viz/space.*`.
-- **How it is drawn.** One CPU projection (orbit camera, z up, narrow perspective, fitted to the cylinder the box sweeps
-  as it turns), drawn as 2D strokes and triangles sorted by depth. So labels, the placer, the checker, readback and
-  `--check` all work on projected positions; GPU 3D was rejected (it breaks snapshots and headless runs).
-- **Kinds:** dot (`drop=true`), vector (dz), line/arrow, path (xt yt zt), surface (fn=, or u,v), sphere, plane, polygon
-  faces, grid (3x3), field (vx vy vz).
-- **Camera:** in words (view= orbit= tilt= spin zoom= on= reset).
-- **Parity:** everything 2D has (trails, notes, pointers, send, focus, `{expr}`); a ghost pass so things behind
-  surfaces still show.
-- **Lints:** a thing leaving the box; a surface with a camera that never moves; binding (heights must be labelled).
-- **Eval** (`tools/eval/prompts-3d.json`: 24 spatial questions, 12 that only tempt 3D; Opus high; judge v2 and sentences):
-  - choice right 34/36 (before 12/36; flat questions stayed flat 12/12);
-  - on the 3D questions: picture 2.88 to 3.46, accuracy 3.12 to 3.54, teaching 3.12 to 3.58, layout 2.62 to 2.83;
-  - flat questions unchanged or a little better;
-  - claims shown 62% vs 60% (noise).
-- **Next:** the judge's main complaint is a small, crowded 3D view when formulas stack above it (a band that
-  gives a space view more room, or formulas beside it), and tangent planes drawn as large clipped polygons
-  (a local patch would read better).
-
-## 9. Known loose ends
-
-- A loophole in "position comes from structure": `schema plane … axes=false` used as a free canvas to place boxes by
-  coordinates (seen in a mined idiom, now cut). A lint could flag boxes/rects on an axis-less plane that aren't a
-  physical arrangement.
-
-- Voice: the user hasn't picked a voice from the samples (Brian is the default).
-- The camera only works on axes/plane; there's no pan for long arrays or timelines.
-- Contour labels and field legends are not in the layout checker.
-- The binding checker teaches only the next turn. A scene plays while it's being written, so it can't be fixed
-  before it is shown.
-- `scripts/*.readback` files are generated junk; they could be removed and gitignored.
-- The graph re-layout glides nodes when links arrive. Transient crossings remain for about a second.
+Next candidates, roughly by value:
+- **3D view too small when formulas stack above it.** Give a space view more room, or put formulas beside it.
+- **Tangent planes are drawn as big clipped sheets.** A local patch at the point would read better.
+- `flux` and `gradsurf` still stay flat though they need 3D.
+- Names crossing shapes' outlines in geometry and plots (the largest class of overlaps in real lessons, ~110).
+- Overlaps that last only during a transition (the graph re-layout glides nodes when links arrive).
+- The "flicker": keep the mental map between turns.
+- A lint for the invisible-plane loophole (`schema plane axes=false` used as a free canvas).
+- Ideas offered, not started: "prepare like Grant" (plan the whole lesson first), a taste judge trained on the
+  user's clicks.
+- Small: no camera pan for long arrays or timelines; contour labels and field legends aren't in the checker;
+  `scripts/*.readback` files are generated junk.
