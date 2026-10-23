@@ -203,6 +203,42 @@ camera reset                          # back to the whole scene
 
 One camera move per sentence, cued on the word (`@in camera zoom=8 on=p`), then let it rest. Zoom in to show a detail, then `camera reset` to give the context back.
 
+### Space: three dimensions (schema `space`)
+
+Only for ideas that live in three dimensions: a surface z = f(x, y), a gradient or tangent plane, the cross product,
+a determinant as a volume, a 3x3 matrix moving space, rotations, solids, molecules, lattices, a loss over two
+weights. Anything a flat picture shows stays flat: depth costs the learner (things hide, sizes deceive).
+
+`schema space x=[a,b] y=[c,d] z=[e,f]` is a 3D world, z up. Give ranges that hold everything (a thing that leaves the
+box is linted). Units are equal (spheres round, right angles right) unless one range is far from the others (then
+each axis is scaled to the same length; `units=equal|box` decides). Options: `grid=false`, `axes=false`,
+`xlabel= ylabel= zlabel=`.
+
+```
+mark p dot x=1 y=2 z=1 drop=true label="p"               # drop=true: a dashed line to the floor and a shadow (height, seen)
+mark v vector dx=1 dy=2 dz=2 label="v"                    # from x y z (default the origin), or at=<id>; to=[x,y,z] | to=<id>
+mark L line pts=[0,0,0, 2,1,3]                            # a segment (arrow: with a head)
+mark h path xt={cos(t)} yt={sin(t)} zt={t/4} range=[0,12]  # a curve in space; it draws itself
+mark S surface fn={x^2 - y^2} label="z = x² − y²"          # over the x, y range, cut where it leaves the box
+mark T surface xt={cos(u)*sin(v)} yt={sin(u)*sin(v)} zt={cos(v)} u=[0,6.28] v=[0,3.14]   # parametric
+mark B sphere x=0 y=0 z=0 r=1
+mark P plane normal=[1,1,1] d=1                           # a x + b y + c z = d, the part inside the box
+mark F polygon pts=[0,0,0, 1,0,0, 0,1,0]                  # a flat face (x,y,z triples): build solids face by face
+mark G grid space m=[1,0,0, 0,1,0, 0,0,1]                 # the lattice and the unit cube under a 3x3 matrix; morph m
+mark E field vx={-y} vy={x} vz={0.5}                      # arrows on a sparse lattice
+```
+
+The camera is said in words, never angles: `camera view=top|front|side|default`, `camera orbit=90` (turn around
+the vertical), `camera tilt=20` (look more from above), `camera zoom=3 on=p`, `camera spin` (a slow turn that goes
+on through the narration; `camera spin=off`), `camera reset`. **A surface needs motion**: a still picture of a
+surface is ambiguous, so `camera spin` (or an `orbit`) while it is the subject. `view=front` or `view=top` to show a
+right angle or a projection plainly.
+
+Everything else works as on a plane: `morph p.z -> 3`, lists morph (`G.m`, `pts`, `to`), `trail=`, param clocks,
+`indicate`/`send`/`focus`/`hide`, notes (`enclose of=p`), pointers (`at=p`), `[id]` and `{expr}` in a Say. Names and
+numbers stay upright and readable; formulas stay in the band. **A height can't be read off a 3D picture**: a
+number you say must be written on stage (a label with the value: `mark h label at=p label="height" value={p.z}` reads "height = 1.5").
+
 ### Blocks: text, code, data
 
 Blocks stack in a band at the top, under formulas. With nothing else on a free stage, they are centred. On-stage text should be key terms and short statements, never the narration itself.

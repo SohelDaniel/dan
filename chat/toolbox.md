@@ -309,6 +309,57 @@ Say: "Each cell is the |sum|sum of the one above and the one to the left."
 @sum mark r enclose of=M[1][1]
 ```
 
+### A surface, and a point that moves on it (3D)
+Use when a quantity depends on two inputs (height over a map, a loss over two weights, f(x, y)) and its shape is the point.
+Tools: `schema space` with ranges; `surface fn=`; a `dot` whose `z` follows the surface, `drop=true` and `trail=all`;
+`camera spin` so the shape reads; a label carrying the value you say. Pairs with: the formula in the band.
+```
+schema space x=[-3,3] y=[-3,3] z=[0,4]
+mark L surface fn={0.4*(x^2 + y^2)} label="loss"
+mark p dot x=-2 y=-2 z={0.4*(p.x^2 + p.y^2)} trail=all drop=true label="you"
+mark v label at=p label="loss" value={p.z}
+camera spin
+Say: "The loss is the height: here it is {p.z}."
+@step morph p.x -> -1 1s
+with morph p.y -> -1 1s
+Say: "One |step|step downhill, and it drops to {p.z}."
+```
+
+### Vectors in space, and what is perpendicular (3D)
+Use for the cross product, normals to a plane, torque, anything that points out of a flat thing.
+Tools: `vector` with `dz`; the flat thing as a `polygon` face (x,y,z triples) or a `plane`; `camera view=front` (or
+`orbit=`) on the word that says perpendicular, so the right angle is plain.
+```
+schema space x=[-1,3] y=[-1,3] z=[-1,5]
+mark a vector dx=2 dy=0 dz=0 label="a"
+mark b vector dx=1 dy=2 dz=0 label="b"
+mark P polygon pts=[0,0,0, 2,0,0, 3,2,0, 1,2,0] label="area 4"
+mark c vector dx=0 dy=0 dz=4 label="a × b"
+Say: "The cross product stands straight up from the parallelogram, as long as its area: four."
+@up camera view=front
+Say: "From the |up|front, it is plainly perpendicular."
+```
+
+### A 3x3 matrix moves all of space (3D)
+Use for linear maps in three dimensions and the determinant as a volume.
+Tools: `grid space m=[9 numbers]` (the lattice and the unit cube), morphed to the matrix; the basis `vector`s morphed
+with it; the volume in a formula; `camera spin` to see the slanted box.
+```
+schema space x=[-3,3] y=[-3,3] z=[-3,3]
+mark G grid space m=[1,0,0, 0,1,0, 0,0,1]
+mark i vector dx=1 dy=0 dz=0 color=green label="i"
+mark k vector dx=0 dy=0 dz=1 color=blue label="k"
+mark d tex tex="\det M = 1"
+camera spin
+Say: "The unit cube has volume one."
+@go morph G.m -> [2,0,0, 0,1,0, 0.5,0,1.5] 2s
+with morph i.dx -> 2 2s
+with morph i.dz -> 0.5 2s
+with morph k.dz -> 1.5 2s
+with mark d tex="\det M = 3"
+Say: "Apply the matrix, and the cube |go|becomes a slanted box of volume three."
+```
+
 ### Tidy what's done
 Use when the stage fills up or a part of the explanation is over.
 Tools: `hide <id>` dims it to a ghost in place (nothing else moves; a note such as a cross or an enclose disappears); `scene "…"` starts a fresh stage for a new topic.

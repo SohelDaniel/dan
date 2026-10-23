@@ -406,10 +406,12 @@ void Engine::spaceRanges() {
     }
     for (int i = 0; i < 3; i++) {
       if (lo[i] > hi[i]) { lo[i] = -3; hi[i] = 3; }
-      if (!given[i]) {
+      if (!given[i]) { // nice ends: a space shows only its axes' two end numbers, so they snap to a coarse step
         float a = (float)lo[i], b = (float)hi[i];
         niceRange(a, b, true);
-        lo[i] = a; hi[i] = b;
+        double step = viz::niceStepFloor((b - a) / 3);
+        lo[i] = std::floor(a / step) * step;
+        hi[i] = std::ceil(b / step) * step;
       }
       v.lo[i] = lo[i];
       v.hi[i] = hi[i];

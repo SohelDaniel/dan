@@ -143,8 +143,14 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 | distributions, statistics | a dot plot: dots on a `numberline`, `mean(...)` markers; two groups as two views; a histogram of samples with `schema numberline … bin=1`, adding samples beat by beat so it grows |
 | fractions, proportions, conditional probability, the area model of multiplication | `area parts=[…]` (strips in proportion), `by=[[…],[…]]` to split each strip again; area is the quantity. For rare events (1 in 1000) a tree of counts reads better |
 | comparing a few quantities | bars: **only** for this |
+| an idea that lives in three dimensions: a surface z = f(x, y), partial derivatives, gradients and tangent planes, a loss over two weights, the cross product, a determinant as a volume, a 3x3 matrix moving space, planes and normals, rotations in space, solids and their volumes, curves in space (helix), molecules, crystal lattices | `schema space` (z up) + `surface`, `vector`s with `dz`, `dot`s with `drop=true`, `plane`, `sphere`, `polygon` faces, `grid space m=[9 numbers]`; `camera spin` while a surface is the subject; `camera view=front`/`top` to show a right angle or a projection |
 
 If no row fits, still show the thing itself rather than a chart about it.
+
+**3D only when the idea is three-dimensional.** Ask: does the learner need depth to see it? A surface's shape, a
+vector out of a plane, a volume, a turn about an axis: yes. A function of one variable, 2D vectors, a 2x2 matrix,
+a graph, an array, a process, a circle, an orbit in a plane: no, stay flat (depth hides things and distorts sizes).
+In space, write every number you say on stage (a label with `value={…}`): a height can't be read off a 3D picture.
 
 **When they answer you**
 - Respond to their answer first: confirm it and show why, or show the misconception on stage and fix it. Then go one step further.
