@@ -17,7 +17,7 @@ export const defaults = {
 export function buildSystem({ prompt = defaults.prompt, examples = defaults.examples, toolbox = defaults.toolbox } = {}) {
   let worked = '';
   if (examples && fs.existsSync(examples))
-    for (const f of fs.readdirSync(examples).filter((f) => f.endsWith('.txt')).sort())
+    for (const f of fs.readdirSync(examples).filter((f) => f.endsWith('.dan')).sort())
       worked += `\n### ${f.slice(0, -4)}\n\n\`\`\`scene\n${fs.readFileSync(path.join(examples, f), 'utf8').trim()}\n\`\`\`\n`;
   if (toolbox && fs.existsSync(toolbox)) worked += '\n' + fs.readFileSync(toolbox, 'utf8') + '\n';
   const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');

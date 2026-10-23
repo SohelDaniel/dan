@@ -1,22 +1,22 @@
 # tutor
 
-Explanations that draw themselves. You write a `.txt` file in the markup language. The engine draws it with raylib, animates it, narrates it, and reads it back.
+Explanations that draw themselves. You write a `.dan` file in Dan, the markup language (named after its author; `.dan` is its extension, as `.md` is Markdown's). The engine draws it with raylib, animates it, narrates it, and reads it back.
 
 To use the tutor: `tutor` (or `tutor claude` to work on it with Claude Code). See `bin/tutor` and `docs/HANDOFF.md`.
 
 ```
 make                                   # builds ./tutor and ./manim_demo
-./tutor scripts/bank.txt               # play, narrated by Inworld TTS (edit the file while it runs: it hot-reloads)
-./tutor scripts/bank.txt --mute        # no voice, estimated word timing
-./tutor scripts/bank.txt --voice-id Ashley --speed 1.1
-./tutor scripts/bank.txt --record out.mp4   # export video with the narration muxed in
-./tutor scripts/bank.txt --readback    # no window: run to the end, print the scene as markup
-./tutor scripts/bank.txt --check       # no window: decodability + axiom lint, exit 1 on failure
-./tutor scripts/bank.txt --snapshot out --at 3,8,end   # hidden window: frames out_3.png … (for checks and evals)
-./tutor scripts/bank.txt --layout-report -             # no window: play it, check the layout every 0.5 s (JSON)
-./tutor scripts/bank.txt --placer old  # labels at the old fixed offsets (default: placed by the placement module)
-./tutor scripts/bank.txt --verbose     # log every line, hook and voice start with timestamps
-./tutor live.txt --stdin               # live: lines piped in continue the running scene (no restart);
+./tutor scripts/bank.dan               # play, narrated by Inworld TTS (edit the file while it runs: it hot-reloads)
+./tutor scripts/bank.dan --mute        # no voice, estimated word timing
+./tutor scripts/bank.dan --voice-id Ashley --speed 1.1
+./tutor scripts/bank.dan --record out.mp4   # export video with the narration muxed in
+./tutor scripts/bank.dan --readback    # no window: run to the end, print the scene as markup
+./tutor scripts/bank.dan --check       # no window: decodability + axiom lint, exit 1 on failure
+./tutor scripts/bank.dan --snapshot out --at 3,8,end   # hidden window: frames out_3.png … (for checks and evals)
+./tutor scripts/bank.dan --layout-report -             # no window: play it, check the layout every 0.5 s (JSON)
+./tutor scripts/bank.dan --placer old  # labels at the old fixed offsets (default: placed by the placement module)
+./tutor scripts/bank.dan --verbose     # log every line, hook and voice start with timestamps
+./tutor live.dan --stdin               # live: lines piped in continue the running scene (no restart);
                                        #   "#!load <file>" starts over, "#!interrupt" fast-forwards, "#!state thinking|listening|idle";
                                        #   prints "@ev say|word|end|idle|input" events; you can type on the stage.
                                        #   With --readback: chunks split by "#!chunk"
@@ -53,11 +53,11 @@ Keys: `space` pause, `→` skip the current animation, `R` restart, `D` toggle t
 | `tests/` | `make test` (placement unit tests), `make bench` (timing budget), `make golden` (layout score of every script vs baseline, both placers), `make append` (streamed = whole), `make test-fonts` (headless text sizes = GPU) |
 | `third_party/` | `json.hpp`, `doctest` (MIT) |
 | `examples/manim_demo.cpp` | using raymanim directly, like a manim `Scene` |
-| `scripts/*.txt` | example explanations (bank, law, derivative, integral, mean, contract, recursion, loop) |
+| `scripts/*.dan` | example explanations (bank, law, derivative, integral, mean, contract, recursion, loop) |
 
 ## The language
 
-One line, one statement. `#` starts a comment.
+The language is called Dan; its files end in `.dan`. One line, one statement. `#` starts a comment.
 
 ### The six verbs
 

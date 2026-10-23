@@ -27,7 +27,7 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tutor-audit-'));
 const sessions = fs.readdirSync(SESS).filter((s) => fs.existsSync(path.join(SESS, s, 'turns')) && (!only || s === only)).sort().slice(-last);
 const rows = [];
 for (const s of sessions) {
-  const turns = fs.readdirSync(path.join(SESS, s, 'turns')).filter((f) => f.endsWith('.txt')).sort();
+  const turns = fs.readdirSync(path.join(SESS, s, 'turns')).filter((f) => /\.(dan|txt)$/.test(f)).sort();
   let text = '';
   for (const t of turns) {
     text += fs.readFileSync(path.join(SESS, s, 'turns', t), 'utf8') + '\n';
@@ -41,12 +41,12 @@ for (const s of sessions) {
       at: j.worstAt, issue: (j.worstIssues[0] || '').slice(0, 70) });
     if (frames && j.worst < 95) {
       fs.mkdirSync(frames, { recursive: true });
-      spawnSync(TUTOR, [f, '--snapshot', path.join(frames, `${s}-${t.replace('.txt', '')}`), '--at', `${j.worstAt},end`], { cwd: ROOT });
+      spawnSync(TUTOR, [f, '--snapshot', path.join(frames, `${s}-${t.replace(/\.(dan|txt)$/, '')}`), '--at', `${j.worstAt},end`], { cwd: ROOT });
     }
     if (sheet) {
-      const shot = path.join(tmp, `${s}-${t.replace('.txt', '')}`);
+      const shot = path.join(tmp, `${s}-${t.replace(/\.(dan|txt)$/, '')}`);
       spawnSync(TUTOR, [f, '--snapshot', shot, '--at', 'end'], { cwd: ROOT });
-      if (fs.existsSync(`${shot}_end.png`)) tiles.push(['-label', `${s}/${t.replace('.txt', '')}  ${j.worst}`, `${shot}_end.png`]);
+      if (fs.existsSync(`${shot}_end.png`)) tiles.push(['-label', `${s}/${t.replace(/\.(dan|txt)$/, '')}  ${j.worst}`, `${shot}_end.png`]);
     }
   }
 }

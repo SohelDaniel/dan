@@ -13,8 +13,8 @@ const placer = process.argv.includes('--placer') ? process.argv[process.argv.ind
 const GOLDEN = path.join(ROOT, 'tests', 'golden', placer === 'old' ? 'layout-old.json' : 'layout-new.json'); // one baseline per placer
 const TOL = 2; // score points of slack (sampling is time-based)
 
-const files = [...fs.readdirSync(path.join(ROOT, 'scripts')).filter((f) => f.endsWith('.txt')).map((f) => 'scripts/' + f),
-  ...['exemplars', 'examples'].flatMap((d) => fs.readdirSync(path.join(ROOT, 'chat', d)).filter((f) => f.endsWith('.txt')).map((f) => `chat/${d}/${f}`))].sort();
+const files = [...fs.readdirSync(path.join(ROOT, 'scripts')).filter((f) => f.endsWith('.dan')).map((f) => 'scripts/' + f),
+  ...['exemplars', 'examples'].flatMap((d) => fs.readdirSync(path.join(ROOT, 'chat', d)).filter((f) => f.endsWith('.dan')).map((f) => `chat/${d}/${f}`))].sort();
 const results = {};
 for (const f of files) {
   const args = [f, '--layout-report', '-', '--placer', placer];

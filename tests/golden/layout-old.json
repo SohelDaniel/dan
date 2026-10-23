@@ -1,311 +1,311 @@
 {
- "chat/examples/bsearch.txt": {
+ "chat/examples/bsearch.dan": {
   "mean": 99.6,
   "worst": 75,
   "final": 100,
   "maxOverlaps": 1
  },
- "chat/examples/compare.txt": {
+ "chat/examples/compare.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "chat/examples/derivative.txt": {
+ "chat/examples/derivative.dan": {
   "mean": 97.3,
   "worst": 81.8,
   "final": 100,
   "maxOverlaps": 1
  },
- "chat/examples/heart.txt": {
+ "chat/examples/heart.dan": {
   "mean": 98.4,
   "worst": 72.7,
   "final": 100,
   "maxOverlaps": 2
  },
- "chat/exemplars/bsearch.txt": {
+ "chat/exemplars/bsearch.dan": {
   "mean": 99.6,
   "worst": 75,
   "final": 100,
   "maxOverlaps": 1
  },
- "chat/exemplars/compare.txt": {
+ "chat/exemplars/compare.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "chat/exemplars/derivative.txt": {
+ "chat/exemplars/derivative.dan": {
   "mean": 97.8,
   "worst": 81.8,
   "final": 100,
   "maxOverlaps": 1
  },
- "chat/exemplars/descent.txt": {
+ "chat/exemplars/descent.dan": {
   "mean": 94.3,
   "worst": 85.8,
   "final": 85.9,
   "maxOverlaps": 1
  },
- "chat/exemplars/heart.txt": {
+ "chat/exemplars/heart.dan": {
   "mean": 98.4,
   "worst": 72.7,
   "final": 100,
   "maxOverlaps": 2
  },
- "chat/exemplars/median.txt": {
+ "chat/exemplars/median.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "chat/exemplars/newton.txt": {
+ "chat/exemplars/newton.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "chat/exemplars/photosynthesis.txt": {
+ "chat/exemplars/photosynthesis.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "chat/exemplars/vectors.txt": {
+ "chat/exemplars/vectors.dan": {
   "mean": 86.9,
   "worst": 72.2,
   "final": 72.2,
   "maxOverlaps": 2
  },
- "scripts/annotate-graph.txt": {
+ "scripts/annotate-graph.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/annotate.txt": {
+ "scripts/annotate.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/area.txt": {
+ "scripts/area.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/attach.txt": {
+ "scripts/attach.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/backprop.txt": {
+ "scripts/backprop.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/bank.txt": {
+ "scripts/bank.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/compound.txt": {
+ "scripts/compound.dan": {
   "mean": 94.3,
   "worst": 73.3,
   "final": 100,
   "maxOverlaps": 2
  },
- "scripts/contract.txt": {
+ "scripts/contract.dan": {
   "mean": 98,
   "worst": 98,
   "final": 98,
   "maxOverlaps": 0
  },
- "scripts/derivative.txt": {
+ "scripts/derivative.dan": {
   "mean": 58.4,
   "worst": 2.6,
   "final": 2.6,
   "maxOverlaps": 6
  },
- "scripts/descent.txt": {
+ "scripts/descent.dan": {
   "mean": 98.2,
   "worst": 72.4,
   "final": 99.3,
   "maxOverlaps": 1
  },
- "scripts/energy.txt": {
+ "scripts/energy.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/fields.txt": {
+ "scripts/fields.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/grid.txt": {
+ "scripts/grid.dan": {
   "mean": 99.6,
   "worst": 92.8,
   "final": 100,
   "maxOverlaps": 1
  },
- "scripts/hide.txt": {
+ "scripts/hide.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/histogram.txt": {
+ "scripts/histogram.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/integral.txt": {
+ "scripts/integral.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/lanes.txt": {
+ "scripts/lanes.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/law.txt": {
+ "scripts/law.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/learner.txt": {
+ "scripts/learner.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/loop.txt": {
+ "scripts/loop.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/mean.txt": {
+ "scripts/mean.dan": {
   "mean": 99.9,
   "worst": 95.3,
   "final": 100,
   "maxOverlaps": 1
  },
- "scripts/pointers.txt": {
+ "scripts/pointers.dan": {
   "mean": 100,
   "worst": 99.3,
   "final": 100,
   "maxOverlaps": 1
  },
- "scripts/recursion.txt": {
+ "scripts/recursion.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/send.txt": {
+ "scripts/send.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/sequence.txt": {
+ "scripts/sequence.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/showcase.txt": {
+ "scripts/showcase.dan": {
   "mean": 96.1,
   "worst": 75,
   "final": 100,
   "maxOverlaps": 2
  },
- "scripts/space-cross.txt": {
+ "scripts/space-cross.dan": {
   "mean": 97.7,
   "worst": 79.7,
   "final": 100,
   "maxOverlaps": 3
  },
- "scripts/space-determinant.txt": {
+ "scripts/space-determinant.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/space-downhill.txt": {
+ "scripts/space-downhill.dan": {
   "mean": 94.6,
   "worst": 90.6,
   "final": 100,
   "maxOverlaps": 3
  },
- "scripts/space-field.txt": {
+ "scripts/space-field.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/space-kinds.txt": {
+ "scripts/space-kinds.dan": {
   "mean": 74.3,
   "worst": 67.2,
   "final": 67.7,
   "maxOverlaps": 3
  },
- "scripts/space-saddle.txt": {
+ "scripts/space-saddle.dan": {
   "mean": 98.8,
   "worst": 97,
   "final": 97,
   "maxOverlaps": 1
  },
- "scripts/steps.txt": {
+ "scripts/steps.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/timeline.txt": {
+ "scripts/timeline.dan": {
   "mean": 96,
   "worst": 96,
   "final": 96,
   "maxOverlaps": 0
  },
- "scripts/views-compare.txt": {
+ "scripts/views-compare.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/views-mixed.txt": {
+ "scripts/views-mixed.dan": {
   "mean": 99.8,
   "worst": 97,
   "final": 100,
   "maxOverlaps": 1
  },
- "scripts/views-plots.txt": {
+ "scripts/views-plots.dan": {
   "mean": 97,
   "worst": 97,
   "final": 97,
   "maxOverlaps": 1
  },
- "scripts/views.txt": {
+ "scripts/views.dan": {
   "mean": 100,
   "worst": 100,
   "final": 100,
   "maxOverlaps": 0
  },
- "scripts/zoom.txt": {
+ "scripts/zoom.dan": {
   "mean": 94.5,
   "worst": 80.9,
   "final": 97,

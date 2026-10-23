@@ -61,7 +61,8 @@ if (!fs.existsSync(MEMORY)) fs.writeFileSync(MEMORY, '# Learner\n\n(Nothing yet.
 // A fixed system prompt (so it caches): the protocol, worked examples, the toolbox and the language reference
 // (chat/system-prompt.mjs; --prompt, --examples, --toolbox for experiments)
 const SYSTEM = systemFromArgs(argv);
-const libraryNames = () => fs.readdirSync(LIBRARY).filter((f) => f.endsWith('.txt')).map((f) => f.slice(0, -4));
+const libraryNames = () => fs.readdirSync(LIBRARY).filter((f) => /\.(dan|txt)$/.test(f)).map((f) => f.slice(0, -4));
+const libraryFile = (n) => ['.dan', '.txt'].map((e) => path.join(LIBRARY, n + e)).find((f) => fs.existsSync(f)) || path.join(LIBRARY, n + '.dan');
 
 // ------------------------------------------------------------ live events to every open page (SSE)
 const clients = new Set();
@@ -72,7 +73,9 @@ function broadcast(e) {
 
 // ------------------------------------------------------------ sessions
 let S; // { id, dir, sid, turn, title, lints, busy, memSent, pending, cut, note }
-const file = (n) => path.join(S.dir, n);
+// the markup's files end in .dan; chats from before the name keep their .txt files, so a name is mapped per chat
+const extOf = (dir) => (fs.existsSync(path.join(dir, 'state.txt')) ? '.txt' : '.dan');
+const file = (n) => path.join(S.dir, n.endsWith('.dan') ? n.slice(0, -4) + extOf(S.dir) : n);
 const read = (n) => { try { return fs.readFileSync(file(n), 'utf8'); } catch { return ''; } };
 const saveMeta = () => fs.writeFileSync(file('session.json'),
   JSON.stringify({ sid: S.sid, turn: S.turn, title: S.title, lints: S.lints, updated: Date.now() }, null, 1));
@@ -84,7 +87,7 @@ function newSession() {
   const id = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
   const dir = path.join(SESSIONS, id);
   fs.mkdirSync(path.join(dir, 'turns'), { recursive: true });
-  for (const f of ['state.txt', 'turn.txt', 'messages.jsonl']) fs.writeFileSync(path.join(dir, f), '');
+  for (const f of ['state.dan', 'turn.dan', 'messages.jsonl']) fs.writeFileSync(path.join(dir, f), '');
   switchTo(sessionOf(dir, {}));
   saveMeta();
   loadStage('title "Ask me anything"\n');
@@ -92,11 +95,11 @@ function newSession() {
 
 // sessions from the first version of this server had no session.json (and no transcript): adopt them
 function adopt(dir) {
-  if (fs.existsSync(path.join(dir, 'session.json')) || !fs.existsSync(path.join(dir, 'state.txt'))) return;
+  if (fs.existsSync(path.join(dir, 'session.json')) || !fs.existsSync(path.join(dir, 'state' + extOf(dir)))) return;
   const turns = fs.existsSync(path.join(dir, 'turns')) ? fs.readdirSync(path.join(dir, 'turns')).length : 0;
-  const title = (fs.readFileSync(path.join(dir, 'state.txt'), 'utf8').match(/^title "([^"]*)"/m) || [])[1] || 'Earlier chat';
+  const title = (fs.readFileSync(path.join(dir, 'state' + extOf(dir)), 'utf8').match(/^title "([^"]*)"/m) || [])[1] || 'Earlier chat';
   fs.writeFileSync(path.join(dir, 'session.json'),
-    JSON.stringify({ sid: null, turn: turns, title, updated: fs.statSync(path.join(dir, 'state.txt')).mtimeMs }, null, 1));
+    JSON.stringify({ sid: null, turn: turns, title, updated: fs.statSync(path.join(dir, 'state' + extOf(dir))).mtimeMs }, null, 1));
   if (!fs.existsSync(path.join(dir, 'messages.jsonl'))) fs.writeFileSync(path.join(dir, 'messages.jsonl'), '');
 }
 
@@ -105,7 +108,7 @@ function openSession(id) {
   adopt(dir);
   if (!fs.existsSync(path.join(dir, 'session.json'))) return false;
   switchTo(sessionOf(dir, JSON.parse(fs.readFileSync(path.join(dir, 'session.json'), 'utf8'))));
-  const state = read('state.txt');
+  const state = read('state.dan');
   loadStage(state.trim() ? state : 'title "Ask me anything"\n');
   return true;
 }
@@ -133,7 +136,7 @@ function stageSend(line) {
   if (stageAlive()) stage.stdin.write(line + '\n');
 }
 function spawnStage() {
-  const args = [file('live.txt'), '--stdin', ...voiceArgs()];
+  const args = [file('live.dan'), '--stdin', ...voiceArgs()];
   stage = spawn(TUTOR, args, { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'] }); // cwd ROOT: .inworld_key + caches
   stage.stdin.on('error', () => {});
   stage.stderr.on('data', (d) => fs.appendFileSync(file('stage.log'), d)); // parse errors, voice failures
@@ -182,20 +185,20 @@ function onStageEvent(ev) {
   } else if (kind === 'set') { // the learner dragged a slider: the stage's model has the new value now
     const [id, v] = rest.split(' ');
     if (!/^[\w.-]+$/.test(id) || !Number.isFinite(+v)) return;
-    for (const f of ['state.txt', 'live.txt']) fs.appendFileSync(file(f), `mark ${id} value=${+v}\n`);
+    for (const f of ['state.dan', 'live.dan']) fs.appendFileSync(file(f), `mark ${id} value=${+v}\n`);
     S.learnerSet[id] = +v;
     broadcast({ t: 'set', id, v: +v });
   }
 }
 // show this text from scratch (session open, replay)
 function loadStage(text) {
-  fs.writeFileSync(file('live.txt'), text);
-  if (stageAlive()) stageSend(`#!load ${file('live.txt')}`);
+  fs.writeFileSync(file('live.dan'), text);
+  if (stageAlive()) stageSend(`#!load ${file('live.dan')}`);
   else spawnStage();
 }
 // continue the running stage
 function appendStage(text) {
-  fs.appendFileSync(file('live.txt'), text);
+  fs.appendFileSync(file('live.dan'), text);
   if (process.env.TUTOR_DEBUG) console.log('stage<<', stageAlive(), JSON.stringify(text).slice(0, 80));
   if (stageAlive()) stage.stdin.write(text);
   else spawnStage(); // the window was closed: reopen it with everything so far
@@ -216,20 +219,20 @@ function runTutor(text, name, flag) {
 }
 
 async function readback(text) {
-  const { out } = await runTutor(text, '.fold.txt', '--readback');
+  const { out } = await runTutor(text, '.fold.dan', '--readback');
   return out.split('\n').filter((l) => l.trim() && !l.startsWith('#')).join('\n') + '\n'; // the model, no derived comments
 }
 // the stage as the learner saw it at the end of the turn, rendered offscreen in the background; it goes
 // to Claude with the next message, so it sees its own picture (crowding, cut-off text, a bad composition)
 function snapshotFrame(text) {
-  fs.writeFileSync(file('.frame.txt'), text);
+  fs.writeFileSync(file('.frame.dan'), text);
   S.frame = null;
-  const p = spawn(TUTOR, [file('.frame.txt'), '--snapshot', file('frame'), '--at', 'end', '--mute'], { cwd: ROOT, stdio: 'ignore' });
+  const p = spawn(TUTOR, [file('.frame.dan'), '--snapshot', file('frame'), '--at', 'end', '--mute'], { cwd: ROOT, stdio: 'ignore' });
   p.on('close', (code) => { if (code === 0 && fs.existsSync(file('frame_end.png'))) S.frame = file('frame_end.png'); });
 }
 
 async function check(text) {
-  const { code, out: o, err } = await runTutor(text, '.check.txt', '--check');
+  const { code, out: o, err } = await runTutor(text, '.check.dan', '--check');
   const out = o + err;
   const lints = [...new Set(out.split('\n').filter((l) => l.startsWith('  ') || l.startsWith('parse:')).map((l) => l.trim()))];
   return { ok: code === 0, lints };
@@ -320,7 +323,7 @@ function contextFor(text) {
   const said = text.toLowerCase();
   for (const n of lib)
     if (said.includes(n) || said.includes(n.replace(/-/g, ' ')))
-      parts.push(`<library_scene name="${n}">\n${fs.readFileSync(path.join(LIBRARY, n + '.txt'), 'utf8').trim()}\n</library_scene>`);
+      parts.push(`<library_scene name="${n}">\n${fs.readFileSync(libraryFile(n), 'utf8').trim()}\n</library_scene>`);
   if (S.lints.length) parts.push(`<last_scene_issues>\n${S.lints.join('\n')}\n</last_scene_issues>`);
   if (S.note) { parts.push(S.note); S.note = ''; }
   const sets = Object.entries(S.learnerSet);
@@ -329,7 +332,7 @@ function contextFor(text) {
   if (/\b(show me (what|everything)|what (you|u) can do|display|tour|demo|showcase|longer|bigger|more (aesthetic|beautiful|visual|detail)|full (display|show))\b/i.test(text))
     parts.push('<request_note>The learner explicitly asked for more: a showcase, longer, bigger or more beautiful. Give exactly that, at showcase scale (several full scenes), not the default length.</request_note>');
   if (S.frame) parts.push('<last_frame> (attached image): the stage as the learner saw it at the end of your last turn. If it is crowded, cut off or hard to read, keep that in mind as you build on it.');
-  parts.push(`<stage>\n${read('state.txt').trim() || '(empty)'}\n</stage>`);
+  parts.push(`<stage>\n${read('state.dan').trim() || '(empty)'}\n</stage>`);
   return parts.join('\n') + `\n\nLearner: ${text}`;
 }
 
@@ -345,9 +348,9 @@ function runTurn(text, source, model = defaultModel) {
   const msg = { role: 'assistant', spoken: [], plan: '', memory: false, stage: null, meta: null, error: null, cut: false };
 
   // ---- the reply stream: a fence parser (plan / python / scene / memory), then beats to the stage
-  const stateBefore = read('state.txt');
-  fs.writeFileSync(file('turn.txt'), '');
-  fs.appendFileSync(file('live.txt'), `# --- turn ${S.turn + 1} ---\n`);
+  const stateBefore = read('state.dan');
+  fs.writeFileSync(file('turn.dan'), '');
+  fs.appendFileSync(file('live.dan'), `# --- turn ${S.turn + 1} ---\n`);
   let mode = 'none', partial = '', memText = '', beat = [], seenSay = false;
   // python blocks run as they close; scene lines wait in order behind them, then get their data written in
   let block = null, ready = Promise.resolve();
@@ -372,7 +375,7 @@ function runTurn(text, source, model = defaultModel) {
     if (!lines.length || S.cut) return; // after an interrupt, nothing more is shown
     if (times.stage === null) { times.stage = S.turnAt(); broadcast({ t: 'drawing' }); }
     const chunk = lines.join('\n') + '\n';
-    fs.appendFileSync(file('turn.txt'), chunk); // the record is what was actually shown
+    fs.appendFileSync(file('turn.dan'), chunk); // the record is what was actually shown
     for (const l of lines) if (l.trim().startsWith('Say:')) msg.spoken.push(l.trim().slice(4).trim().replace(/^"|"$/g, '').replace(/\|[^|\s]*\|/g, ''));
     appendStage(chunk);
   };
@@ -423,16 +426,16 @@ function runTurn(text, source, model = defaultModel) {
     if (error) { msg.error = error; broadcast({ t: 'error', v: error }); }
     times.done = S.turnAt();
     msg.cut = S.cut;
-    const turn = read('turn.txt');
+    const turn = read('turn.dan');
     if (turn.trim()) {
       S.turn++;
-      fs.writeFileSync(path.join(S.dir, 'turns', String(S.turn).padStart(3, '0') + '.txt'), turn);
+      fs.writeFileSync(path.join(S.dir, 'turns', String(S.turn).padStart(3, '0') + extOf(S.dir)), turn);
       const live = stateBefore + (stateBefore.endsWith('\n') || !stateBefore ? '' : '\n') + turn;
       const [c, state] = await Promise.all([check(live), readback(live)]);
       S.lints = [...c.lints, ...computeIssues];
-      fs.writeFileSync(file('state.txt'), state);
+      fs.writeFileSync(file('state.dan'), state);
       snapshotFrame(live);
-      msg.stage = { ok: c.ok, lints: c.lints, turn, state: read('state.txt') };
+      msg.stage = { ok: c.ok, lints: c.lints, turn, state: read('state.dan') };
       broadcast({ t: 'stage', ...msg.stage });
     } else S.lints = computeIssues;
     if (memText.trim()) {
@@ -505,7 +508,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (url.pathname === '/api/info') {
-    return json(res, { session: S.id, title: S.title, state: read('state.txt'), turn: S.turn, mute, voice, speed, model: defaultModel, effort: defaultEffort,
+    return json(res, { session: S.id, title: S.title, state: read('state.dan'), turn: S.turn, mute, voice, speed, model: defaultModel, effort: defaultEffort,
       busy: S.busy, messages: messages(), sessions: listSessions(), library: libraryNames() });
   }
   if (req.method === 'GET' && url.pathname === '/api/voices') return json(res, { voices: await voiceList() });
@@ -528,15 +531,15 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/replay-turn') {
     // the stage as it was before the last turn, then the last turn plays again
     const turns = turnFiles();
-    loadStage(turns.length ? (await readback(turns.slice(0, -1).join('\n'))) + turns.at(-1) : read('state.txt'));
+    loadStage(turns.length ? (await readback(turns.slice(0, -1).join('\n'))) + turns.at(-1) : read('state.dan'));
     return json(res, { ok: true });
   }
   if (url.pathname === '/api/replay-all') {
     // the turns are deltas from an empty stage, so in order they are the whole lesson
     const all = turnFiles().map((t, i) => `# --- turn ${i + 1} ---\n` + t).join('\n');
-    fs.writeFileSync(file('lesson.txt'), all);
-    loadStage(all || read('state.txt'));
-    return json(res, { ok: true, path: file('lesson.txt') });
+    fs.writeFileSync(file('lesson.dan'), all);
+    loadStage(all || read('state.dan'));
+    return json(res, { ok: true, path: file('lesson.dan') });
   }
   if (url.pathname === '/api/new') { newSession(); return json(res, { ok: true }); }
   if (url.pathname === '/api/open') return json(res, { ok: openSession(String(b.id || '')) });
@@ -545,15 +548,15 @@ const server = http.createServer(async (req, res) => {
     if (typeof b.voice === 'string') voice = b.voice;
     if (Number(b.speed) >= 0.5 && Number(b.speed) <= 1.5) speed = Number(b.speed);
     saveSettings();
-    fs.writeFileSync(file('live.txt'), read('state.txt'));
+    fs.writeFileSync(file('live.dan'), read('state.dan'));
     restartStage();
     return json(res, { mute, voice, speed });
   }
   if (url.pathname === '/api/memory') { fs.writeFileSync(MEMORY, String(b.text ?? '')); return json(res, { ok: true }); }
   if (url.pathname === '/api/save') {
     const name = slug(b.name);
-    if (!name || !read('state.txt').trim()) return json(res, { error: 'nothing to save' }, 400);
-    fs.writeFileSync(path.join(LIBRARY, name + '.txt'), read('state.txt'));
+    if (!name || !read('state.dan').trim()) return json(res, { error: 'nothing to save' }, 400);
+    fs.writeFileSync(libraryFile(name), read('state.dan'));
     return json(res, { ok: true, name });
   }
   json(res, { error: 'not found' }, 404);

@@ -230,7 +230,7 @@ const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
 const LANG = readme.slice(readme.indexOf('## The language'), readme.indexOf('## The dictionary'));
 const AXIOMS = readme.slice(readme.indexOf('## The dictionary'), readme.indexOf('## raymanim directly'));
 let EXEMPLARS = '';
-for (const f of fs.readdirSync(path.join(ROOT, 'chat/examples')).filter((f) => f.endsWith('.txt')).sort())
+for (const f of fs.readdirSync(path.join(ROOT, 'chat/examples')).filter((f) => f.endsWith('.dan')).sort())
   EXEMPLARS += `\n### ${f.slice(0, -4)}\n\`\`\`\n${fs.readFileSync(path.join(ROOT, 'chat/examples', f), 'utf8').trim()}\n\`\`\`\n`;
 
 const TRANSLATE_SYSTEM = `You turn one move from 3Blue1Brown's animation code (Manim) into a reusable *idiom* for a live
@@ -282,7 +282,7 @@ async function translate() {
       if (/NOT EXPRESSIBLE/i.test(text) && !text.includes('"scene"')) { why = text.trim().slice(0, 200); last = null; break; }
       const j = firstJson(text);
       if (!j?.scene) { why = 'no JSON'; ask += '\n\nReply with only the JSON object.'; continue; }
-      const f = path.join(dir, name + '.txt');
+      const f = path.join(dir, name + '.dan');
       fs.writeFileSync(f, j.scene.trim() + '\n');
       const bad = problems(f);
       last = { ...j, file: f, problems: bad, rounds: round + 1 };
@@ -380,7 +380,7 @@ comments (source file:line under each).
   const sdir = path.join(ROOT, 'chat', 'idioms');
   fs.rmSync(sdir, { recursive: true, force: true });
   fs.mkdirSync(sdir);
-  for (const r of out) fs.copyFileSync(r.idiom.file, path.join(sdir, r.name.replace(/-\d+$/, '') + '-' + r.name.split('-').pop() + '.txt'));
+  for (const r of out) fs.copyFileSync(r.idiom.file, path.join(sdir, r.name.replace(/-\d+$/, '') + '-' + r.name.split('-').pop() + '.dan'));
   writeJsonl(path.join(HERE, 'idioms.jsonl'), out.map((r) => ({ name: r.name, kind: r.kind, source: r.id, year: r.year, comment: r.comment,
     title: r.idiom.title, when: r.idiom.when, rounds: r.idiom.rounds, verdict: r.verdict })));
   console.log(`${out.length} idioms from ${new Set(out.map((r) => r.kind)).size} kinds -> chat/idioms.md (${md.length} chars)`);

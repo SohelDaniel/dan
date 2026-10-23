@@ -14,7 +14,7 @@ let failed = 0;
 for (const move of moves) {
   const title = move.split('\n')[0];
   const code = (move.match(/```\n([\s\S]*?)```/) || [])[1];
-  const file = path.join(dir, 'move.txt');
+  const file = path.join(dir, 'move.dan');
   fs.writeFileSync(file, `title "${title}"\n${code || ''}`);
   const r = spawnSync(path.join(ROOT, 'tutor'), [file, '--check'], { cwd: ROOT, encoding: 'utf8' });
   const out = (r.stdout || '') + (r.stderr || '');

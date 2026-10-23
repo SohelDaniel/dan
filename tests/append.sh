@@ -6,8 +6,8 @@ cd "$(dirname "$0")/.."
 tmp=$(mktemp -d)
 ok=0; bad=0
 for n in 2 3 5; do
-  for f in scripts/*.txt chat/exemplars/*.txt chat/examples/*.txt; do
-    b=$(basename "$f" .txt)
+  for f in scripts/*.dan chat/exemplars/*.dan chat/examples/*.dan; do
+    b=$(basename "$f" .dan)
     ./tutor "$f" --readback 2>/dev/null | grep -v '^# readback' > "$tmp/one.txt"
     head -4 "$f" > "$tmp/head.txt"
     tail -n +5 "$f" | awk -v n=$n 'NR%n==1 && NR>1 {print "#!chunk"} {print}' |

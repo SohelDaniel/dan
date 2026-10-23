@@ -36,7 +36,7 @@ The engine by hand:
 
 ```
 make                                  # ./tutor
-./tutor scripts/zoom.txt [--mute]     # play a script
+./tutor scripts/zoom.dan [--mute]      # play a script
 ./tutor F --check                     # decodable? lints (layout:, binding:, zero:, tex:, hook:, pointing:) + score
 ./tutor F --readback                  # the scene as markup
 ./tutor F --snapshot OUT --at 3,8,end # PNG frames from a hidden window
@@ -47,7 +47,7 @@ Regressions, run after every engine change:
 
 ```
 make test       # unit tests: place, viz (incl. 3D maths), script parser, engine
-make check      # --check over scripts/*.txt (prints ok/FAIL)
+make check      # --check over scripts/*.dan (prints ok/FAIL)
 make golden     # layout score per script vs tests/golden/*.json (--save re-baselines, only on purpose)
 make append     # streamed playback == whole playback
 node tests/toolbox.mjs   # every toolbox move in chat/toolbox.md still plays clean
@@ -140,7 +140,7 @@ code, no stubs left behind.
 - **Snapshots fail when the display sleeps.** `caffeinate -u -d -t 900 &` first.
 - **Never take full-screen screenshots** (one once caught a private window). Use `--snapshot`.
 - **`--snapshot` renders offscreen without high-DPI.** Anything about the drawing transform must also be checked in
-  the real window: `TUTOR_SHOT=out.png:3 ./tutor f.txt --mute` (a `BeginMode2D` bug once showed only on Retina).
+  the real window: `TUTOR_SHOT=out.png:3 ./tutor f.dan --mute` (a `BeginMode2D` bug once showed only on Retina).
 - **An unknown string property becomes a colour category** (`kPositional`/`kTextKeys` in engine.cpp). A new
   positional key must be added there, or it silently turns into a category.
 - **The prompt includes part of README.md.** A wrong example there teaches Claude the mistake. Example: `height=`
