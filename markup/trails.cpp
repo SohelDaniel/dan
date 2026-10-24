@@ -120,7 +120,10 @@ std::vector<std::vector<StripPt>> Engine::trailRuns(Mark &m) {
   bool all;
   bool space = isSpace(schemaNow()); // a path in space: re-projected every frame, so it turns with the view
   if (!trailSpec(m, window, all) || !(isAxes(schemaNow()) || space)) return runs;
-  if (!findProp(m.props, "x") || !findProp(m.props, "y")) return runs;
+  bool hx0, hy0; // where it is: its own x and y, or the ones its curve gives it (a rider)
+  num(m, "x", &hx0);
+  num(m, "y", &hy0);
+  if (!hx0 || !hy0) return runs;
   double t1 = clock_, born = bornAt_.count(m.id) ? bornAt_[m.id] : 0;
   double t0 = std::max(born, all ? born : t1 - window);
   if (t1 - t0 < 1e-3) return runs;

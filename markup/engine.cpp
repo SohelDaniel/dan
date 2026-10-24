@@ -25,6 +25,9 @@ static const std::set<std::string> kPositional = {"x",  "y",     "t",     "at", 
 static const std::set<std::string> kTextKeys = {"label", "name", "text", "set", "fn",   "of",   "color",
                                                 "shape", "ease", "unit", "note", "title", "tex",
                                                 "at", "to", "side", "style", "cmap", "levels", "trail", "drop", "units"};
+// riders: what can be ridden (on=), and what can ride it
+static bool rideable(const std::string &kind) { return isCurveKind(kind) || kind == "line" || kind == "arrow" || kind == "surface"; }
+static bool canRide(const std::string &kind) { return kind == "dot" || kind == "label" || kind == "vector"; }
 
 Engine::Engine(EngineOptions opt) : opt_(std::move(opt)) {}
 Engine::~Engine() {
@@ -134,7 +137,56 @@ void Engine::analyze(bool fresh) {
   int blockLines = 0; // blocks this scene will hold (to choose the band's arrangement before they arrive)
   std::set<std::string> sceneBlockIds;
   sceneBlocks_.clear();
+  // riders (on= a curve, a line or a surface): what each thing of the scene is, the keys it was ever given, what it
+  // sits on, the solutions' of= and the morphs, so the lint judges the whole scene
+  std::map<std::string, std::string> kindOf, ofOf;
+  std::map<std::string, std::set<std::string>> keysOf;
+  struct Seat { std::string target, key; int line = 0; };
+  std::map<std::string, Seat> seatOf;
+  std::vector<const Line *> morphs;
+  std::vector<std::string> riderLints; // raised after the static lint reset below, so a fresh load keeps them
+  auto lintRiders = [&] {
+    auto note = [&](const std::string &s) { riderLints.push_back(s); };
+    auto kindNow = [&](const std::string &id) { // a kindless fn= is a curve, or a surface in a space
+      auto it = kindOf.find(id);
+      std::string k = it == kindOf.end() ? "" : it->second;
+      return k == "fn" ? (hasSpace ? "surface" : "path") : k;
+    };
+    auto coords = [&](const std::string &target, const std::string &tk, std::vector<std::string> &need, std::vector<std::string> &gives) {
+      need = {"x"}; gives = {"y"}; // the free coordinate the author gives, and the ones the ride gives
+      if (keysOf[target].count("xt")) { need = {"t"}; gives = {"x", "y"}; if (keysOf[target].count("zt")) gives.push_back("z"); }
+      else if (tk == "surface") { need = {"x", "y"}; gives = {"z"}; }
+    };
+    for (auto &[id, on] : seatOf) {
+      std::string tk = kindNow(on.target), rk = kindNow(id);
+      if (!rideable(tk)) continue; // seated on a box, a cell, an array: the attachment
+      std::string where = "relation: line " + std::to_string(on.line) + ": '" + id + "' " + on.key + "=" + on.target;
+      std::vector<std::string> need, gives;
+      coords(on.target, tk, need, gives);
+      if (!rk.empty() && !canRide(rk)) { note(where + ": only a dot, a label or a vector can ride a " + tk + " (an array seats on an array)"); continue; }
+      if (on.key != "on") { note(where + ": a " + tk + " is ridden with on=, giving " + need[0] + "="); continue; }
+      if (hasSpace && (tk == "line" || tk == "arrow")) { note(where + ": a segment in space can't be ridden; ride a path (t=) or a surface (x= y=)"); continue; }
+      if (tk == "solution" && kindNow(ofOf[on.target]) != "slope") { note(where + ": a particle's path has no y for an x; a dot rides the solution of a slope field"); continue; }
+      for (auto &k : need)
+        if (!keysOf[id].count(k)) note(where + " needs " + k + "= (the " + tk + " gives " + gives[0] + (gives.size() > 1 ? " and " + gives[1] : "") + ")");
+      for (auto &k : gives)
+        if (keysOf[id].count(k)) note(where + ": " + k + "= is ignored, the " + tk + " gives it");
+    }
+    for (const Line *m : morphs) { // a morph of the coordinate the ride gives moves nothing: say what to morph instead
+      auto s = seatOf.find(m->id);
+      if (s == seatOf.end() || s->second.key != "on") continue;
+      std::string tk = kindNow(s->second.target), rk = kindNow(m->id);
+      if (!rideable(tk) || (!rk.empty() && !canRide(rk))) continue;
+      std::vector<std::string> need, gives;
+      coords(s->second.target, tk, need, gives);
+      if (std::find(gives.begin(), gives.end(), m->prop) != gives.end())
+        note("relation: line " + std::to_string(m->lineNo) + ": morph " + m->id + "." + m->prop + ": " + m->id + " rides " + s->second.target +
+             ", so " + m->prop + " comes from it; morph " + m->id + "." + need[0] + " instead");
+    }
+    kindOf.clear(); ofOf.clear(); keysOf.clear(); seatOf.clear(); morphs.clear();
+  };
   auto closeScene = [&] {
+    lintRiders();
     // a still picture of a surface is ambiguous (a bowl or a dome?): shape reads from motion (the kinetic depth effect)
     if (hasSurface && !camMoves)
       warn("space: a surface is shown but the camera never moves; its shape reads from motion: add `camera spin` (or an "
@@ -160,7 +212,13 @@ void Engine::analyze(bool fresh) {
     switch (ln.verb) {
     case Verb::MARK:
       defined.insert(ln.id);
+      if (!ln.kind.empty()) kindOf[ln.id] = ln.kind;
+      else if (!kindOf.count(ln.id)) kindOf[ln.id] = findProp(ln.props, "fn") ? "fn" : findProp(ln.props, "xt") ? "path" : "";
+      for (const char *k : {"on", "in", "over"})
+        if (const Value *v = findProp(ln.props, k); v && v->type == Value::STR) seatOf[ln.id] = {baseId(v->str), k, ln.lineNo};
+      if (const Value *v = findProp(ln.props, "of"); v && v->type == Value::STR) ofOf[ln.id] = v->str;
       for (auto &p : ln.props) {
+        keysOf[ln.id].insert(p.key);
         see(p.key, p.val);
         if (p.key == "x" || p.key == "x1" || p.key == "fn" || p.key == "xt") hasAxes = true;
         if (p.key == "fn" || p.key == "xt") hasFn = true;
@@ -207,6 +265,7 @@ void Engine::analyze(bool fresh) {
       break;
     case Verb::GROUP: defined.insert(ln.id); break;
     case Verb::MORPH:
+      morphs.push_back(&ln);
       if (ln.hasFrom) see(ln.prop, ln.from);
       see(ln.prop, ln.to);
       break;
@@ -228,8 +287,9 @@ void Engine::analyze(bool fresh) {
   if (fresh) lint_.clear();
   else // whole-script lints are re-derived: a chunk can end between a Say and its @hook lines
     for (auto it = lint_.begin(); it != lint_.end();)
-      it = (it->rfind("hook:", 0) == 0 || it->find("which is never marked") != std::string::npos || it->find("\\textcolor{") != std::string::npos) ? lint_.erase(it)
+      it = (it->rfind("hook:", 0) == 0 || it->rfind("relation:", 0) == 0 || it->find("which is never marked") != std::string::npos || it->find("\\textcolor{") != std::string::npos) ? lint_.erase(it)
                                                                                                     : std::next(it);
+  for (auto &w : riderLints) warn(w);
   for (auto &h : deferredHooks)
     if (!sayHooks.count(h)) warn("hook: lines tagged @" + h + " have no |" + h + "| spoken, so they only run when their sentence ends");
   for (auto &h : sayHooks)
@@ -524,6 +584,9 @@ double Engine::num(const Value &v, int depth) {
 }
 
 double Engine::num(const Obj &o, const std::string &key, bool *ok, int depth) {
+  if (findProp(o.props, "on")) // a rider: the coordinate its curve gives it comes from the relation, whatever else was written
+    if (auto it = marks_.find(o.id); it != marks_.end())
+      if (double r; rideCoord(it->second, key, r, depth)) { if (ok) *ok = true; return r; }
   if (std::isfinite(histT_)) { // as it was at histT_ (trails)
     double h;
     if (histValue(o.id, key, histT_, h)) { if (ok) *ok = true; return h; }
@@ -709,8 +772,8 @@ bool Engine::call(const std::string &name, const std::vector<ExprPtr> &args, dou
 bool Engine::isParametric(const Mark &m) const { return findProp(m.props, "xt") && findProp(m.props, "yt"); }
 
 // a parametric curve: xt={...} yt={...} in terms of t, sampled over range=[a,b]
-bool Engine::paramAt(const Mark &p, double t, double &x, double &y) {
-  const Value *xt = findProp(p.props, "xt"), *yt = findProp(p.props, "yt");
+bool Engine::paramAt(const Mark &p, double t, double &x, double &y, double *z) {
+  const Value *xt = findProp(p.props, "xt"), *yt = findProp(p.props, "yt"), *zt = findProp(p.props, "zt");
   if (!xt || !yt || xt->type != Value::EXPR || yt->type != Value::EXPR) return false;
   if (gEvalDepth > 48) return false;
   gEvalDepth++;
@@ -722,11 +785,12 @@ bool Engine::paramAt(const Mark &p, double t, double &x, double &y) {
   xName = "t";
   x = eval(*xt->expr, *this);
   y = eval(*yt->expr, *this);
+  if (z) *z = zt && zt->type == Value::EXPR && zt->expr ? eval(*zt->expr, *this) : 0;
   this->x = ox;
   hasX = ohx;
   xName = on;
   gEvalDepth--;
-  return std::isfinite(x) && std::isfinite(y);
+  return std::isfinite(x) && std::isfinite(y) && (!z || std::isfinite(*z));
 }
 
 void Engine::clearStage() {
@@ -793,6 +857,100 @@ double Engine::pathAt(const Mark &p, double x, int depth) {
   this->x = ox;
   hasX = ohx;
   xName = on;
+  gEvalDepth--;
+  return r;
+}
+
+// ---- riders: a dot, a label or a vector `on=` a curve, a line or a surface. The author gives the free coordinate
+// (x; t on a parametric path; x and y on a surface); the coordinate the ride gives is worked out here from the
+// relation each time it is read (num), so layout, the camera, trails, {q.y} and the shadow all agree, and nothing
+// derived is stored: the readback keeps `on=f x=2`, and `morph q.x` walks q along f.
+const Mark *Engine::ridden(const Mark &m) {
+  const Value *on = findProp(m.props, "on");
+  if (!on || on->type != Value::STR || !canRide(effectiveKind(m))) return nullptr;
+  const Mark *t = mark(baseId(on->str));
+  if (!t || t == &m || !rideable(effectiveKind(*t))) return nullptr;
+  if ((t->kind == "line" || t->kind == "arrow") && isSpace(schemaOf(*t))) return nullptr; // a segment in space has no y for an x
+  return t;
+}
+
+bool Engine::rideCoord(const Mark &m, const std::string &key, double &out, int depth) {
+  const Mark *t = ridden(m);
+  if (!t) return false;
+  std::string k = effectiveKind(*t);
+  bool ok;
+  if (isParametric(*t)) { // xt yt (zt) in t: the rider gives t
+    if (key != "x" && key != "y" && !(key == "z" && findProp(t->props, "zt"))) return false;
+    double tt = num(m, "t", &ok, depth), px, py, pz;
+    if (!ok || !paramAt(*t, tt, px, py, &pz)) return false;
+    out = key == "x" ? px : key == "y" ? py : pz;
+    return true;
+  }
+  if (k == "surface") { // z = f(x, y): the rider gives x and y
+    if (key != "z") return false;
+    bool hy;
+    double px = num(m, "x", &ok, depth), py = num(m, "y", &hy, depth);
+    if (!ok || !hy) return false;
+    out = surfaceAt(*t, px, py, depth);
+    return true;
+  }
+  if (key != "y") return false; // y at x on a curve or a line
+  double px = num(m, "x", &ok, depth);
+  if (!ok) return false;
+  if (k == "line" || k == "arrow") return lineAt(*t, px, out);
+  if (k == "solution") return solutionAt(*t, px, out);
+  out = pathAt(*t, px, depth);
+  return true;
+}
+
+// y at x on a line: through x y with slope=, or from x1 y1 to x2 y2 (false when vertical)
+bool Engine::lineAt(const Mark &l, double X, double &Y) {
+  bool hs;
+  double slope = num(l, "slope", &hs);
+  if (hs) { Y = num(l, "y") + slope * (X - num(l, "x")); return std::isfinite(Y); }
+  bool h1, h2;
+  double x1 = num(l, "x1", &h1), x2 = num(l, "x2", &h2);
+  if (!h1 || !h2 || std::fabs(x2 - x1) < 1e-12) return false;
+  Y = num(l, "y1") + (num(l, "y2") - num(l, "y1")) * (X - x1) / (x2 - x1);
+  return std::isfinite(Y);
+}
+
+// y at x on the solution curve of a slope field: integrated from its start as the drawn curve is (viz::rk4), in data
+// units, so the shadow (no layout) agrees with the stage. A particle's path through a field has no y for an x.
+bool Engine::solutionAt(const Mark &s, double X, double &Y) {
+  const Value *of = findProp(s.props, "of");
+  Mark *src = of && of->type == Value::STR ? mark(of->str) : nullptr;
+  if (!src || effectiveKind(*src) != "slope") return false;
+  auto f = fn2(*src, "fn");
+  double x0, y0;
+  if (auto from = listNums(s, "from"); from.size() >= 2) { x0 = from[0]; y0 = from[1]; }
+  else {
+    bool hx, hy;
+    x0 = num(s, "x", &hx);
+    y0 = num(s, "y", &hy);
+    if (!hx || !hy) return false;
+  }
+  if (!f || !std::isfinite(x0 + y0 + X)) return false;
+  viz::Field g = [&f](viz::V2 p) { return viz::V2{1, f(p.x, p.y)}; }; // (dx, dy) per unit x
+  const int n = 400;
+  viz::V2 p{x0, y0};
+  for (int i = 0; i < n; i++) p = viz::rk4(g, p, (X - x0) / n);
+  Y = p.y;
+  return std::isfinite(Y);
+}
+
+// z = f(x, y) of a surface: the tree walk with both free variables set, as pathAt does with one
+double Engine::surfaceAt(const Mark &s, double X, double Y, int depth) {
+  const Value *fn = findProp(s.props, "fn");
+  if (!fn || fn->type != Value::EXPR || !fn->expr) return NAN;
+  if (gEvalDepth > 48) return NAN;
+  gEvalDepth++;
+  double ox = this->x, oy = this->y;
+  bool ohx = hasX, ohy = hasY;
+  const char *on = xName, *om = yName;
+  this->x = X; this->y = Y; hasX = hasY = true; xName = "x"; yName = "y";
+  double r = eval(*fn->expr, *this, depth);
+  this->x = ox; this->y = oy; hasX = ohx; hasY = ohy; xName = on; yName = om;
   gEvalDepth--;
   return r;
 }
@@ -1675,6 +1833,12 @@ std::string Engine::readback(bool comments) {
             warn("value: " + m.id + "." + p.key + " = {" + p.val.str + "} is not a number (division by zero, a cyclic reference, or an unknown name)");
         }
       }
+      if (const Mark *r = ridden(m)) // what the ride gives it, for the reader: nothing is stored
+        for (const char *key : {"x", "y", "z"})
+          if (double v; rideCoord(m, key, v)) {
+            evals.push_back(m.id + "." + key + " = " + fmtNum(v) + " (on " + r->id + ")");
+            if (!std::isfinite(v)) warn("value: " + m.id + "." + key + " on " + r->id + " is not a number there (outside its domain?)");
+          }
       o << "\n";
     } else if (auto lt = links_.find(id); lt != links_.end()) {
       const Link &l = lt->second;

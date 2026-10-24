@@ -693,6 +693,7 @@ void Engine::layoutPointers() {
     if (!m || isWorldKind(effectiveKind(*m))) continue;
     // on= sits on the thing's top edge, in= / over= on its centre: touching on purpose
     if (const Value *t = attachment(*m)) {
+      if (ridden(*m)) continue; // a rider sits at its coordinates on the curve (layoutAxes, layoutSpace), not on an edge
       Rectangle box;
       Mark *target = mark(baseId(t->str));
       if (!anchorBox(t->str, box)) continue;
@@ -1294,6 +1295,7 @@ void Engine::layoutAxes(Rectangle area) {
     }
     if (hx && hy) {
       m->tpos = axes_.toScreen((float)x, (float)y);
+      if (k == "label" && ridden(*m)) m->tpos.y -= measure(displayName(*m), 20).y / 2 + 6; // a name seated on a curve: its foot at the point
       m->positioned = m->direct = true;
       m->culled = outside(m->tpos);
     } else if (k != "label" && k != "param" && !isBlockKind(k) && !findProp(m->props, "at")) {

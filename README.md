@@ -223,6 +223,7 @@ mark L line pts=[0,0,0, 2,1,3]                            # a segment (arrow: wi
 mark h path xt={cos(t)} yt={sin(t)} zt={t/4} range=[0,12]  # a curve in space; it draws itself
 mark S surface fn={x^2 - y^2} label="z = x² − y²"          # over the x, y range, cut where it leaves the box
 mark T surface xt={cos(u)*sin(v)} yt={sin(u)*sin(v)} zt={cos(v)} u=[0,6.28] v=[0,3.14]   # parametric
+mark p dot on=S x=1 y=1 drop=true label="p"               # on the surface: its z comes from S; morph p.x and it stays on it
 mark B sphere x=0 y=0 z=0 r=1
 mark P plane normal=[1,1,1] d=1                           # a x + b y + c z = d, the part inside the box
 mark F polygon pts=[0,0,0, 1,0,0, 0,1,0]                  # a flat face (x,y,z triples): build solids face by face
@@ -311,6 +312,10 @@ mark lo  label text="lo" at=a[0]          # a pointer naming a thing (or a cell,
 mark tag label text="hot" on=sun          # touching on purpose: on= (on its top edge), in= / over= (on its centre)
 mark k array items=[1,1,1] on=x[0:2]      # a row of cells seated over another's cells, aligned (a kernel on its input);
                                           # re-mark on=x[1:3] and it slides one step
+mark q dot on=f x=2 label="Q"             # riding: a dot (or a label, or a vector's tail) on a curve, a line or a surface.
+                                          # Give the free coordinate (x; t on a parametric path; x and y on a surface) and
+                                          # the rest comes from the curve: morph q.x and Q walks along f, {q.y} and
+                                          # \val{q.y} read its height, a vector at=q and a camera follow=q ride with it
 ```
 
 `region= below= above= left-of= right-of= near= align= pos=` are retired: old scripts still play, the words are ignored, and `--check` says so.

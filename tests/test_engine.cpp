@@ -572,3 +572,110 @@ TEST_CASE("structure, live: a morph-only beat that pushes a thing past the infer
   runOut(e);
   CHECK(!offScreen(e));
 }
+
+// ---------------------------------------------------------------- riders: a thing on= a curve, a line or a surface
+
+// the centre of a thing's body (a dot) as the checker sees it
+static Vector2 bodyCentre(Engine &e, const std::string &id) {
+  place::Picture p = e.picture();
+  const place::Ink *b = body(p, id);
+  REQUIRE(b);
+  return {b->box.x + b->box.w / 2, b->box.y + b->box.h / 2};
+}
+static bool samePlace(Vector2 a, Vector2 b) { return std::fabs(a.x - b.x) < 1 && std::fabs(a.y - b.y) < 1; }
+
+static const char *kCurve = "schema axes x=[0,6] y=[0,9]\nmark f path fn={x^2/4} label=\"f\"\n";
+
+TEST_CASE("a dot on=f x=2 sits at (2, f(2)); morphing its x walks it along the curve; {q.y} speaks the height; nothing derived is stored") {
+  Engine rider(instant()), typed(instant());
+  played(rider, std::string(kCurve) + "mark q dot on=f x=2 label=\"Q\"\nSay: \"Q is at height {q.y}.\"\nSay: \"Q |walks|walks.\"\n"
+                                      "@walks morph q.x -> 3 1s\nSay: \"Now {q.y}.\"\n");
+  played(typed, std::string(kCurve) + "mark q dot x=3 y=2.25 label=\"Q\"\n"); // the same point, typed
+  CHECK(samePlace(bodyCentre(rider, "q"), bodyCentre(typed, "q")));
+  CHECK(rider.spokenLines() == std::vector<std::string>{"Q is at height 1.", "Q walks.", "Now 2.25."});
+  CHECK(rider.readback(false).find("mark q dot on=f x=3 label=Q\n") != std::string::npos); // the relation and the free coordinate only
+}
+
+TEST_CASE("riders: a dot on a line at x=, a dot on a parametric path at t=, a vector whose tail rides the curve") {
+  Engine rider(instant()), typed(instant());
+  const char *world = "schema axes x=[0,6] y=[0,9]\nmark L line x1=0 y1=1 x2=6 y2=7\nmark o path xt={2*cos(t)+3} yt={sin(t)+4}\nmark f path fn={x^2/4}\n";
+  played(rider, std::string(world) + "mark p dot on=L x=3\nmark r dot on=o t=1\nmark v vector on=f x=4 dx=1 dy=0.5\n");
+  played(typed, std::string(world) + "mark p dot x=3 y=4\nmark r dot x={2*cos(1)+3} y={sin(1)+4}\nmark v vector x=4 y=4 dx=1 dy=0.5\n");
+  CHECK(samePlace(bodyCentre(rider, "p"), bodyCentre(typed, "p")));
+  CHECK(samePlace(bodyCentre(rider, "r"), bodyCentre(typed, "r")));
+  place::Picture a = rider.picture(), b = typed.picture();
+  const place::Ink *va = anyInk(a, "v"), *vb = anyInk(b, "v");
+  REQUIRE((va && vb));
+  CHECK(std::fabs(va->box.x - vb->box.x) < 1);
+  CHECK(std::fabs(va->box.y - vb->box.y) < 1);
+}
+
+TEST_CASE("space: a dot on=S x=1 y=1 takes the surface's height; {p.z} says it, in the instant run and in the live shadow") {
+  const char *bowl = "schema space x=[-3,3] y=[-3,3] z=[0,4]\nmark S surface fn={0.4*(x^2+y^2)} label=\"S\"\ncamera spin\n";
+  Engine rider(instant()), typed(instant());
+  played(rider, std::string(bowl) + "mark p dot on=S x=1 y=1 drop=true label=\"p\"\nSay: \"Height {p.z}.\"\n");
+  played(typed, std::string(bowl) + "mark p dot x=1 y=1 z=0.8 drop=true label=\"p\"\n");
+  CHECK(samePlace(bodyCentre(rider, "p"), bodyCentre(typed, "p")));
+  CHECK(rider.spokenLines() == std::vector<std::string>{"Height 0.8."});
+  EngineOptions o; // live: the shadow reads the value before the beat plays, with no layout
+  o.quiet = true;
+  Engine live(o);
+  REQUIRE(live.loadText(std::string(bowl) + "mark p dot on=S x=1 y=1 label=\"p\"\n"));
+  REQUIRE(live.appendText("Say: \"Height {p.z}.\"\n"));
+  CHECK(live.spokenLines() == std::vector<std::string>{"Height 0.8."});
+}
+
+TEST_CASE("riders: what can't ride, a missing free coordinate and a morph of the derived one are said; a clean rider scene round-trips with no zero: or say: lint") {
+  Engine e(instant());
+  played(e, std::string(kCurve) + "mark k array items=[1,2] on=f x=1\nmark q dot on=f\nmark r dot on=f x=1 y=3\nmorph r.y -> 4 1s\n");
+  CHECK(hasLint(e, "'k' on=f: only a dot, a label or a vector can ride"));
+  CHECK(hasLint(e, "'q' on=f needs x="));
+  CHECK(hasLint(e, "'r' on=f: y= is ignored"));
+  CHECK(hasLint(e, "morph r.y"));
+  Engine d(instant());
+  played(d, std::string(kCurve) + "mark p dot on=f x=2 label=\"P\"\nmark q dot on=f x=4 label=\"Q\"\nSay: \"Q is at height {q.y}.\"\nmorph q.x -> 2.1 1s\n");
+  CHECK(!hasLint(d, "zero:"));
+  CHECK(!hasLint(d, "say:"));
+  std::string rb = d.readback(false);
+  Engine again(instant());
+  played(again, rb);
+  CHECK(again.readback(false) == rb);
+}
+
+TEST_CASE("the derivative example written with on=f puts P, Q and the secant where the version with the function typed twice did") {
+  Engine rider(instant()), typed(instant());
+  const char *head = "schema axes x=[0,6] y=[0,9]\nmark f path fn={x^2/4}\n";
+  played(typed, std::string(head) + "mark h param value=2\nmark p dot point x=2 y={f(2)} label=\"P\"\nmark q dot point x={2+h} y={f(2+h)} label=\"Q\"\n"
+                                    "mark sec line x1=2 y1={f(2)} x2={2+h} y2={f(2+h)} extend=1\nmorph h.value 2 -> 0.5 1s\n");
+  played(rider, std::string(head) + "mark p dot point on=f x=2 label=\"P\"\nmark q dot point on=f x=4 label=\"Q\"\n"
+                                    "mark sec line x1={p.x} y1={p.y} x2={q.x} y2={q.y} extend=1\nmorph q.x -> 2.5 1s\n");
+  CHECK(samePlace(bodyCentre(rider, "p"), bodyCentre(typed, "p")));
+  CHECK(samePlace(bodyCentre(rider, "q"), bodyCentre(typed, "q")));
+  place::Picture a = rider.picture(), b = typed.picture();
+  const place::Ink *sa = anyInk(a, "sec"), *sb = anyInk(b, "sec");
+  REQUIRE((sa && sb));
+  CHECK(std::fabs(sa->box.y - sb->box.y) < 1);
+  CHECK(std::fabs(sa->box.h - sb->box.h) < 1);
+}
+
+TEST_CASE("a rider's trail is the curve it walked: the same stroke as the dot written with the function typed twice") {
+  auto trailOf = [](const std::string &text) {
+    EngineOptions o; // live: a trail is history over time
+    o.quiet = true;
+    Engine e(o);
+    REQUIRE(e.loadText(text));
+    for (int i = 0; i < 150; i++) e.update(1.f / 60); // 2.5 s: the 2 s walk and a little after
+    place::Picture p = e.picture();
+    const place::Ink *t = anyInk(p, "q~trail");
+    REQUIRE(t);
+    return t->line;
+  };
+  auto a = trailOf(std::string(kCurve) + "mark q dot on=f x=1 trail=all\nmorph q.x -> 5 2s\n");
+  auto b = trailOf(std::string(kCurve) + "mark h param value=1\nmark q dot x={h} y={f(h)} trail=all\nmorph h.value -> 5 2s\n");
+  REQUIRE(a.size() > 10);
+  REQUIRE(a.size() == b.size());
+  for (size_t i = 0; i < a.size(); i++) {
+    CHECK(std::fabs(a[i].x - b[i].x) < 1);
+    CHECK(std::fabs(a[i].y - b[i].y) < 1);
+  }
+}

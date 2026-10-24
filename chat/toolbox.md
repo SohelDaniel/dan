@@ -233,8 +233,8 @@ Say: "It moves across steadily and |falls|falls faster and faster."
 
 ### Functions, slopes and areas
 Use for rates, derivatives, integrals, growth: the curve itself, with the thing the idea is about drawn on it.
-Tools: `schema axes` with `xlabel`/`ylabel`; `path fn=`; a `line` through two points or with `slope=`; `region of= from= to= n=`;
-`camera zoom= on=` then `camera reset`.
+Tools: `schema axes` with `xlabel`/`ylabel`; `path fn=`; a point on the curve as `dot on=f x=` (morph its `x` to slide it; `{p.y}`
+is its height); a `line` through two points or with `slope=`; `region of= from= to= n=`; `camera zoom= on=` then `camera reset`.
 ```
 schema axes x=[0,4] y=[0,9] xlabel="x" ylabel="x²"
 mark f path fn={x^2} label="x²"
@@ -312,7 +312,7 @@ Tools: `camera zoom=8 on=<id>` on the word, then `camera reset` (axes and plane 
 ```
 schema axes x=[0,4] y=[0,16]
 mark f path fn={x^2} label="x²"
-mark p dot x=2 y=4 label="P"
+mark p dot on=f x=2 label="P"
 Say: "Up |close|close, the curve is nearly straight. |back|Back out."
 @close camera zoom=12 on=p
 @back camera reset
@@ -329,12 +329,12 @@ Say: "Each cell is the |sum|sum of the one above and the one to the left."
 
 ### A surface, and a point that moves on it (3D)
 Use when a quantity depends on two inputs (height over a map, a loss over two weights, f(x, y)) and its shape is the point.
-Tools: `schema space` with ranges; `surface fn=`; a `dot` whose `z` follows the surface, `drop=true` and `trail=all`;
+Tools: `schema space` with ranges; `surface fn=`; a `dot on=` the surface (its `z` comes from it), `drop=true` and `trail=all`;
 `camera spin` so the shape reads; a label carrying the value you say. Pairs with: the formula in the band.
 ```
 schema space x=[-3,3] y=[-3,3] z=[0,4]
 mark L surface fn={0.4*(x^2 + y^2)} label="loss"
-mark p dot x=-2 y=-2 z={0.4*(p.x^2 + p.y^2)} trail=all drop=true label="you"
+mark p dot on=L x=-2 y=-2 trail=all drop=true label="you"
 mark v label at=p label="loss" value={p.z}
 camera spin
 Say: "The loss is the height: here it is {p.z}."

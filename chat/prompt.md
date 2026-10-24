@@ -133,7 +133,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
 | the idea is about… | show it with |
 |---|---|
 | motion, forces, physics | `schema plane` + `rect`/`circle` objects + `vector`s, moved by a `param` clock |
-| rates, change, functions, calculus | `axes` (with `xlabel`/`ylabel`) + `path`, secants/tangents (`line`), dots moving along the curve; integrals as `region … n=` slices; the derivative as `camera zoom=50 on=f x=…` (the curve turns straight) |
+| rates, change, functions, calculus | `axes` (with `xlabel`/`ylabel`) + `path`, secants/tangents (`line`), a point on the curve as `dot on=f x=…` (morph its `x` to slide it along; `{q.y}` is its height); integrals as `region … n=` slices; the derivative as `camera zoom=50 on=f x=…` (the curve turns straight) |
 | differential equations | `slope` field + `solution from=[…]` curves (morph `from` to show other starts); for systems, `field … style=lines` + `solution of=<field>` |
 | fields: flow, force, gradient | `plane` + `field vx= vy=` (`style=lines` to read the flow, `style=flow` to feel it, arrows for "the vector at each point") |
 | optimisation, loss, potential, height | `heat` + `contour` of the same `fn`, a dot stepping downhill with `trail=all` (gradient descent) |

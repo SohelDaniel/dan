@@ -394,8 +394,16 @@ private:
   Rectangle fullBounds(const Mark &m);   // incl. name labels
   Rectangle groupBounds(const Group &g, int depth = 0, bool arcs = true); // arcs: around its return links too
   double pathAt(const Mark &path, double x, int depth = 0);
-  bool paramAt(const Mark &path, double t, double &x, double &y);
+  bool paramAt(const Mark &path, double t, double &x, double &y, double *z = nullptr);
   bool isParametric(const Mark &m) const;
+  // riders: a dot, a label or a vector `on=` a path, a line, a solution or a surface rides it. The author gives the
+  // free coordinate (x; t on a parametric path; x and y on a surface); the coordinate the ride gives is read through
+  // num() wherever a coordinate is read, and never stored (the readback keeps `on=f x=2`)
+  const Mark *ridden(const Mark &m);                                                 // what it rides, or null
+  bool rideCoord(const Mark &m, const std::string &key, double &out, int depth = 0); // the coordinate the ride gives
+  bool lineAt(const Mark &line, double x, double &y);
+  bool solutionAt(const Mark &s, double x, double &y);
+  double surfaceAt(const Mark &s, double x, double y, int depth = 0);
   void clearStage();
   void computeRanges(float dt);
 
