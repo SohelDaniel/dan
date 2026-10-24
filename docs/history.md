@@ -508,3 +508,28 @@ it, `#!interrupt`s (instant to that state) and appends the rest, so the changed 
 state. The line being typed waits for its newline (Cmd+Enter sends it). Exercised through the API: append,
 partial line, forced partial, earlier edit, load, skip, replay, SSE events. No engine change. Also written, not
 committed: a personal HTML map of the architecture and the language for the user (on their Desktop).
+
+## 8m. 2026-10-24: the axiom audit, and the fixes that make a difference
+
+The user asked for a session to "get to the bottom of everything": verify the markup against the axioms. Findings
+from their hands-on questions went into session notes; then eight auditors (one per axiom, the position rule, and
+the language against nine research-backed principles for AI-written markup) each read the code read-only and
+wrote reproducers; every violation was re-run before it was believed. 22 verified violations; 11 design decisions.
+For each decision an engineer implemented and tested a solution in its own worktree; for D9 an independent twin
+did the same and the better one (B) was picked. The twins for the rest were stopped to save the weekly limit.
+
+Merged today, each with a test that fails on the old engine and every regression green:
+- Scales see computed values (prescan by evaluation; live widening at a sentence start, eased, linted). D5.
+- A thing rides a curve: `dot on=f x=2`, `on=S x= y=`, `on=orbit t=`; the derivative example uses it. D1.
+- A cue line written one beat early waits for its word; it ran at the end of the previous sentence (a real
+  "dead end" cross 5.9 s early). Two toolbox moves taught the bug; fixed with six scripts.
+- A curve morphed to another function blends instead of vanishing (a real Fourier lesson lost its curve).
+- Every re-mark eases (expressions, links, groups) through one updateProps().
+- Uncategorised data on one plot shares one ink (a dice histogram was confetti). D4.
+- `path from=a to=b` is read as the link it means. D9 (engineer B).
+- A second kind word is a category, a stray duration is dropped (both with notes); a shape the schema can't draw
+  is a `draw:` axiom warning.
+Measured: golden unchanged except one legacy-placer transient (re-baselined, cue timing); append the 4 known
+space-* comment differences; 1 of 35 real lessons gains a note (a line that used to be lost now draws).
+Left: the patches listed in HANDOFF §9; the audit's tier-2..4 list (colour clashes, readback carrying scales and
+views, \val{} jiggle, focus clearing on idle, label hysteresis, checker false alarms).

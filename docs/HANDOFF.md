@@ -6,7 +6,7 @@ what is open. The dated story of how it got here (what was tried, measured, kept
 **Keep this file current.** Each session ends by updating it (see `CLAUDE.md`): change the map where the code
 changed, add gotchas, move finished items out of "Open", and add a dated entry to `docs/history.md`.
 
-Last updated: 2026-10-24 (`tutor write`, the Dan playground).
+Last updated: 2026-10-24 (the axiom audit and its fixes: scales, riders, cues, function morphs, re-marks, one data ink, path-as-link, slips and the draw: lint).
 
 ## 1. What it is
 
@@ -157,6 +157,13 @@ code, no stubs left behind.
 - **3D:** labels, the placer and the checker all go through `Space::project`; never compute a 3D screen position
   any other way. The fit has a 0.96 margin; an exact fit fails tests on rounding.
 - `ANTHROPIC_API_KEY` in the environment makes `claude -p` bill the API; the server warns.
+- **A cue line belongs after its sentence.** Written before the sentence that says it, it is held for its word (and
+  linted `hook:`); fireHook never reaches forward to a later sentence's line.
+- **`draw:` lints are axiom warnings** (`--check` exit 1): a curve, field or world shape under free/graph/numberline/
+  timeline/sequence. They are static (analyze); `reset()` clears runtime `zero:`/`identity:` lints, so a load-time
+  lint must not use those prefixes.
+- **Scales come from literals and from running the script** (`sampleValues`, the shadow when live). A live beat that
+  widens a scale waits for a sentence start and lints `structure:`.
 - **Changing the engine's timing shifts the golden samples.** A 1 s rest moved every later sample; one 3D script
   then caught a transient overlap with the old placer. Re-baseline (`--save`) only when the shift is the intent.
 - Chats from before 2026-10-23 keep `.txt` files (`state.txt`, `turns/*.txt`); newer ones write `.dan`. The server
@@ -190,6 +197,11 @@ The newest working session's notes are the last entry of `docs/history.md`.
 ## 9. Open
 
 Next candidates, roughly by value:
+- **The axiom audit (2026-10-24)**: `docs/history.md` 8m lists what was fixed and what is left. Ready, tested patches not
+  yet merged: D2 the cut (`0s` + afterimage), D3 colour stability (`palette` line in the readback), D6 `focus a,b hold`,
+  D7 trails across turns, D10 `morph f.tex += "…"`, D11 the camera on timelines/number lines, D8 a 3-line gloss of
+  `mark` (rename rejected). Notes and patches: the session scratchpad's `dec-D*` folders (copy them into `reports/` if
+  they should outlive it).
 - **3D view too small when formulas stack above it.** Give a space view more room, or put formulas beside it.
 - **Tangent planes are drawn as big clipped sheets.** A local patch at the point would read better.
 - `flux` and `gradsurf` still stay flat though they need 3D.
