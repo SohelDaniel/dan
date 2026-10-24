@@ -788,6 +788,7 @@ void Engine::drawHud() {
     float a = captionT_ < 0.3f ? captionT_ / 0.3f : captionT_ > 8 ? 0.45f : 1.f;
     text("dictionary  " + caption_, {W / 2.f, 694}, 16, fade(col::muted, a), 0.5f, 0.5f);
   }
+  if (opt_.recording) return; // a video shows the lesson, not the window's keys or its progress bar
   text("space pause   → skip   R restart   D dictionary   S screenshot", {W - 14.f, 12}, 14, fade(col::muted, 0.7f), 1, 0);
   // progress
   float p = script_.steps.empty() ? 1.f : (float)cursor_ / script_.steps.size();

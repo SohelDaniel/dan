@@ -270,12 +270,15 @@ int main(int argc, char **argv) {
 
   // ---------------------------------------------------------- window
   // live: no vsync (a hidden window's buffer swap can block on macOS); SetTargetFPS paces frames
-  SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI | (live ? 0 : FLAG_VSYNC_HINT));
+  // recording: a hidden window (the video is the output; nothing to watch while it renders), and no vsync, so
+  // frames come as fast as they render (video time is fixed at 1/60 s a frame)
+  if (!record.empty()) wakeDisplay();
+  SetConfigFlags(FLAG_MSAA_4X_HINT | (record.empty() ? FLAG_WINDOW_HIGHDPI : FLAG_WINDOW_HIDDEN) | (live || !record.empty() ? 0 : FLAG_VSYNC_HINT));
   if (live) keepAwake();
   SetTraceLogLevel(LOG_WARNING);
   InitWindow(rm::W, rm::H, ("tutor — " + path).c_str());
   if (windowX >= 0 && windowY >= 0) SetWindowPosition(windowX, windowY);
-  SetTargetFPS(60);
+  SetTargetFPS(record.empty() ? 60 : 0);
   SetExitKey(live ? KEY_NULL : KEY_ESCAPE); // live: Esc cancels typing, it doesn't close the stage
   opt.events = live;
   rm::initGraphics();
@@ -283,6 +286,7 @@ int main(int argc, char **argv) {
 
   mk::Engine eng(opt);
   eng.load(path);
+  if (!record.empty()) eng.setShowDictionary(false); // the caption is for learning the language, not for a video
   long modTime = GetFileModTime(path.c_str());
   float reloadCheck = 0, endTimer = 0;
   rm::Recorder rec;

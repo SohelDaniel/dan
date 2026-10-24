@@ -132,6 +132,7 @@
     </select>
     <button id="replay" title="Play the last answer again on the stage">Replay</button>
     <button id="replayAll" title="Play every turn from the start, as one lesson">Lesson</button>
+    <button id="video" title="Save this whole lesson as a video (in Movies/Tutor), with the narration">Save video</button>
     <button id="save" title="Save the current stage to the library">Save scene</button>
     <button id="mem" title="What the tutor remembers about you">Memory</button>
   </header>
@@ -316,6 +317,18 @@ es.onmessage = (msg) => {
   else if (e.t === 'stage') turnMeta.stage = e;
   else if (e.t === 'meta') { turnMeta.meta = e; turnMeta.plan = e.plan; details(block, turnMeta); thinking(block, false); refreshSidebar(); }
   else if (e.t === 'error') block.tail.insertAdjacentHTML('beforeend', `<div class="error">${esc(e.v)}</div>`);
+  else if (e.t === 'video') { // a lesson being saved as a video
+    const v = $('#video');
+    if (e.state === 'recording') { v.disabled = true; v.textContent = 'Recording…'; }
+    else {
+      v.disabled = false; v.textContent = 'Save video';
+      const note = add('ai', e.state === 'done'
+        ? `<div class="chips"><span class="chip">🎬 saved: ${esc(e.name)}</span> <button class="reveal">Show in Finder</button></div>`
+        : `<div class="chips"><span class="chip">🎬 the video failed: ${esc(e.error || '')}</span></div>`);
+      const btn = note.querySelector('.reveal');
+      if (btn) btn.onclick = () => post('/api/reveal', { path: e.path });
+    }
+  }
   else if (e.t === 'state' && e.v === 'listening') {
     $('#hint').textContent = 'Your turn: answer the question (here or on the stage).';
     $('#hint').classList.add('turn');
@@ -380,6 +393,10 @@ input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey)
 input.addEventListener('input', () => { input.style.height = ''; input.style.height = input.scrollHeight + 'px'; });
 $('#replay').onclick = () => post('/api/replay-turn');
 $('#replayAll').onclick = () => post('/api/replay-all');
+$('#video').onclick = async () => {
+  const r = await post('/api/video');
+  if (r.error) alert(r.error);
+};
 $('#voice').onchange = (e) => post('/api/voice', { on: e.target.checked });
 $('#voiceId').onchange = (e) => post('/api/voice', { voice: e.target.value });
 $('#speed').onchange = (e) => post('/api/voice', { speed: Number(e.target.value) });

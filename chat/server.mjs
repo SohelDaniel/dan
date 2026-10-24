@@ -19,6 +19,7 @@
 // Settings chosen in the browser (model, thinking, voice, speed) are kept in chat/settings.json; flags win.
 import http from 'node:http';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -511,6 +512,32 @@ function runTurn(text, source, model = defaultModel, attached = []) {
   claude.p.stdin.write(JSON.stringify({ type: 'user', message: { role: 'user', content } }) + '\n');
 }
 
+// ------------------------------------------------------------ videos: a lesson recorded for later
+// The engine plays the whole lesson in a hidden window and pipes the frames to ffmpeg (--record), then lays the
+// narration under it (the voice clips come from the disk cache when the lesson was spoken before). Saved in
+// ~/Movies/Tutor, named after the chat. It renders faster than real time; the learner can keep using the stage.
+const VIDEOS = path.join(os.homedir(), 'Movies', 'Tutor');
+let recording = null;
+function saveVideo(text) {
+  if (recording) return { error: 'already recording one' };
+  fs.mkdirSync(VIDEOS, { recursive: true });
+  const d = new Date(), two = (n) => String(n).padStart(2, '0'); // local time, as the learner reads it
+  const stamp = `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}.${two(d.getMinutes())}`;
+  const name = `${(S.title || 'Lesson').replace(/[\/:*?"<>|]+/g, ' ').trim().slice(0, 60)} ${stamp}.mp4`;
+  const out = path.join(VIDEOS, name);
+  fs.writeFileSync(file('video.dan'), text);
+  broadcast({ t: 'video', state: 'recording', name });
+  recording = spawn(TUTOR, [file('video.dan'), '--record', out, ...voiceArgs()], { cwd: ROOT, stdio: ['ignore', 'ignore', 'pipe'] });
+  let err = '';
+  recording.stderr.on('data', (d) => (err += d));
+  recording.on('close', (code) => {
+    recording = null;
+    const ok = code === 0 && fs.existsSync(out);
+    broadcast(ok ? { t: 'video', state: 'done', name, path: out } : { t: 'video', state: 'failed', name, error: err.trim().split('\n').pop() || `exit ${code}` });
+  });
+  return { ok: true, name };
+}
+
 // ------------------------------------------------------------ the voices Inworld offers (asked once per run)
 let voices = null;
 async function voiceList() {
@@ -578,6 +605,16 @@ const server = http.createServer(async (req, res) => {
     fs.writeFileSync(file('lesson.dan'), all);
     loadStage(all || read('state.dan'));
     return json(res, { ok: true, path: file('lesson.dan') });
+  }
+  if (url.pathname === '/api/video') { // the whole lesson as an mp4, rendered off screen, for later
+    const all = turnFiles().map((t, i) => `# --- turn ${i + 1} ---\n` + t).join('\n');
+    if (!all.trim()) return json(res, { error: 'nothing to record yet' }, 400);
+    return json(res, saveVideo(all));
+  }
+  if (url.pathname === '/api/reveal') { // show a saved video in Finder
+    const p = String(b.path || '');
+    if (p.startsWith(VIDEOS) && fs.existsSync(p)) spawn('open', ['-R', p], { stdio: 'ignore' });
+    return json(res, { ok: true });
   }
   if (url.pathname === '/api/new') { newSession(); return json(res, { ok: true }); }
   if (url.pathname === '/api/open') return json(res, { ok: openSession(String(b.id || '')) });

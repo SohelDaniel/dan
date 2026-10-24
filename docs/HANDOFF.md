@@ -29,6 +29,9 @@ tutor write [f.dan]   # a playground: an editor in the browser, the stage beside
 ```
 
 - In the browser: model, thinking level, voice on/off, which voice (Inworld's 166 English voices) and speed.
+- **Save video** (browser header): the whole lesson as an mp4 with the narration, in `~/Movies/Tutor`, named after the
+  chat. `tutor F --record out.mp4` renders in a hidden window as fast as it can (no key hints, no dictionary caption);
+  the voice comes from the disk cache when the lesson was spoken before.
 - **Images and PDFs**: paste, drop, or 📎 in the browser. They are kept in the chat's `attachments/` folder and sent
   to Claude with the message as image / document blocks (photos scaled to 1600 px in the browser), with an
   `<attachments>` note in the context.
