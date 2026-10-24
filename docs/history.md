@@ -495,3 +495,16 @@ judge criterion for pacing (the judge can't see time); an editor grammar for `.d
 
 **Dan.** The markup is called Dan; files end in `.dan` (scripts, examples, exemplars, idioms renamed; new chats
 and library saves write `.dan`, older `.txt` chats still open; golden baselines re-keyed).
+
+## 8l. 2026-10-24: `tutor write`, a playground for the language
+
+The user wanted to write `.dan` by hand and see it appear live, to learn the language by doing. Built
+`tools/write.mjs` + `tools/write.html` (`tutor write [file]`, port 4748): an editor in the browser with Dan
+highlighting, a line gutter, an examples menu (scripts, worked examples, every toolbox move), replay / skip / send
+buttons, and a side panel with the engine's check (lints, layout score, decodable) and the readback, refreshed
+600 ms after typing stops. The stage is `tutor --stdin` (muted unless `--voice`): whole lines typed at the end
+are appended and play live; an edit earlier in the file writes the unchanged prefix to a hidden file, `#!load`s
+it, `#!interrupt`s (instant to that state) and appends the rest, so the changed part animates from the right
+state. The line being typed waits for its newline (Cmd+Enter sends it). Exercised through the API: append,
+partial line, forced partial, earlier edit, load, skip, replay, SSE events. No engine change. Also written, not
+committed: a personal HTML map of the architecture and the language for the user (on their Desktop).

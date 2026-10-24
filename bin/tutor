@@ -7,6 +7,7 @@
 #   tutor restart         restart the tutor in the background (after an engine or prompt change)
 #   tutor stop            stop it
 #   tutor log             follow the background tutor's output
+#   tutor write [f.dan]   a playground: an editor in the browser, the stage beside it; what you type plays as you type
 #   tutor <flags>         anything else goes to chat/server.mjs (--model fable, --effort max, --mute, ...)
 #
 # Model, thinking, voice and speed chosen in the browser are remembered in chat/settings.json.
@@ -45,7 +46,8 @@ case "$1" in
   restart) shift; stop; background "$@" ;;
   stop) stop ;;
   log) exec tail -f "$LOG" ;;
-  -h|--help|help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//' ;;
+  write) shift; build; cd "$REPO" && exec node tools/write.mjs "$@" ;;
+  -h|--help|help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' ;;
   *)
     [[ "$1" == new ]] && { shift; set -- --new "$@" }
     if running; then # already open: show it rather than start a second one

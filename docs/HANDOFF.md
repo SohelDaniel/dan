@@ -6,7 +6,7 @@ what is open. The dated story of how it got here (what was tried, measured, kept
 **Keep this file current.** Each session ends by updating it (see `CLAUDE.md`): change the map where the code
 changed, add gotchas, move finished items out of "Open", and add a dated entry to `docs/history.md`.
 
-Last updated: 2026-10-23 (the beat after an algebra step; the language is called Dan, files end in `.dan`).
+Last updated: 2026-10-24 (`tutor write`, the Dan playground).
 
 ## 1. What it is
 
@@ -25,6 +25,7 @@ tutor                 # build if needed, open the tutor on the last chat (bin/tu
 tutor new             # a fresh chat
 tutor claude          # the tutor in the background + Claude Code in the repo (--dangerously-skip-permissions)
 tutor restart | stop | log
+tutor write [f.dan]   # a playground: an editor in the browser, the stage beside it; what you type plays as you type
 ```
 
 - In the browser: model, thinking level, voice on/off, which voice (Inworld's 166 English voices) and speed.
@@ -107,6 +108,7 @@ engine stays the only author of pixels.
 | `chat/compute.mjs` | sandboxed python blocks (`sandbox-exec`), output written into scene lines |
 | `chat/explain.mjs` | pause and ask: `?...` answers about the paused frame in a second window |
 | `chat/index.html` | the browser console |
+| `tools/write.mjs`, `tools/write.html` | `tutor write`: the Dan playground. Whole lines go to `tutor --stdin` as typed (appended at the end; an earlier edit reloads the unchanged prefix, `#!interrupt`s it and plays the rest); a panel shows `--check` lints, the score and the readback; examples and toolbox moves load into the editor. Files in `playground/` (gitignored) |
 | `README.md` | the language reference. **Between "## The language" and "## The dictionary" it is part of the prompt**: editing it changes what Claude writes |
 | `tools/eval/`, `tools/audit-sessions.mjs`, `tools/compare-commit.sh`, `tools/mine/` | measuring, replaying real chats, A/B against an old commit, mining 3Blue1Brown's code |
 | `reports/`, `research_notes/`, `docs/plan-*.md` | research write-ups with sources, per topic |

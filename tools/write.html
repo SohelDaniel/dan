@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tutor write</title>
+<style>
+  :root { --bg:#15171c; --panel:#1c1f26; --ink:#e8e6e1; --muted:#9a9892; --line:#2c3039; --accent:#7fb0ff; --say:#c9a2f0; --cue:#f0bb62; --cmt:#6f7682; --kw:#8fd3a3; --bad:#ff8a7a; --good:#7fd4a0; }
+  * { box-sizing:border-box; }
+  body { margin:0; height:100vh; display:grid; grid-template-rows:46px 1fr; background:var(--bg); color:var(--ink); font:14px/1.45 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif; }
+  header { display:flex; align-items:center; gap:10px; padding:0 14px; border-bottom:1px solid var(--line); background:var(--panel); }
+  header .name { font-weight:700; }
+  header .file { color:var(--muted); font:12.5px ui-monospace,Menlo,monospace; }
+  header select, header button { background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:7px; padding:5px 9px; font:13px inherit; cursor:pointer; }
+  header button:hover, header select:hover { border-color:var(--accent); }
+  header .grow { flex:1; }
+  header .status { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; max-width:46%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--muted); flex:none; }
+  .dot.playing { background:var(--say); } .dot.dead { background:var(--bad); }
+  main { display:grid; grid-template-columns:minmax(0,58fr) minmax(0,42fr); min-height:0; }
+  .editor { position:relative; display:grid; grid-template-columns:46px 1fr; min-height:0; border-right:1px solid var(--line); }
+  .gutter { background:var(--panel); color:var(--cmt); text-align:right; padding:12px 8px 12px 0; font:13.5px/1.5 ui-monospace,"SF Mono",Menlo,monospace; overflow:hidden; user-select:none; border-right:1px solid var(--line); }
+  .pane { position:relative; min-height:0; }
+  .pane pre, .pane textarea { margin:0; padding:12px 14px; font:13.5px/1.5 ui-monospace,"SF Mono",Menlo,monospace; white-space:pre; overflow:auto; width:100%; height:100%; tab-size:4; }
+  .pane pre { position:absolute; inset:0; pointer-events:none; color:var(--ink); }
+  .pane textarea { position:absolute; inset:0; background:transparent; color:transparent; caret-color:var(--ink); border:0; outline:0; resize:none; }
+  .pane textarea::selection { background:rgba(127,176,255,.3); }
+  .say { color:var(--say); } .cue { color:var(--cue); font-weight:600; } .cmt { color:var(--cmt); } .kw { color:var(--kw); } .id { color:var(--accent); } .str { color:#f2d7a6; }
+  aside { display:grid; grid-template-rows:auto 1fr; min-height:0; }
+  .tabs { display:flex; border-bottom:1px solid var(--line); background:var(--panel); }
+  .tabs button { background:none; border:0; color:var(--muted); padding:10px 14px; font:13px inherit; cursor:pointer; border-bottom:2px solid transparent; }
+  .tabs button.on { color:var(--ink); border-bottom-color:var(--accent); }
+  .tabs .badge { display:inline-block; min-width:18px; padding:0 5px; border-radius:9px; background:var(--line); color:var(--ink); font-size:11.5px; margin-left:6px; }
+  .tabs .badge.bad { background:var(--bad); color:#1a0e0b; }
+  .panel { display:none; overflow:auto; padding:12px 14px; min-height:0; }
+  .panel.on { display:block; }
+  .score { display:flex; gap:16px; align-items:baseline; margin-bottom:10px; }
+  .score b { font-size:22px; }
+  .lint { padding:6px 8px; margin:4px 0; border-left:3px solid var(--bad); background:rgba(255,138,122,.08); font:12.5px/1.5 ui-monospace,Menlo,monospace; white-space:pre-wrap; }
+  .lint.layout { border-left-color:var(--cue); background:rgba(240,187,98,.08); }
+  .ok { color:var(--good); }
+  pre.rb { margin:0; font:12.5px/1.5 ui-monospace,Menlo,monospace; white-space:pre-wrap; color:var(--ink); }
+  .cheat h4 { margin:12px 0 4px; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+  .cheat pre { margin:0; font:12px/1.5 ui-monospace,Menlo,monospace; white-space:pre-wrap; color:var(--ink); }
+  .hint { color:var(--muted); font-size:12.5px; margin-top:10px; }
+  kbd { font:11.5px ui-monospace,Menlo,monospace; border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:0 4px; }
+</style>
+</head>
+<body>
+<header>
+  <span class="name">tutor write</span>
+  <span class="file" id="file"></span>
+  <select id="examples"><option value="">load an example…</option></select>
+  <button id="replay" title="play the whole file from the top">↺ replay</button>
+  <button id="skip" title="finish everything now">⇥ skip to end</button>
+  <button id="send" title="send the line being typed too (Cmd+Enter)">▶ send now</button>
+  <span class="grow"></span>
+  <span class="status"><span class="dot" id="dot"></span><span id="status">idle</span></span>
+</header>
+<main>
+  <div class="editor">
+    <div class="gutter" id="gutter">1</div>
+    <div class="pane">
+      <pre id="hl" aria-hidden="true"></pre>
+      <textarea id="src" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+    </div>
+  </div>
+  <aside>
+    <div class="tabs">
+      <button class="on" data-tab="check">check <span class="badge" id="nlint">0</span></button>
+      <button data-tab="rb">on stage</button>
+      <button data-tab="cheat">cheat sheet</button>
+    </div>
+    <div class="panel on" id="check">
+      <div class="score"><span>layout <b id="score">–</b><span style="color:var(--muted)">/100</span></span><span id="decodable"></span></div>
+      <div id="lints"><span class="hint">Lints appear here as you type: overlaps, unbound claims, unknown colours, cues without lines.</span></div>
+      <div class="hint">Whole lines play as soon as you end them. Add a line at the end and the scene continues; change an earlier line and the stage jumps to just before it and plays what you changed. <kbd>⌘</kbd><kbd>↵</kbd> sends the line you are on.</div>
+    </div>
+    <div class="panel" id="rb"><pre class="rb" id="readback"></pre></div>
+    <div class="panel cheat" id="cheat">
+      <h4>lines</h4><pre>mark id kind category k=v …    a thing (re-mark = update in place)
+link id arrow a -> b k=v       a relation: arrow | line | similar | equals
+group id part-of=[a,b]         part-of (a lane in a graph)
+morph id.prop [from] -> to [1.2s] [ease=linear]
+focus id | none                the voice's subject, for one sentence
+Say: "… |cue| … [id]word … {expr} …"
+@cue line        with line     indicate id | a[k] | a[0:3]
+send a -> b      hide id       show id      wait 2s
+camera zoom=8 on=p | fit=a,b | follow=p | reset | spin</pre>
+      <h4>setup</h4><pre>title "…"     scene "…"     schema free | numberline | axes x=[a,b] y=[c,d] |
+timeline | graph | sequence | plane x= y= | space x= y= z=   [label="a view"]</pre>
+      <h4>kinds</h4><pre>dot bar box label · line arrow path region · circle rect polygon angle vector grid
+field slope solution heat contour · tex card code array table area
+brace enclose underline cross check (of=) · surface sphere plane · param</pre>
+      <h4>properties are channels</h4><pre>a number → size (one scale per property)   a word → colour (a category)
+x y t x1 y1 x2 y2 dx dy dz z r w h pts fn from to of domain → position
+label text unit color → text   {expr} anywhere   \val{expr} and \textcolor{id}{…} in tex
+cells: a[k] a[i:j] M[r][c] M[r][:] f[part]      attach: of= at= on= in= over=</pre>
+      <h4>never</h4><pre>region= below= left-of= pos= … (ignored: position comes from structure)
+a second mark for the same idea (morph the first)   pause</pre>
+    </div>
+  </aside>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const src = $('#src'), hl = $('#hl'), gutter = $('#gutter');
+let timer = null, lastSent = '';
+
+const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+function paint(line) {
+  if (/^\s*#/.test(line)) return `<span class="cmt">${esc(line)}</span>`;
+  const m = line.match(/^(\s*)(Say:)(.*)$/);
+  if (m) {
+    const words = esc(m[3]).replace(/\|(\w+)\|/g, '<span class="cue">|$1|</span>').replace(/\[(\w+)\]/g, '<span class="id">[$1]</span>').replace(/\{([^}]*)\}/g, '<span class="id">{$1}</span>');
+    return `${m[1]}<span class="kw">${m[2]}</span><span class="say">${words}</span>`;
+  }
+  let s = esc(line);
+  s = s.replace(/^(\s*)(@\w+)\s/, '$1<span class="cue">$2</span> ');
+  s = s.replace(/^(\s*(?:<span class="cue">@\w+<\/span> )?)(with |mark|link|group|morph|focus|indicate|send|hide|show|camera|schema|title|scene|wait|pause)\b/, '$1<span class="kw">$2</span>');
+  s = s.replace(/(<span class="kw">(?:mark|link|group|indicate|send|hide|show|focus)<\/span>)\s+([\w.\[\]:]+)/, '$1 <span class="id">$2</span>');
+  s = s.replace(/"([^"]*)"/g, '<span class="str">"$1"</span>');
+  return s;
+}
+function render() {
+  const lines = src.value.split('\n');
+  hl.innerHTML = lines.map(paint).join('\n') + '\n';
+  gutter.textContent = lines.map((_, i) => i + 1).join('\n');
+}
+function sync() { hl.scrollTop = src.scrollTop; hl.scrollLeft = src.scrollLeft; gutter.scrollTop = src.scrollTop; }
+src.addEventListener('scroll', sync);
+src.addEventListener('input', () => { render(); clearTimeout(timer); timer = setTimeout(() => post(false), 400); });
+src.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); clearTimeout(timer); post(true); }
+  if (e.key === 'Tab') { e.preventDefault(); const a = src.selectionStart, b = src.selectionEnd; src.setRangeText('  ', a, b, 'end'); src.dispatchEvent(new Event('input')); }
+});
+async function post(force) {
+  const text = src.value;
+  if (!force && text === lastSent) return;
+  lastSent = text;
+  await fetch('/api/text', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text, force }) });
+}
+const api = (p, b) => fetch(p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+$('#replay').onclick = () => api('/api/replay');
+$('#skip').onclick = () => api('/api/skip');
+$('#send').onclick = () => { clearTimeout(timer); post(true); };
+$('#examples').onchange = async (e) => {
+  if (!e.target.value) return;
+  const r = await api('/api/load', { name: e.target.value });
+  if (r.text != null) { src.value = r.text; lastSent = r.text; render(); }
+  e.target.value = '';
+};
+for (const b of document.querySelectorAll('.tabs button')) b.onclick = () => {
+  for (const x of document.querySelectorAll('.tabs button')) x.classList.toggle('on', x === b);
+  for (const p of document.querySelectorAll('.panel')) p.classList.toggle('on', p.id === b.dataset.tab);
+};
+
+const es = new EventSource('/api/events');
+const dot = $('#dot'), status = $('#status');
+es.onmessage = (ev) => {
+  const e = JSON.parse(ev.data);
+  if (e.t === 'say') { dot.className = 'dot playing'; status.textContent = e.text; }
+  else if (e.t === 'end') { status.textContent = '…'; }
+  else if (e.t === 'idle') { dot.className = 'dot'; status.textContent = 'idle'; }
+  else if (e.t === 'stage' && !e.alive) { dot.className = 'dot dead'; status.textContent = 'stage closed (reload the page to reopen)'; }
+  else if (e.t === 'check') {
+    $('#score').textContent = e.score ?? '–';
+    $('#decodable').innerHTML = e.decodable ? '<span class="ok">decodable</span>' : '<span style="color:var(--bad)">not decodable</span>';
+    const n = e.lints.length;
+    $('#nlint').textContent = n; $('#nlint').className = 'badge' + (n ? ' bad' : '');
+    $('#lints').innerHTML = n ? e.lints.map((l) => `<div class="lint ${/^lint: layout/.test(l) ? 'layout' : ''}">${esc(l)}</div>`).join('') : '<div class="ok">no lints</div>';
+    $('#readback').textContent = e.readback || '(nothing on stage yet)';
+  }
+};
+window.addEventListener('beforeunload', () => es.close());
+
+(async () => {
+  const s = await fetch('/api/state').then((r) => r.json());
+  $('#file').textContent = s.file.replace(/^.*\/(playground|scripts|chat)\//, '$1/');
+  src.value = s.text; lastSent = s.text; render();
+  for (const n of s.examples) { const o = document.createElement('option'); o.value = n; o.textContent = n; $('#examples').appendChild(o); }
+  if (!s.alive) { dot.className = 'dot dead'; status.textContent = 'stage closed'; api('/api/stage'); }
+  src.focus();
+})();
+</script>
+</body>
+</html>
