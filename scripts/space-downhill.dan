@@ -6,20 +6,20 @@ mark lossval label at=p label="loss" loss={p.z}
 mark eq tex tex="\textcolor{p}{z} = 0.4\,(x^2 + y^2)"
 mark g vector at=p dx=0.8 dy=0.8 dz=0 label="downhill"
 Say: "You start up here, at a loss of {p.z}."
+Say: "One |step|step downhill, and the loss drops to {p.z}."
 @step morph p.x -> -1 1s
 with morph p.y -> -1 1s
-Say: "One |step|step downhill, and the loss drops to {p.z}."
-@box mark e enclose of=p label="here"
 Say: "This |box|point is where you are."
-@pulse indicate L
+@box mark e enclose of=p label="here"
 Say: "The whole |pulse|surface is the loss for every pair of weights."
-@fly send eq -> p
+@pulse indicate L
 Say: "The formula |fly|gives its height."
-@look focus p
+@fly send eq -> p
 Say: "Keep your eye on |look|the [p]point."
+@look focus p
+Say: "A few more steps and it reaches the |more|bottom."
 @more morph p.x -> 0 1.2s
 with morph p.y -> 0 1.2s
-Say: "A few more steps and it reaches the |more|bottom."
 hide e
-@turn camera orbit=90
 Say: "From the side you can |turn|see the bowl."
+@turn camera orbit=90

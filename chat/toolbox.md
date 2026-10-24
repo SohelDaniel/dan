@@ -338,9 +338,9 @@ mark p dot on=L x=-2 y=-2 trail=all drop=true label="you"
 mark v label at=p label="loss" value={p.z}
 camera spin
 Say: "The loss is the height: here it is {p.z}."
+Say: "One |step|step downhill, and it drops to {p.z}."
 @step morph p.x -> -1 1s
 with morph p.y -> -1 1s
-Say: "One |step|step downhill, and it drops to {p.z}."
 ```
 
 ### Vectors in space, and what is perpendicular (3D)
@@ -354,8 +354,8 @@ mark b vector dx=1 dy=2 dz=0 label="b"
 mark P polygon pts=[0,0,0, 2,0,0, 3,2,0, 1,2,0] label="area 4"
 mark c vector dx=0 dy=0 dz=4 label="a × b"
 Say: "The cross product stands straight up from the parallelogram, as long as its area: four."
-@up camera view=front
 Say: "From the |up|front, it is plainly perpendicular."
+@up camera view=front
 ```
 
 ### A 3x3 matrix moves all of space (3D)
@@ -370,12 +370,12 @@ mark k vector dx=0 dy=0 dz=1 color=blue label="k"
 mark d tex tex="\det M = 1"
 camera spin
 Say: "The unit cube has volume one."
+Say: "Apply the matrix, and the cube |go|becomes a slanted box of volume three."
 @go morph G.m -> [2,0,0, 0,1,0, 0.5,0,1.5] 2s
 with morph i.dx -> 2 2s
 with morph i.dz -> 0.5 2s
 with morph k.dz -> 1.5 2s
 with mark d tex="\det M = 3"
-Say: "Apply the matrix, and the cube |go|becomes a slanted box of volume three."
 ```
 
 ### Tidy what's done

@@ -4,5 +4,5 @@ mark d area parts=[3,7] labels=["rain (30%)","dry (70%)"] colors=[blue,-] label=
 Say: "Three days in ten it rains."
 mark d by=[[8,2],[1,9]] bylabels=["umbrella","none","umbrella","none"] bycolors=[yellow,-,yellow,-]
 Say: "On rainy days, eight in ten people carry an umbrella; on dry days, one in ten."
-@both mark u enclose of=d[0][0] label="0.3 × 0.8 = 0.24"
 Say: "So rain |both|and an umbrella is a quarter of all days."
+@both mark u enclose of=d[0][0] label="0.3 × 0.8 = 0.24"

@@ -679,3 +679,43 @@ TEST_CASE("a rider's trail is the curve it walked: the same stroke as the dot wr
     CHECK(std::fabs(a[i].y - b[i].y) < 1);
   }
 }
+
+// ---------------------------------------------------------------- cues belong to the sentence that says them
+
+TEST_CASE("a cued line written one beat early waits for its word in the next sentence, and says so") {
+  initFonts();
+  const std::string text = "mark a bar score v=3\nSay: \"First, a long sentence that takes a while to say out loud.\"\n"
+                           "@go morph a.v -> 6 1s\nSay: \"Second, after a good many words, it finally |go|doubles.\"\n";
+  Engine e(live());
+  REQUIRE(e.loadText(text));
+  float firstEnd = -1;
+  for (int i = 0; i < 60 * 30 && firstEnd < 0; i++) {
+    e.update(1.f / 60);
+    for (auto &ev : e.timeline) if (ev.find(" end ") != std::string::npos) firstEnd = std::stof(ev);
+  }
+  REQUIRE(firstEnd > 0);
+  for (int i = 0; i < 90; i++) e.update(1.f / 60); // 1.5 s on: the morph would have landed had it run at the end
+  CHECK(e.readback(false).find("v=3") != std::string::npos);
+  runOut(e);
+  CHECK(e.readback(false).find("v=6") != std::string::npos);
+  Engine check(instant());
+  played(check, text);
+  bool linted = false;
+  for (auto &w : check.lintMessages()) if (w.find("hook: @go") != std::string::npos) linted = true;
+  CHECK(linted);
+}
+
+TEST_CASE("a cue spoken without its own line never fires a later sentence's line early") {
+  initFonts();
+  Engine e(live());
+  REQUIRE(e.loadText("mark a bar score v=3\nmark b bar score v=5\nSay: \"This |go|sentence has no line for its cue at all.\"\n"
+                     "Say: \"And this one, after a good many words, finally |go|changes b.\"\n@go morph b.v -> 1 1s\n"));
+  float firstEnd = -1;
+  for (int i = 0; i < 60 * 30 && firstEnd < 0; i++) {
+    e.update(1.f / 60);
+    for (auto &ev : e.timeline) if (ev.find(" end ") != std::string::npos) firstEnd = std::stof(ev);
+  }
+  CHECK(e.readback(false).find("mark b bar score v=5") != std::string::npos);
+  runOut(e);
+  CHECK(e.readback(false).find("v=1") != std::string::npos);
+}

@@ -234,19 +234,19 @@
   "maxOverlaps": 2
  },
  "scripts/space-cross.dan": {
-  "mean": 97.7,
-  "worst": 79.7,
+  "mean": 94.7,
+  "worst": 65.9,
   "final": 100,
   "maxOverlaps": 3
  },
  "scripts/space-determinant.dan": {
-  "mean": 98.3,
-  "worst": 79.1,
-  "final": 79.1,
-  "maxOverlaps": 1
+  "mean": 100,
+  "worst": 100,
+  "final": 100,
+  "maxOverlaps": 0
  },
  "scripts/space-downhill.dan": {
-  "mean": 94.6,
+  "mean": 95.3,
   "worst": 90.6,
   "final": 100,
   "maxOverlaps": 3
@@ -258,9 +258,9 @@
   "maxOverlaps": 0
  },
  "scripts/space-kinds.dan": {
-  "mean": 74.3,
+  "mean": 74.6,
   "worst": 67.2,
-  "final": 67.7,
+  "final": 67.2,
   "maxOverlaps": 3
  },
  "scripts/space-saddle.dan": {

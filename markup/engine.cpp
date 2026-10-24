@@ -120,6 +120,14 @@ bool Engine::appendText(const std::string &text) {
   return ok;
 }
 
+// does this sentence say |name|?
+static bool saysHook(const Line &say, const std::string &name) {
+  if (say.verb != Verb::SAY) return false;
+  for (auto &w : say.words) for (auto &h : w.hooks) if (h == name) return true;
+  for (auto &h : say.trailingHooks) if (h == name) return true;
+  return false;
+}
+
 void Engine::analyze(bool fresh) {
   // ---- prescan: every literal a property ever takes, so scales never jump (axiom 2); the values the script
   // computes come from running it (sampleValues), and both become the scales in usePrescan
@@ -294,6 +302,17 @@ void Engine::analyze(bool fresh) {
     if (!sayHooks.count(h)) warn("hook: lines tagged @" + h + " have no |" + h + "| spoken, so they only run when their sentence ends");
   for (auto &h : sayHooks)
     if (!deferredHooks.count(h)) warn("hook: |" + h + "| is spoken but no line is tagged @" + h);
+  // a cue belongs to its sentence: a line written after a sentence that doesn't say its cue, before one that does
+  for (size_t i = 0, say = SIZE_MAX; i < script_.steps.size(); i++) {
+    const Step &st = script_.steps[i];
+    if (st.main.verb == Verb::SAY) { say = i; continue; }
+    if (st.hook.empty() || say == SIZE_MAX || saysHook(script_.steps[say].main, st.hook)) continue;
+    size_t next = i + 1;
+    while (next < script_.steps.size() && script_.steps[next].main.verb != Verb::SAY) next++;
+    if (next < script_.steps.size() && saysHook(script_.steps[next].main, st.hook))
+      warn("hook: @" + st.hook + " on line " + std::to_string(st.main.lineNo) + " sits before the sentence that says |" +
+           st.hook + "| (line " + std::to_string(script_.steps[next].main.lineNo) + "): it fires there; put it after that line");
+  }
   for (auto &[line, id] : pointed)
     if (!defined.count(baseId(id))) warn("say: line " + std::to_string(line) + " points at [" + id + "], which is never marked");
   eachLine(script_, [&](const Line &ln) {
@@ -1418,8 +1437,8 @@ void Engine::fireHook(const std::string &name) {
   }
   firedBySay_[sayStep_].insert(name);
   // A hook belongs to its sentence: fire the @name lines between this Say and the next one,
-  // so the same marker name can be reused sentence after sentence. Lines placed elsewhere
-  // (older scripts) are still found: first anywhere after this Say, then anywhere.
+  // so the same marker name can be reused sentence after sentence. A line armed earlier is found too, but a later
+  // sentence's line never fires early.
   auto fireIn = [&](size_t a, size_t b) {
     bool any = false;
     for (size_t i = a; i < b && i < script_.steps.size(); i++)
@@ -1433,8 +1452,7 @@ void Engine::fireHook(const std::string &name) {
   size_t next = sayStep_ + 1;
   while (next < script_.steps.size() && script_.steps[next].main.verb != Verb::SAY) next++;
   if (fireIn(sayStep_ + 1, next)) return;
-  if (fireIn(next, script_.steps.size())) return;
-  fireIn(0, sayStep_);
+  fireIn(0, sayStep_); // lines armed earlier (set-up before the first sentence, or a beat early); never a later sentence's
 }
 
 // A cue line whose |cue| was never spoken (a typo, a capital, a forgotten marker) still runs, at the
@@ -1444,6 +1462,8 @@ void Engine::closeSentence() {
   while (next < script_.steps.size() && script_.steps[next].main.verb != Verb::SAY) next++;
   for (size_t i = sayStep_ + 1; i < next; i++)
     if (!script_.steps[i].hook.empty() && !hookFired_[i]) {
+      if (next < script_.steps.size() && saysHook(script_.steps[next].main, script_.steps[i].hook))
+        continue; // written one beat early: it stays armed and fires on its word in the next sentence (linted at load)
       hookFired_[i] = true;
       if (opt_.verbose) std::fprintf(stderr, "[%6.2fs] @%s never cued: runs at the end of its sentence\n", clock_,
                                      script_.steps[i].hook.c_str());

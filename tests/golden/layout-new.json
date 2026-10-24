@@ -234,10 +234,10 @@
   "maxOverlaps": 1
  },
  "scripts/space-cross.dan": {
-  "mean": 100,
-  "worst": 100,
+  "mean": 99.9,
+  "worst": 96.5,
   "final": 100,
-  "maxOverlaps": 0
+  "maxOverlaps": 1
  },
  "scripts/space-determinant.dan": {
   "mean": 100,
@@ -246,10 +246,10 @@
   "maxOverlaps": 0
  },
  "scripts/space-downhill.dan": {
-  "mean": 93.4,
-  "worst": 78.1,
+  "mean": 95.3,
+  "worst": 90.6,
   "final": 100,
-  "maxOverlaps": 4
+  "maxOverlaps": 3
  },
  "scripts/space-field.dan": {
   "mean": 100,

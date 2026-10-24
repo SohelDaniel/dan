@@ -5,5 +5,5 @@ mark b vector dx=1 dy=2 dz=0 label="b"
 mark P polygon pts=[0,0,0, 2,0,0, 3,2,0, 1,2,0] label="area 4"
 mark c vector dx=0 dy=0 dz=4 label="a × b"
 Say: "The cross product stands straight up from the parallelogram, as long as its area: four."
-@up camera view=front
 Say: "From the |up|front, it is plainly perpendicular."
+@up camera view=front

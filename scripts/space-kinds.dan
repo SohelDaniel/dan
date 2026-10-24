@@ -9,5 +9,5 @@ mark c vector dx=0 dy=0 dz=2 label="a × b"
 mark F polygon pts=[0,0,0, 2,0,0, 2,2,0, 0,2,0] label="area 4"
 mark q dot x=-2 y=2 z=1.5 drop=true label="q"
 Say: "Every kind of thing, in space."
-@go camera spin
 Say: "And it |go|turns, slowly."
+@go camera spin

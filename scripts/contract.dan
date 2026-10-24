@@ -16,7 +16,7 @@ Say: "Delivery is due on day thirty. |late| The day passes with nothing delivere
 @late morph delivery.status pending -> breached 1.5s
 focus owes
 Say: "The obligation is now a breach, and the buyer can withhold payment."
-@hold morph payment.status pending -> suspended 1.5s
 focus payment
 Say: "Payment is |hold| suspended."
+@hold morph payment.status pending -> suspended 1.5s
 focus none
