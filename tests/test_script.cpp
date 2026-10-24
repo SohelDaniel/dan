@@ -95,3 +95,34 @@ TEST_CASE("a list reads back whole: blank items and items with commas are quoted
   REQUIRE(again.parse("mark t array items=" + v->markup() + "\n"));
   CHECK(findProp(again.steps[0].main.props, "items")->list == v->list);
 }
+
+TEST_CASE("a path, line or arrow from= one thing to= another is a link between them") {
+  Script s;
+  REQUIRE(s.parse("mark p path from=a to=b label=\"route\"\nmark w line from=a to=b\nmark r arrow from=a to=b\n"));
+  const Line &p = s.steps[0].main, &w = s.steps[1].main, &r = s.steps[2].main;
+  CHECK(p.verb == Verb::LINK);
+  CHECK(p.id == "p");
+  CHECK(p.kind == "arrow"); // a path has a start and an end
+  CHECK((p.a == "a" && p.b == "b" && p.directed));
+  CHECK(findProp(p.props, "label"));
+  CHECK(!findProp(p.props, "from")); // the ends are the link's own, not properties
+  CHECK(!findProp(p.props, "to"));
+  CHECK((w.verb == Verb::LINK && w.kind == "line" && !w.directed)); // a line has no direction
+  CHECK((r.verb == Verb::LINK && r.kind == "arrow" && r.directed));
+}
+
+TEST_CASE("path as a link's kind word is the plain link for its arrow") {
+  Script s;
+  REQUIRE(s.parse("mark p path a -> b label=\"route\"\nlink q path a -- b\n"));
+  CHECK((s.steps[0].main.verb == Verb::LINK && s.steps[0].main.id == "p" && s.steps[0].main.kind == "arrow"));
+  CHECK((s.steps[1].main.id == "q" && s.steps[1].main.kind == "line"));
+}
+
+TEST_CASE("a path of its own is still a curve: fn=, xt= yt=, numbers, one end, its own geometry") {
+  Script s;
+  REQUIRE(s.parse("mark f path fn={x^2} label=\"f\"\nmark o path xt={cos(t)} yt={sin(t)} range=[0,6.3]\n"
+                  "mark g path fn={x} from=0 to=2\nmark h path from=a\nmark L line x1=0 y1=0 x2=1 y2=1 from=a to=b\n"
+                  "link path a -> b\n"));
+  for (int i = 0; i < 5; i++) CHECK_MESSAGE(s.steps[i].main.verb == Verb::MARK, "line " << i + 1);
+  CHECK(s.steps[5].main.id == "path"); // a lone word before the ends is the link's id, as before
+}

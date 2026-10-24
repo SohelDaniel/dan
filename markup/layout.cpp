@@ -21,8 +21,6 @@ static const Rectangle kStage{40, 66, 1200, 494};
 std::string Engine::schemaNow() const { return schema_ != "auto" ? schema_ : autoSchema_; }
 bool Engine::inDataView(const Mark &m) const { return views_.empty() || (!curData_.empty() && dataViewOf(m) == curData_); }
 
-static bool isDataSchema(const std::string &s) { return isAxes(s) || isSpace(s) || s == "numberline" || s == "timeline"; }
-
 std::string Engine::dataViewOf(const Mark &m) const {
   if (views_.empty()) return "";
   const View *v = nullptr;

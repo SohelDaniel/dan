@@ -34,6 +34,8 @@ namespace mk {
 inline bool isAxes(const std::string &schema) { return schema == "axes" || schema == "plane"; }
 // a 3D world, z up (space.cpp): projected through one mapping, drawn as 2D strokes and triangles by depth
 inline bool isSpace(const std::string &schema) { return schema == "space"; }
+// schemas where position is data (a plot)
+inline bool isDataSchema(const std::string &s) { return isAxes(s) || isSpace(s) || s == "numberline" || s == "timeline"; }
 // kinds only a space has (the others there are the 2D ones given a z: dot, vector, line, arrow, path, polygon, grid)
 inline bool isSpaceKind(const std::string &k) { return k == "surface" || k == "sphere" || k == "plane"; }
 // placement words: never colours, magnitudes or box rows. Only on= / in= / over= still place (touching on
@@ -85,6 +87,7 @@ void textOutlined(const std::string &s, Vector2 at, float size, Color c, float a
 
 struct Mark : Obj {
   std::string view;          // the named view it belongs to ("" with a single schema)
+  std::string series;        // "plot:<view>" for uncategorised data on a plot: the ink it shares, fixed when made
   std::string texPrev;       // formulas: what it was before its last change, and when that change settled
   float texSettledAt = -1e9f; //   (what the change brought in stays lit for a moment)
   Vector2 pos{0, 0}, tpos{0, 0};
@@ -331,6 +334,8 @@ private:
   Color colorOf(const Mark &m);
   Color colorForKey(const std::string &key);
   void claimColor(const Mark &m);
+  std::string seriesKey(const Mark &m) const; // "plot:<view>" for uncategorised data on a plot, else ""
+  std::string colorKey(const Mark &m, const std::string &category) const;
 
   // ---- layout (layout.cpp)
   std::string schemaNow() const;

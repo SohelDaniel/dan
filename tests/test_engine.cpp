@@ -753,3 +753,71 @@ TEST_CASE("a re-mark eases every number it changes: to an expression, on a link,
   runOut(g);
   CHECK(g.readback(false).find("w=0.9") != std::string::npos);
 }
+
+TEST_CASE("uncategorised data on one plot is one series: one ink and no 10-kind lint; off a plot a thing keeps its own slot") {
+  Engine nl(instant()); // twelve samples on a number line (a real chat had sixteen dice rolls): one ink, no "colors repeat"
+  std::string s = "schema numberline prop=score range=[0,40]\n";
+  for (int i = 1; i <= 12; i++) s += "mark p" + std::to_string(i) + " dot score=" + std::to_string(3 * i) + "\n";
+  played(nl, s);
+  for (int i = 2; i <= 12; i++) CHECK(sameColor(nl.colorFor("p1"), nl.colorFor("p" + std::to_string(i))));
+  CHECK(!hasLint(nl, "distinct kinds"));
+  Engine two(instant()); // a categorised dot beside the series keeps its own hue; two views are two series
+  played(two, "schema a numberline prop=v range=[0,10] label=\"A\"\nmark a1 dot v=3\nmark a2 dot v=4\nmark out dot outlier v=9\n"
+              "schema b numberline prop=v range=[0,10] label=\"B\"\nmark b1 dot v=5\nmark b2 dot v=6\n");
+  CHECK(sameColor(two.colorFor("a1"), two.colorFor("a2")));
+  CHECK(sameColor(two.colorFor("b1"), two.colorFor("b2")));
+  CHECK(!sameColor(two.colorFor("a1"), two.colorFor("b1")));
+  CHECK(!sameColor(two.colorFor("a1"), two.colorFor("out")));
+  Engine tl(instant()); // events on a timeline, points on axes and in space, bars on axes: the same rule
+  played(tl, "schema timeline\nmark e1 dot t=1440 label=\"press\"\nmark e2 dot t=1492 label=\"Columbus\"\n");
+  CHECK(sameColor(tl.colorFor("e1"), tl.colorFor("e2")));
+  Engine ax(instant());
+  played(ax, "schema axes x=[0,4] y=[0,4]\nmark f path fn={x}\nmark p dot x=1 y=1 label=\"P\"\nmark q dot x=2 y=2 label=\"Q\"\nmark b1 bar x=3 y=1\nmark b2 bar x=3.5 y=2\n");
+  CHECK(sameColor(ax.colorFor("p"), ax.colorFor("q")));
+  CHECK(sameColor(ax.colorFor("b1"), ax.colorFor("b2")));
+  CHECK(!sameColor(ax.colorFor("f"), ax.colorFor("p"))); // a curve is its own thing
+  Engine sp(instant());
+  played(sp, "schema space x=[0,2] y=[0,2] z=[0,2]\nmark p x=1 y=1 z=1\nmark q x=2 y=1 z=0\n");
+  CHECK(sameColor(sp.colorFor("p"), sp.colorFor("q")));
+  Engine mv(instant()); // the unnamed schema becomes the "main" view when a named one arrives: the series keeps its ink
+  played(mv, "schema numberline prop=v range=[0,10]\nmark p1 dot v=3\nmark p2 dot v=7\nSay: \"Two.\"\n");
+  Color before = mv.colorFor("p1");
+  REQUIRE(mv.appendText("schema stats graph label=\"summary\"\nmark m box stat label=\"mean 5\"\nSay: \"Mean.\"\n"));
+  mv.runToEnd();
+  CHECK(sameColor(before, mv.colorFor("p1")));
+  CHECK(sameColor(mv.colorFor("p1"), mv.colorFor("p2")));
+  CHECK(!sameColor(mv.colorFor("p1"), mv.colorFor("m")));
+  Engine co(instant()); // shared ink is not a relation: two series dots at one point still coincide
+  played(co, "schema axes x=[0,4] y=[0,4]\nmark a dot x=2 y=2\nmark b dot x=2 y=2\n");
+  CHECK(hasLint(co, "coincide"));
+  Engine fr(instant()); // off a plot an uncategorised thing is its own kind (the dictionary row)
+  played(fr, "mark alice bar balance=70\nmark bob bar balance=50\n");
+  CHECK(!sameColor(fr.colorFor("alice"), fr.colorFor("bob")));
+  Engine gr(instant());
+  played(gr, "schema graph\nmark a box\nmark b box\nlink ab arrow a -> b\n");
+  CHECK(!sameColor(gr.colorFor("a"), gr.colorFor("b")));
+}
+
+TEST_CASE("a path between two boxes is drawn as a link, reads back as one, and leaves the scene a graph") {
+  Engine e(instant());
+  played(e, "mark a box label=\"Box 1\"\nmark b box label=\"Box 2\"\nmark p path from=a to=b label=\"route\"\n");
+  std::string rb = e.readback(true);
+  CHECK(rb.find("link p arrow a -> b label=route") != std::string::npos);
+  CHECK(rb.find("mark p ") == std::string::npos);
+  CHECK(rb.find("# schema (auto) graph") != std::string::npos); // one stray path used to make the whole scene axes
+  bool drawn = false;
+  for (auto &i : e.picture().ink) drawn |= i.kind == place::Ink::Link && i.id == "p";
+  CHECK(drawn);
+  CHECK(hasLint(e, "`link p arrow a -> b`")); // Claude is told the one spelling
+  Engine again(instant());                    // decodable: the readback re-parses to the same scene
+  played(again, e.readback(false));
+  CHECK(again.readback(false) == e.readback(false));
+}
+
+TEST_CASE("re-marking a path between two things re-routes the same link (identity)") {
+  Engine e(instant());
+  played(e, "schema graph\nmark a box\nmark b box\nmark c box\nmark p path from=a to=b label=\"route\"\nmark p path from=a to=c\n");
+  std::string rb = e.readback(false);
+  CHECK(rb.find("link p arrow a -> c label=route") != std::string::npos);
+  CHECK(rb.find("link p ") == rb.rfind("link p ")); // one thing, updated in place
+}

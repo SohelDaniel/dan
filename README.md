@@ -268,6 +268,7 @@ mark t   table cols=3 cells=[step,lo,hi, 1,0,4]                          # first
 
 - A number is a **magnitude**. The first non-positional numeric property is drawn as size: bar length or dot area. One scale per property, fixed for the whole script (every value it will reach, computed ones too); `max=`/`min=` on a bar name a larger extent up front, for a value only a later turn will bring.
 - A word is a **category**. The bare word after the kind (`mark alice bar account …`) or the first text property (`status=overdue`) is drawn as color.
+- **Data on one plot shares one color.** Dots and bars placed by their data on a number line, timeline, axes, plane or space with no category are one series (twelve samples, twelve events: one ink). Give groups category words, or their own views, to tell them apart. Off a plot an uncategorized thing has its own color.
 - Positional keys: `x y` (axes), `t` (timeline), `x1 y1 x2 y2` or `x y slope` (lines), `from to of` (regions; `n=6` draws the area as 6 slices, the Riemann picture), `fn` (paths), `domain=[a,b]`.
 - Axis titles: `schema axes xlabel="time (s)" ylabel="speed (m/s)"`. Name what each axis means.
 - Text keys: `label` (display name), `text`, `unit=$`, `color=blue` (overrides the palette).
@@ -353,7 +354,7 @@ If no schema is given, one is inferred. Paths, regions or `x=` give `axes`. `t=`
 | --- | --- | --- |
 | thing | a mark with a stable id | `doMark`; there is no delete |
 | magnitude | bar length / dot area, from a shared zero | `layoutFree`: one scale per property, fixed by pre-scanning every literal and running the script ahead for the values it computes |
-| category | color | `colorOf`: one palette slot per category, and every uncategorized thing gets its own slot |
+| category | color | `colorOf`: one palette slot per category; an uncategorized thing gets its own slot, except dots and bars placed by their data on one plot, which share that plot's slot (data on one plot is a relation, axiom 3) |
 | order | position | the schema's axis; in a graph, the column a thing's links give it, then declaration order within the column (`place/flow`) |
 | part-of | enclosure | `drawGroup`; in a graph, a lane: its parts stay together, and stages line up across lanes |
 | connected / cause | line / arrow | `drawLink`: an arc over bars; in a graph, routed through the gaps between columns (never through a box), against the flow as an arc |

@@ -330,6 +330,11 @@ void Engine::analyze(bool fresh) {
     if (ln.verb == Verb::INDICATE) need(ln.id, "indicate");
     if (ln.verb == Verb::SEND) { need(ln.a, "send"); need(ln.b, "send"); if (!ln.id.empty()) need(ln.id, "send via"); }
     if (ln.verb == Verb::LINK) { need(ln.a, "link"); need(ln.b, "link"); }
+    if (ln.verb == Verb::LINK && !ln.writtenAs.empty()) // read as a link: say the one way to write it
+      warn("link: line " + std::to_string(ln.lineNo) + ": '" + ln.id + "' joins two things, so it is a link: write `link " + ln.id +
+           " " + ln.kind + " " + ln.a + (ln.directed ? " -> " : " -- ") + ln.b + "`" +
+           (ln.writtenAs == "path" ? " (a path is a curve: fn= or xt= yt=)" : "") +
+           (ln.category.empty() ? "" : "; a link has no category, so '" + ln.category + "' is dropped"));
     if (ln.verb == Verb::GROUP) for (auto &m : ln.members) need(m, "group");
   });
 
@@ -988,12 +993,27 @@ Color Engine::colorForKey(const std::string &key) {
   }
   return categorical(it->second);
 }
+// Uncategorised data placed on one plot is one series and shares one ink: samples, events, points (axiom 3 names
+// "data placed on one plot" as a relation). Off a plot an uncategorised thing is a kind of its own. Decided when
+// the thing is made and kept on the mark, so a view named later cannot move its colour.
+std::string Engine::seriesKey(const Mark &m) const {
+  if (auto at = findProp(m.props, "at"); at && at->type == Value::STR) return ""; // a pointer names a thing
+  std::string k = effectiveKind(m), s = schemaOf(m);
+  if (!((k == "dot" && isDataSchema(s)) || (k == "bar" && isAxes(s)))) return "";
+  std::string v = dataViewOf(m);
+  return "plot:" + (v.empty() ? "main" : v); // the unnamed schema becomes the "main" view once another is named
+}
+// the palette key: its category, else its plot's series, else itself
+std::string Engine::colorKey(const Mark &m, const std::string &category) const {
+  if (!category.empty()) return "cat:" + category;
+  return m.series.empty() ? "id:" + m.id : m.series;
+}
 void Engine::claimColor(const Mark &m) {
   if (findProp(m.props, "of") || findProp(m.props, "color")) return;
   std::string c = catValue(m);
   if (c.empty() && isBlockKind(effectiveKind(m))) return; // formulas, cards, code: ink, not a color slot
   if (effectiveKind(m) == "param") return;                  // an invisible driver (a clock, a constant)
-  colorForKey(c.empty() ? "id:" + m.id : "cat:" + c);
+  colorForKey(colorKey(m, c));
 }
 Color Engine::colorOf(const Mark &m) {
   if (auto v = findProp(m.props, "color"); v && v->type == Value::STR) {
@@ -1004,11 +1024,10 @@ Color Engine::colorOf(const Mark &m) {
     if (Mark *p = mark(v->str); p && p != &m) return colorOf(*p);
   }
   std::string cp = catProp(m);
-  std::string cv = catValue(m);
-  Color now = colorForKey(cv.empty() ? "id:" + m.id : "cat:" + cv);
-  if (!cp.empty()) {
+  Color now = colorForKey(colorKey(m, catValue(m)));
+  if (!cp.empty()) { // a category that is changing cross-fades from the colour it really had
     auto it = m.strBlend.find(cp);
-    if (it != m.strBlend.end()) return lerpColor(colorForKey("cat:" + it->second.first), now, it->second.second);
+    if (it != m.strBlend.end()) return lerpColor(colorForKey(colorKey(m, it->second.first)), now, it->second.second);
   }
   return now;
 }
@@ -1203,6 +1222,7 @@ void Engine::doMark(const Line &ln) {
     order_.push_back(ln.id);
     Mark &mm = marks_.emplace(ln.id, m).first->second;
     bornAt_[ln.id] = clock_;
+    mm.series = seriesKey(mm);
     claimColor(mm);
     std::string k = effectiveKind(mm), mp = magProp(mm), cv = catValue(mm);
     std::string rule = "thing -> a " + k;
@@ -1213,6 +1233,7 @@ void Engine::doMark(const Line &ln) {
     if (k == "region") rule += " · part of a function -> filled area";
     if (k == "tex") rule = "formula -> typeset; \\val{x} shows a live value, \\textcolor{id}{…} ties a term to a thing";
     if (!cv.empty()) rule += " · category '" + cv + "' -> color";
+    else if (!mm.series.empty()) rule += " · data on one plot -> one color";
     else if (k != "label" && k != "region" && k != "tex") rule += " · own color (unrelated to the rest)";
     caption(rule);
     return;

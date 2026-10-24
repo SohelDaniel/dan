@@ -278,6 +278,28 @@ struct Reading {
   }
 };
 
+// "mark p path from=a to=b" (or a line, an arrow): drawn between two things, it is a relation between them, so it
+// is a link, routed by the layout and read back as one. A path of its own is a curve (fn=, xt= yt=), and a line or
+// arrow with coordinates is a world shape: those stay marks.
+static void readConnectorAsLink(Line &ln) {
+  auto name = [](const Value *v) { // a thing's id: one word (a link end can't hold a space and still read back)
+    return v && v->type == Value::STR && !v->str.empty() &&
+           std::none_of(v->str.begin(), v->str.end(), [](char c) { return std::isspace((unsigned char)c); });
+  };
+  const Value *from = findProp(ln.props, "from"), *to = findProp(ln.props, "to");
+  if ((ln.kind != "path" && ln.kind != "line" && ln.kind != "arrow") || !name(from) || !name(to)) return;
+  for (const char *k : {"fn", "xt", "yt", "zt", "x", "y", "x1", "y1", "x2", "y2", "slope", "pts"})
+    if (findProp(ln.props, k)) return;
+  ln.verb = Verb::LINK;
+  ln.writtenAs = ln.kind;
+  ln.a = from->str;
+  ln.b = to->str;
+  ln.directed = ln.kind != "line";
+  ln.kind = ln.directed ? "arrow" : "line";
+  ln.props.erase(std::remove_if(ln.props.begin(), ln.props.end(), [](const Prop &p) { return p.key == "from" || p.key == "to"; }),
+                 ln.props.end());
+}
+
 static bool readMark(Reading &r) {
   auto &[toks, verb, raw, ln, err] = r;
   ln.verb = Verb::MARK;
@@ -298,6 +320,7 @@ static bool readMark(Reading &r) {
       return r.fail("unexpected '" + toks[i] + "' (one kind and one category per mark)");
     }
   }
+  readConnectorAsLink(ln);
   return true;
 }
 
@@ -314,6 +337,7 @@ static bool readLink(Reading &r) {
   for (auto &h : head) {
     if (ln.id.empty() && !(head.size() == 1 && isLinkKind(lower(h)))) ln.id = h;
     else if (ln.kind.empty() && isLinkKind(lower(h))) ln.kind = lower(h);
+    else if (ln.writtenAs.empty() && lower(h) == "path") ln.writtenAs = "path"; // "mark p path a -> b": the plain link
     else return r.fail("unexpected '" + h + "' in link");
   }
   if (ln.kind == "cause" || ln.kind == "maps-to") ln.kind = "arrow";
