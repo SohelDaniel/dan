@@ -107,19 +107,27 @@ const src = $('#src'), hl = $('#hl'), gutter = $('#gutter');
 let timer = null, lastSent = '';
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const KW = new Set(['mark','link','group','morph','focus','indicate','send','hide','show','camera','schema','title','scene','wait','pause']);
+const TAKES_ID = new Set(['mark','link','group','morph','focus','indicate','send','hide','show']);
+// one pass over the raw line: modifier, verb, id, then strings in the rest (never a replacement on HTML already made)
 function paint(line) {
   if (/^\s*#/.test(line)) return `<span class="cmt">${esc(line)}</span>`;
-  const m = line.match(/^(\s*)(Say:)(.*)$/);
-  if (m) {
-    const words = esc(m[3]).replace(/\|(\w+)\|/g, '<span class="cue">|$1|</span>').replace(/\[(\w+)\]/g, '<span class="id">[$1]</span>').replace(/\{([^}]*)\}/g, '<span class="id">{$1}</span>');
-    return `${m[1]}<span class="kw">${m[2]}</span><span class="say">${words}</span>`;
+  const say = line.match(/^(\s*)(Say:)(.*)$/);
+  if (say) {
+    const words = esc(say[3]).replace(/\|(\w+)\|/g, '<span class="cue">|$1|</span>').replace(/\[(\w+)\]/g, '<span class="id">[$1]</span>').replace(/\{([^}]*)\}/g, '<span class="id">{$1}</span>');
+    return `${say[1]}<span class="kw">${say[2]}</span><span class="say">${words}</span>`;
   }
-  let s = esc(line);
-  s = s.replace(/^(\s*)(@\w+)\s/, '$1<span class="cue">$2</span> ');
-  s = s.replace(/^(\s*(?:<span class="cue">@\w+<\/span> )?)(with |mark|link|group|morph|focus|indicate|send|hide|show|camera|schema|title|scene|wait|pause)\b/, '$1<span class="kw">$2</span>');
-  s = s.replace(/(<span class="kw">(?:mark|link|group|indicate|send|hide|show|focus)<\/span>)\s+([\w.\[\]:]+)/, '$1 <span class="id">$2</span>');
-  s = s.replace(/"([^"]*)"/g, '<span class="str">"$1"</span>');
-  return s;
+  const m = line.match(/^(\s*)((?:@\w+|with)\s+)?(\S+)(.*)$/);
+  if (!m) return esc(line);
+  let [, ws, mod, verb, rest] = m;
+  let out = ws;
+  if (mod) out += `<span class="${mod.startsWith('@') ? 'cue' : 'kw'}">${esc(mod)}</span>`;
+  out += KW.has(verb) ? `<span class="kw">${esc(verb)}</span>` : esc(verb);
+  if (TAKES_ID.has(verb)) {
+    const id = rest.match(/^(\s+)([\w.\[\]:-]+)(.*)$/);
+    if (id) { out += id[1] + `<span class="id">${esc(id[2])}</span>`; rest = id[3]; }
+  }
+  return out + esc(rest).replace(/"([^"]*)"/g, '<span class="str">"$1"</span>');
 }
 function render() {
   const lines = src.value.split('\n');
