@@ -77,6 +77,7 @@ struct Obj {
   std::string pulseRef; // what the pulse points at (the thing, or one cell: a[3])
   // a category (string) property mid-morph: prop -> (old text, progress 0..1)
   std::map<std::string, std::pair<std::string, float>> strBlend;
+  std::map<std::string, std::pair<Value, float>> fnBlend; // a function morphing: the one it leaves, and how far
 };
 
 // text over a busy 3D picture: a dark outline, then the text (space.cpp)
@@ -260,6 +261,7 @@ public:
   place::Report layoutCheck(std::vector<std::string> *messages = nullptr);
   const std::vector<std::string> &parseErrors() const { return script_.errors; }
   std::vector<std::string> lintMessages() const { return {lint_.begin(), lint_.end()}; }
+  double curveAt(const std::string &id, double x) { Mark *m = mark(id); return m ? pathAt(*m, x) : NAN; } // tests
   const std::string &path() const { return path_; }
   float time() const { return clock_; }
   // (start time, wav file) for every narrated line, so a recording can be given its soundtrack

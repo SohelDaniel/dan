@@ -873,6 +873,8 @@ double Engine::pathAt(const Mark &p, double x, int depth) {
   hasX = true;
   xName = "x";
   double r = eval(*fn->expr, *this, depth);
+  if (auto fb = p.fnBlend.find("fn"); fb != p.fnBlend.end() && fb->second.second < 1 && fb->second.first.expr)
+    r += (eval(*fb->second.first.expr, *this, depth) - r) * (1 - fb->second.second);
   this->x = ox;
   hasX = ohx;
   xName = on;
@@ -969,6 +971,8 @@ double Engine::surfaceAt(const Mark &s, double X, double Y, int depth) {
   const char *on = xName, *om = yName;
   this->x = X; this->y = Y; hasX = hasY = true; xName = "x"; yName = "y";
   double r = eval(*fn->expr, *this, depth);
+  if (auto fb = s.fnBlend.find("fn"); fb != s.fnBlend.end() && fb->second.second < 1 && fb->second.first.expr)
+    r += (eval(*fb->second.first.expr, *this, depth) - r) * (1 - fb->second.second);
   this->x = ox; this->y = oy; hasX = ohx; hasY = ohy; xName = on; yName = om;
   gEvalDepth--;
   return r;
@@ -1307,6 +1311,19 @@ void Engine::doMorph(const Line &ln) {
     return;
   }
 
+  if (ln.to.type == Value::EXPR && cur && cur->type == Value::EXPR && !std::isfinite(num(ln.to))) {
+    // a function of x (a curve, a surface) becomes another: the two blend over the morph (pathAt, surfaceAt)
+    o->fnBlend[ln.prop] = {*cur, dur > 0 ? 0.f : 1.f};
+    setProp(o->props, ln.prop, ln.to);
+    Active a;
+    a.kind = Active::STR; a.id = ln.id; a.prop = ln.prop; a.dur = dur;
+    a.ease = rateByName(ln.ease);
+    a.log = "morph " + target + " " + cur->markup() + " -> " + ln.to.markup();
+    actives_.push_back(a);
+    caption("change of function -> the curve bends from one to the other (" + target + ")");
+    return;
+  }
+
   double start = cur ? num(*cur) : (ln.hasFrom ? num(ln.from) : ln.prop == "opacity" ? 1 : 0);
   if (!std::isfinite(start)) start = ln.hasFrom ? num(ln.from) : 0;
   if (ln.hasFrom && cur) {
@@ -1593,6 +1610,7 @@ void Engine::tickActives(float dt) {
     } else if (a.kind == Active::STR && o) {
       auto it = o->strBlend.find(a.prop);
       if (it != o->strBlend.end()) it->second.second = e;
+      if (auto fb = o->fnBlend.find(a.prop); fb != o->fnBlend.end()) fb->second.second = e;
     } else if (a.kind == Active::CAM) {
       cam_.k = e;
     } else if (a.kind == Active::ORBIT) {
@@ -1624,6 +1642,7 @@ void Engine::tickActives(float dt) {
         if (auto it = o->strBlend.find(a.prop); it != o->strBlend.end() && a.prop == "tex")
           if (Mark *mk = mark(o->id)) { mk->texPrev = it->second.first; mk->texSettledAt = clock_; logTime("tex " + o->id); restDue_ = true; }
         o->strBlend.erase(a.prop);
+        o->fnBlend.erase(a.prop);
       }
       if (!a.log.empty()) {
         since_.push_back(a.log + " done");

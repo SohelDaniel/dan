@@ -719,3 +719,17 @@ TEST_CASE("a cue spoken without its own line never fires a later sentence's line
   runOut(e);
   CHECK(e.readback(false).find("v=1") != std::string::npos);
 }
+
+TEST_CASE("a curve morphed to another function blends between them; it never vanishes on the way") {
+  initFonts();
+  Engine e(live());
+  REQUIRE(e.loadText("schema axes x=[0,3] y=[0,10]\nmark f path fn={x^2} label=\"f\"\nwait 0.1s\nmorph f.fn -> {x^3} 2s\n"));
+  run(e, 1.1); // halfway through the morph
+  double mid = e.curveAt("f", 2);
+  CHECK(std::isfinite(mid));
+  CHECK(mid > 4.2);
+  CHECK(mid < 7.8);
+  runOut(e);
+  CHECK(e.curveAt("f", 2) == doctest::Approx(8));
+  CHECK(e.readback(false).find("fn={x^3}") != std::string::npos);
+}
