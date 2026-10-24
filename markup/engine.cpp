@@ -57,6 +57,7 @@ static void eachLine(const Script &s, const std::function<void(const Line &)> &f
 bool Engine::loadText(const std::string &text) {
   script_.parse(text);
   for (auto &e : script_.errors) std::fprintf(stderr, "parse: %s\n", e.c_str());
+  evalScan_.clear();
   analyze(true);
   prefetched_.clear();
   startShadow(text);
@@ -91,6 +92,9 @@ bool Engine::appendText(const std::string &text) {
     shadow_->runToEnd();
     applyPointers();
   }
+  // its values join the scales at the next sentence start, not now (mid-sentence, for no spoken reason); a stage
+  // nothing has been said on yet is still being set up: at once
+  if (sceneSpoken_) scanPending_ = true; else usePrescan();
   hookFired_.resize(script_.steps.size(), false);
   readbackPrinted_ = false; // report the scene again once this part has played
   idleSent_ = false;
@@ -114,15 +118,13 @@ bool Engine::appendText(const std::string &text) {
 }
 
 void Engine::analyze(bool fresh) {
-  // ---- prescan: every literal a property ever takes, so scales never jump (axiom 2)
+  // ---- prescan: every literal a property ever takes, so scales never jump (axiom 2); the values the script
+  // computes come from running it (sampleValues), and both become the scales in usePrescan
   scenePrescan_.clear();
   Prescan cur;
   auto see = [&](const std::string &k, const Value &v) {
     if (v.type != Value::NUM) return;
-    cur.maxAbs[k] = std::max(cur.maxAbs[k], std::fabs(v.num));
-    if (!cur.minVal.count(k)) cur.minVal[k] = cur.maxVal[k] = v.num;
-    cur.minVal[k] = std::min(cur.minVal[k], v.num);
-    cur.maxVal[k] = std::max(cur.maxVal[k], v.num);
+    cur.extent(k, v.num);
     bool isInt = std::fabs(v.num - std::round(v.num)) < 1e-9;
     cur.isInt[k] = cur.isInt.count(k) ? (cur.isInt[k] && isInt) : isInt;
   };
@@ -221,7 +223,6 @@ void Engine::analyze(bool fresh) {
   });
   closeScene();
   autoSchema_ = autoSchemas_[std::min(sceneIdx_, autoSchemas_.size() - 1)];
-  usePrescan();
 
   // ---- static lint
   if (fresh) lint_.clear();
@@ -288,10 +289,83 @@ void Engine::analyze(bool fresh) {
   });
 }
 
+void Engine::Prescan::extent(const std::string &k, double v) {
+  maxAbs[k] = std::max(maxAbs[k], std::fabs(v));
+  if (!minVal.count(k)) minVal[k] = maxVal[k] = v;
+  minVal[k] = std::min(minVal[k], v);
+  maxVal[k] = std::max(maxVal[k], v);
+}
+
+void Engine::Prescan::widen(const Prescan &o) {
+  for (auto &[k, lo] : o.minVal) { extent(k, lo); extent(k, o.maxVal.at(k)); }
+}
+
+// The prescan reads literals; the values a script computes ({expr}, and whatever a morph drives through one) are
+// read off an instant run of it: a live engine's shadow, or this engine itself when it is the instant one. Every
+// numeric value every mark holds, per scene. True if an extent grew.
+bool Engine::sampleValues() {
+  if (!opt_.instant || shadow_) return false; // a live engine's values come from its shadow (also while it interrupts)
+  if (evalScan_.size() <= sceneIdx_) evalScan_.resize(sceneIdx_ + 1);
+  Prescan &s = evalScan_[sceneIdx_];
+  bool grew = false;
+  for (auto &[id, m] : marks_)
+    for (auto &p : m.props) {
+      if (!p.val.isNumeric()) continue;
+      double v = num(p.val);
+      if (!std::isfinite(v)) continue;
+      auto lo = s.minVal.find(p.key);
+      if (lo != s.minVal.end() && v >= lo->second && v <= s.maxVal[p.key]) continue;
+      s.extent(p.key, v);
+      grew = true;
+    }
+  return grew;
+}
+
+// the current scene's extents, literal and run, become the active ones; a change re-derives the inferred ranges
 void Engine::usePrescan() {
+  scanPending_ = false;
   if (scenePrescan_.empty()) return;
-  const Prescan &p = scenePrescan_[std::min(sceneIdx_, scenePrescan_.size() - 1)];
+  size_t i = std::min(sceneIdx_, scenePrescan_.size() - 1);
+  Prescan p = scenePrescan_[i];
+  const std::vector<Prescan> &ran = shadow_ ? shadow_->evalScan_ : evalScan_;
+  if (i < ran.size()) p.widen(ran[i]);
+  if (p.maxAbs != maxAbs_ || p.minVal != minVal_ || p.maxVal != maxVal_) scanGen_++;
   maxAbs_ = p.maxAbs; minVal_ = p.minVal; maxVal_ = p.maxVal; propIsInt_ = p.isInt;
+}
+
+// does a thing on stage take its size or place from this property's extent? A bar's length or a dot's area from
+// its magnitude; a place on axes, in a space box, on a timeline or a number line whose range the author did not give
+bool Engine::scaledBy(const std::string &k) {
+  static const std::set<std::string> xs = {"x", "x1", "x2", "from", "to"}, ys = {"y", "y1", "y2"}, zs = {"z", "z1", "z2"}, ts = {"t", "at", "year"};
+  for (auto &[id, m] : marks_) {
+    std::string s = schemaOf(m), kind = effectiveKind(m);
+    const Props *sp = &schemaProps_;
+    for (auto &v : views_) if (v.id == m.view || (m.view.empty() && &v == &views_[0])) sp = &v.props;
+    auto given = [&](const char *key) { return findProp(*sp, key) != nullptr; };
+    if (isAxes(s)) { if ((xs.count(k) && !given("x")) || (ys.count(k) && !given("y"))) return true; }
+    else if (isSpace(s)) { if ((xs.count(k) && !given("x")) || (ys.count(k) && !given("y")) || (zs.count(k) && !given("z"))) return true; }
+    else if (s == "timeline") { if (ts.count(k) && !given("range")) return true; }
+    else if (s == "numberline") { if (kind == "dot" && magProp(m) == k && !given("range")) return true; }
+    else if ((kind == "bar" || kind == "dot") && magProp(m) == k) return true;
+  }
+  return false;
+}
+
+// Live, a later part of the script is in the prescan now. Its extents join the scales at the start of a sentence,
+// not the moment it arrived; a property that things on stage already show, whose extent moved, is said once: the
+// scale had to move under the learner, and the author could have named the range up front.
+void Engine::applyPending() {
+  if (!scanPending_) return;
+  std::map<std::string, double> lo = minVal_, hi = maxVal_;
+  usePrescan();
+  for (auto &[k, top] : maxVal_) {
+    auto was = lo.find(k);
+    if (was == lo.end() || (minVal_[k] >= was->second && top <= hi[k]) || grewLinted_.count(k) || !scaledBy(k)) continue;
+    grewLinted_.insert(k);
+    warn("structure: the scale of '" + k + "' moved from " + fmtNum(was->second) + "…" + fmtNum(hi[k]) + " to " +
+         fmtNum(minVal_[k]) + "…" + fmtNum(top) + " while things showing it were on stage (a later beat brought a value "
+         "outside it): give the range up front, max= on a bar or x=[…] y=[…] on the schema, or start a scene");
+  }
 }
 
 void Engine::reset() {
@@ -321,6 +395,10 @@ void Engine::reset() {
   nextSlot_ = 0;
   rangesInit_ = false;
   barScale_.clear();
+  dotScale_.clear();
+  grewLinted_.clear();
+  spaceOut_.clear();
+  sceneSpoken_ = false;
   graphSig_.clear();
   graphPos_.clear();
   flowMemo_.clear();
@@ -669,6 +747,10 @@ void Engine::clearStage() {
   labelSlots_.clear();
   linkSlots_.clear();
   barScale_.clear();
+  dotScale_.clear();
+  grewLinted_.clear();
+  spaceOut_.clear();
+  sceneSpoken_ = false;
   graphSig_.clear();
   graphPos_.clear();
   flowMemo_.clear();
@@ -1066,6 +1148,16 @@ void Engine::doMorph(const Line &ln) {
   recordActive(a, before);
   a.log = "morph " + target + " " + fmtNum(a.from) + " -> " + ln.to.markup();
   actives_.push_back(a);
+  if (opt_.instant) { // the values on the way: something driven by this one may peak between the ends (x(10-x))
+    Value *v = findProp(o->props, ln.prop);
+    Value keep = *v;
+    for (int i = 1; i < 8; i++) {
+      float k = i / 8.f;
+      *v = Value::number(a.from + (a.to - a.from) * (a.ease ? a.ease(k) : k));
+      sampleValues();
+    }
+    *v = keep;
+  }
 
   std::string ch = "its value";
   if (Mark *m = mark(ln.id)) {
@@ -1078,6 +1170,8 @@ void Engine::doMorph(const Line &ln) {
 }
 
 void Engine::startSay(const Line &ln) {
+  applyPending(); // a sentence start is where a scale may move (live): before this one's words
+  sceneSpoken_ = true;
   if (opt_.instant) sayFacts_ = stageFacts(); // for the binding check at the end of the sentence
   say_ = SayRun{};
   say_.active = true;
@@ -1429,6 +1523,7 @@ void Engine::update(float dt) {
   }
   tickSay(dt);
   tickActives(dt);
+  if (opt_.instant && sampleValues() && !scanPending_) usePrescan(); // the run reads what the prescan can't: as it goes
   bool moving = say_.active;
   for (auto &a : actives_) if (a.kind != Active::WAIT) moving = true;
   quiet_ = moving ? 0 : quiet_ + dt;
@@ -1643,8 +1738,10 @@ std::string Engine::readback(bool comments) {
     for (size_t i = 0; i < since_.size(); i++) o << (i ? ";" : "") << " " << since_[i];
     o << "\n";
   }
-  for (auto &l : lint_) // binding is judged per sentence against the whole script (--check), not mid-stream
-    if (l.rfind("binding:", 0) != 0) o << "# lint: " << l << "\n";
+  // binding is judged per sentence against the whole script (--check), not mid-stream; structure is about the
+  // live path (a scale that moved under the learner), not the scene: the server reads it off the stage's stderr
+  for (auto &l : lint_)
+    if (l.rfind("binding:", 0) != 0 && l.rfind("structure:", 0) != 0) o << "# lint: " << l << "\n";
   return o.str();
 }
 

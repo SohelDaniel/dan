@@ -130,6 +130,7 @@ function listSessions() {
 // ------------------------------------------------------------ the stage (tutor --stdin) and what it says
 let stage = null;
 const speech = { lines: [], current: null, speaking: false, lastText: '' }; // what the learner has heard this turn
+let stageLints = []; // what the stage itself reported while playing (a scale that moved under the learner): the check, which sees the whole text, cannot
 const stageAlive = () => stage && stage.exitCode === null && !stage.killed;
 function stageSend(line) {
   if (process.env.TUTOR_DEBUG) console.log('stage<', stageAlive(), line);
@@ -139,7 +140,16 @@ function spawnStage() {
   const args = [file('live.dan'), '--stdin', ...voiceArgs()];
   stage = spawn(TUTOR, args, { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'] }); // cwd ROOT: .inworld_key + caches
   stage.stdin.on('error', () => {});
-  stage.stderr.on('data', (d) => fs.appendFileSync(file('stage.log'), d)); // parse errors, voice failures
+  let errBuf = '';
+  stage.stderr.on('data', (d) => {
+    fs.appendFileSync(file('stage.log'), d); // parse errors, voice failures
+    errBuf += d;
+    let i;
+    while ((i = errBuf.indexOf('\n')) >= 0) {
+      const line = errBuf.slice(0, i); errBuf = errBuf.slice(i + 1);
+      if (line.startsWith('lint: structure:') && !stageLints.includes(line.slice(6))) stageLints.push(line.slice(6));
+    }
+  });
   let buf = '';
   stage.stdout.on('data', (d) => {
     buf += d;
@@ -324,7 +334,9 @@ function contextFor(text) {
   for (const n of lib)
     if (said.includes(n) || said.includes(n.replace(/-/g, ' ')))
       parts.push(`<library_scene name="${n}">\n${fs.readFileSync(libraryFile(n), 'utf8').trim()}\n</library_scene>`);
-  if (S.lints.length) parts.push(`<last_scene_issues>\n${S.lints.join('\n')}\n</last_scene_issues>`);
+  const issues = [...S.lints, ...stageLints.filter((l) => !S.lints.includes(l))];
+  stageLints = [];
+  if (issues.length) parts.push(`<last_scene_issues>\n${issues.join('\n')}\n</last_scene_issues>`);
   if (S.note) { parts.push(S.note); S.note = ''; }
   const sets = Object.entries(S.learnerSet);
   if (sets.length) parts.push(`<learner_set>\n${sets.map(([id, v]) => `${id} = ${v}`).join('\n')}\n(the learner dragged these sliders before writing; react to what that showed)\n</learner_set>`);

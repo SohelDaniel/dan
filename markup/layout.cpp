@@ -70,6 +70,13 @@ float Engine::dotRadius(const Mark &m) {
   std::string k = magProp(m);
   if (k.empty()) return 16;
   double mx = std::max(1e-9, maxAbs_.count(k) ? maxAbs_[k] : 1.0);
+  // the scale (px per root unit, as a bar's is px per unit) eases when the extent moves (live, a later beat), at
+  // the bars' rate: an area never jumps
+  float target = (float)(1 / std::sqrt(mx));
+  auto ds = dotScale_.find(k);
+  if (ds == dotScale_.end()) ds = dotScale_.emplace(k, target).first;
+  else if (dotEased_.insert(k).second) ds->second = opt_.instant ? target : smoothApproach(ds->second, target, lastDt_, 9);
+  mx = 1.0 / std::max(1e-12, (double)ds->second * ds->second);
   double v = std::fabs(num(m, k));
   if (!std::isfinite(v)) v = 0;
   return (float)std::max(s == "graph" ? 14.0 : 5.0, std::sqrt(std::min(v, mx * 4) / mx) * 44.0); // area ∝ magnitude
@@ -440,7 +447,7 @@ bool Engine::anchorBox(const std::string &ref, Rectangle &out) {
 // ================================================================ ranges (eased, stable)
 void Engine::computeRanges(float dt) {
   std::string s = schemaNow();
-  std::string sig = s + "|" + std::to_string(marks_.size());
+  std::string sig = s + "|" + std::to_string(marks_.size()) + "|" + std::to_string(scanGen_); // a mark arrived, or the extents moved
   bool recompute = sig != rangeSig_;
   rangeSig_ = sig;
   float k = rangesInit_ ? std::min(1.f, dt * 5) : 1.f;
@@ -786,6 +793,7 @@ void Engine::layout(float dt) {
 
   seqRow_.clear(); // a sequence schema fills it this frame
   barEased_.clear();
+  dotEased_.clear();
   if (!views_.empty()) layoutViews(stage, body);
   else {
     if (s != "graph" || body.empty()) linkRoute_.clear();

@@ -371,7 +371,7 @@ Engine::SpaceShape Engine::spaceShape(const Mark &m) {
 // worked out when things are added and eased there (a scale never jumps)
 void Engine::spaceRanges() {
   SpaceView &v = spc_;
-  std::string sig = std::to_string(marks_.size());
+  std::string sig = std::to_string(marks_.size()) + "|" + std::to_string(scanGen_); // a mark arrived, or the extents moved
   for (auto &p : schemaProps_) sig += "|" + p.key + "=" + p.val.markup();
   if (sig != v.rangeSig || !v.rangesInit) {
     v.rangeSig = sig;
@@ -528,8 +528,9 @@ void Engine::layoutSpace(Rectangle area, float dt) {
         double pad = (v.hi[i] - v.lo[i]) * 0.02;
         if (c[i] < v.lo[i] - pad || c[i] > v.hi[i] + pad) {
           const char *axis[3] = {"x", "y", "z"};
-          warn("space: '" + m->id + "' reaches " + axis[i] + " = " + fmtNum(c[i]) + ", outside the box (" + axis[i] + "=[" +
-               fmtNum(v.lo[i]) + ", " + fmtNum(v.hi[i]) + "]): widen the schema's " + axis[i] + "=[…] so it stays in view");
+          if (spaceOut_.insert(m->id + "." + axis[i]).second) // once per thing and axis, not once per frame
+            warn("space: '" + m->id + "' reaches " + axis[i] + " = " + fmtNum(c[i]) + ", outside the box (" + axis[i] + "=[" +
+                 fmtNum(v.lo[i]) + ", " + fmtNum(v.hi[i]) + "]): widen the schema's " + axis[i] + "=[…] so it stays in view");
           return true;
         }
       }

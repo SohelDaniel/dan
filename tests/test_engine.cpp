@@ -8,10 +8,14 @@
 
 using namespace mk;
 
-// a scene played to its end, instantly
-static Engine &played(Engine &e, const std::string &text) {
+static void initFonts() {
   static bool fonts = (SetTraceLogLevel(LOG_ERROR), rm::initFontMetrics(nullptr), true);
   (void)fonts;
+}
+
+// a scene played to its end, instantly
+static Engine &played(Engine &e, const std::string &text) {
+  initFonts();
   REQUIRE(e.loadText(text));
   e.runToEnd();
   for (int i = 0; i < 5; i++) e.update(1.f / 60);
@@ -475,4 +479,96 @@ TEST_CASE("a formula part pointed at with indicate f[part] is a named part: no t
   bool bareLint = false;
   for (auto &w : bare.lintMessages()) if (w.find("textcolor{sq}") != std::string::npos) bareLint = true;
   CHECK(bareLint);
+}
+
+// ---- axiom 2, Structure: scales fixed by the prescan, also for values the script computes, also live
+
+// a live engine without a window or a voice (sentences on estimated timing), stepped at 60 fps
+static EngineOptions live() {
+  EngineOptions o;
+  o.quiet = true;
+  return o;
+}
+static void run(Engine &e, float seconds) { for (int i = 0; i < (int)std::lround(seconds * 60); i++) e.update(1.f / 60); }
+static void runOut(Engine &e) {
+  for (int g = 0; g < 60 * 300 && !e.finished(); g++) e.update(1.f / 60);
+  run(e, 1); // and settle
+}
+static Rectangle inkBox(Engine &e, const std::string &id) {
+  place::Picture p = e.picture();
+  const place::Ink *b = body(p, id);
+  REQUIRE(b);
+  return {b->box.x, b->box.y, b->box.w, b->box.h};
+}
+static bool offScreen(Engine &e) {
+  std::vector<std::string> msgs;
+  e.layoutCheck(&msgs);
+  for (auto &m : msgs) if (m.find("off the screen") != std::string::npos) return true;
+  return false;
+}
+
+static const char *kExprBar = "title \"A bar driven by an expression\"\nmark clock param value=0\n"
+                              "mark a bar score value=3 label=\"a\"\nmark b bar score value={clock*clock} label=\"b\"\n"
+                              "Say: \"a is three, b starts at zero.\"\nSay: \"Now b |go|grows to thirty-six.\"\n"
+                              "@go morph clock.value 0 -> 6 4s ease=linear\nSay: \"And a never moved.\"\n";
+
+TEST_CASE("structure: a bar whose value is an expression is in the prescan too, so the shared scale never moves") {
+  initFonts();
+  Engine e(live());
+  REQUIRE(e.loadText(kExprBar));
+  run(e, 2); // a has entered, b is still zero
+  float before = inkBox(e, "a").height;
+  runOut(e); // b grew to 36
+  float after = inkBox(e, "a").height;
+  CHECK(after > 10);
+  CHECK(std::fabs(before - after) < 1); // a's three never changed, nor did its bar
+  for (auto &l : e.lintMessages()) CHECK(l.rfind("structure:", 0) != 0); // a whole script: nothing moved
+}
+
+TEST_CASE("structure: a dot driven by a param keeps to its inferred axes; the same for a point in a space") {
+  initFonts();
+  Engine e(live());
+  REQUIRE(e.loadText("title \"A dot driven by a param, no ranges\"\nmark k param value=2\nmark p dot x=1 y=1 label=\"p\"\n"
+                     "mark q dot x={k} y=3 label=\"q\"\nSay: \"p and q.\"\nSay: \"q |go|slides to twelve.\"\n"
+                     "@go morph k.value 2 -> 12 2s\nSay: \"Where did it go?\"\n"));
+  runOut(e);
+  CHECK(!offScreen(e));
+  Engine s(live());
+  REQUIRE(s.loadText("title \"A point leaves the box\"\nschema space\nmark k param value=1\nmark p dot x={k} y=0 z=0 label=\"p\"\n"
+                     "Say: \"p |go|moves to ten.\"\n@go morph k.value 1 -> 10 2s\nSay: \"Gone.\"\n"));
+  runOut(s);
+  CHECK(!offScreen(s));
+  int spaceLints = 0;
+  for (auto &l : s.lintMessages()) if (l.rfind("space:", 0) == 0) spaceLints++;
+  CHECK(spaceLints == 0); // the box was sized for the whole path
+}
+
+TEST_CASE("structure, live: a later beat's bigger value joins the scales at the next sentence start, eased, with one lint") {
+  initFonts();
+  Engine e(live());
+  REQUIRE(e.loadText("title \"Streamed dots with a magnitude\"\nmark a dot size v=4 label=\"a\"\nmark b dot size v=9 label=\"b\"\n"
+                     "Say: \"a is four and b is nine.\"\n"));
+  runOut(e);
+  float r0 = inkBox(e, "a").width / 2;
+  REQUIRE(e.appendText("mark c dot size v=100 label=\"c\"\nSay: \"And c is a hundred.\"\n"));
+  e.update(1.f / 60); // c enters and its sentence starts: the scale begins to move now
+  float r1 = inkBox(e, "a").width / 2;
+  runOut(e);
+  float r2 = inkBox(e, "a").width / 2;
+  CHECK(r2 < r0 * 0.5f);                         // the scale did move: a is smaller next to a hundred
+  CHECK(std::fabs(r1 - r0) < 0.25f * (r0 - r2)); // but not in one frame
+  int structure = 0;
+  for (auto &l : e.lintMessages()) if (l.rfind("structure:", 0) == 0) { structure++; CHECK(l.find("'v'") != std::string::npos); }
+  CHECK(structure == 1);
+}
+
+TEST_CASE("structure, live: a morph-only beat that pushes a thing past the inferred axes widens them; it never leaves the plot") {
+  initFonts();
+  Engine e(live());
+  REQUIRE(e.loadText("title \"Streamed dots on inferred axes\"\nmark p dot x=1 y=1 label=\"p\"\nmark q dot x=2 y=3 label=\"q\"\n"
+                     "Say: \"p and q sit near the origin.\"\n"));
+  runOut(e);
+  REQUIRE(e.appendText("Say: \"q |go|slides to twelve.\"\n@go morph q.x 2 -> 12 1s\n"));
+  runOut(e);
+  CHECK(!offScreen(e));
 }

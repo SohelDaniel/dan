@@ -483,9 +483,21 @@ private:
   struct Prescan {
     std::map<std::string, double> maxAbs, minVal, maxVal;
     std::map<std::string, bool> isInt;
+    void extent(const std::string &k, double v); // k takes the value v
+    void widen(const Prescan &o);                // and everything o saw
   };
-  std::vector<Prescan> scenePrescan_;
-  void usePrescan(); // make the current scene's prescan the active one
+  std::vector<Prescan> scenePrescan_; // every literal the script writes, per scene
+  std::vector<Prescan> evalScan_;     // every value an instant run of it reached ({expr} included), per scene: this
+                                      // engine's own run when it is instant, else its shadow's
+  bool sampleValues();                // instant: read the values on stage into evalScan_ (true if an extent grew)
+  void usePrescan();                  // make the current scene's extents (literal and run) the active ones
+  void applyPending();                // live: a later part's extents join at a sentence start, with a lint if a scale moved
+  bool scaledBy(const std::string &k); // a thing on stage takes its size or place from this property's extent
+  bool scanPending_ = false;          // a later part arrived; its extents wait for the next sentence
+  bool sceneSpoken_ = false;          // a sentence has started since the stage was last empty (before that, extents apply at once)
+  int scanGen_ = 0;                   // bumped when the active extents change: inferred ranges re-derive (eased)
+  std::set<std::string> grewLinted_;  // properties already told their scale moved (per scene)
+  std::set<std::string> spaceOut_;    // things already told they left the space box, by axis (per scene)
 
   // colors
   std::map<std::string, int> colorSlot_;
@@ -501,6 +513,8 @@ private:
   rm::NumberLine nl_;
   std::map<std::string, float> barScale_; // eased px/unit per property
   std::set<std::string> barEased_;        // the scales eased this frame (each once)
+  std::map<std::string, float> dotScale_; // eased px per root unit per property, for dot areas (as barScale_)
+  std::set<std::string> dotEased_;
   std::map<std::string, std::string> graphSig_; // per view ("" for the scene's one graph)
   std::map<std::string, Vector2> graphPos_;
   // views: named schemas sharing the stage (schema net graph / schema loss axes …), in declaration order.

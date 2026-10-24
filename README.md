@@ -265,7 +265,7 @@ mark t   table cols=3 cells=[step,lo,hi, 1,0,4]                          # first
 
 ### Properties
 
-- A number is a **magnitude**. The first non-positional numeric property is drawn as size: bar length or dot area.
+- A number is a **magnitude**. The first non-positional numeric property is drawn as size: bar length or dot area. One scale per property, fixed for the whole script (every value it will reach, computed ones too); `max=`/`min=` on a bar name a larger extent up front, for a value only a later turn will bring.
 - A word is a **category**. The bare word after the kind (`mark alice bar account …`) or the first text property (`status=overdue`) is drawn as color.
 - Positional keys: `x y` (axes), `t` (timeline), `x1 y1 x2 y2` or `x y slope` (lines), `from to of` (regions; `n=6` draws the area as 6 slices, the Riemann picture), `fn` (paths), `domain=[a,b]`.
 - Axis titles: `schema axes xlabel="time (s)" ylabel="speed (m/s)"`. Name what each axis means.
@@ -347,7 +347,7 @@ If no schema is given, one is inferred. Paths, regions or `x=` give `axes`. `t=`
 | model | channel | where |
 | --- | --- | --- |
 | thing | a mark with a stable id | `doMark`; there is no delete |
-| magnitude | bar length / dot area, from a shared zero | `layoutFree`: one scale per property, fixed by pre-scanning every value the script ever uses |
+| magnitude | bar length / dot area, from a shared zero | `layoutFree`: one scale per property, fixed by pre-scanning every literal and running the script ahead for the values it computes |
 | category | color | `colorOf`: one palette slot per category, and every uncategorized thing gets its own slot |
 | order | position | the schema's axis; in a graph, the column a thing's links give it, then declaration order within the column (`place/flow`) |
 | part-of | enclosure | `drawGroup`; in a graph, a lane: its parts stay together, and stages line up across lanes |
@@ -360,7 +360,7 @@ If no schema is given, one is inferred. Paths, regions or `x=` give `axes`. `t=`
 ## Axioms, enforced
 
 1. **Identity.** There is no delete verb. A re-mark updates in place. A `morph … from X` that doesn't match the real value is warned about and animated from the real value, so there are no jump cuts.
-2. **Structure.** Bars share a zero baseline. Scales are per property and never jump mid-script, because the whole script is pre-scanned.
+2. **Structure.** Bars share a zero baseline. Scales are per property and never jump mid-script, because the whole script is pre-scanned and run ahead: the values it computes (`{expr}`, what a morph drives through one) count as much as the ones it writes. Live, where a later beat can bring a value outside the scale, the scale moves once, eased, at the next sentence start, and the stage says so (`structure:`).
 3. **Zero.** Unrelated things never share a color. Two things share ink only when the script relates them (`of=`, `on=`/`in=`/`over=`, `at=`, a name and its thing, data placed on one plot), because touching reads as a relation. Everything else is kept apart by construction where it can be (the band of formulas never reaches into a plot; a note's name never sits on another part of a formula), pulled apart in graph layouts, and otherwise reported by the checker, which sees every view's plot, ticks and title too. Where position is data (axes, number line), an overlap is reported as a lint, because coinciding reads as "equal".
 4. **Continuity.** Every change is a morph with easing. New marks grow in, links draw themselves, and focus fades.
 5. **Bounded focus.** `focus` lights one thing (or a group and its parts) and dims the rest, for one sentence: the one it is cued in, or the next one if it stands between sentences. Then everything is at full strength again.
