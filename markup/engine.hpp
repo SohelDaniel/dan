@@ -293,6 +293,7 @@ private:
   void analyze(bool fresh);                 // prescan + static lint over the whole script
   void execStep(size_t idx);
   void execLine(const Line &ln);
+  void updateProps(Obj &o, const Props &props);
   void doMark(const Line &ln);
   void doLink(const Line &ln);
   void doGroup(const Line &ln);

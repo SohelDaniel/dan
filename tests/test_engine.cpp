@@ -733,3 +733,23 @@ TEST_CASE("a curve morphed to another function blends between them; it never van
   CHECK(e.curveAt("f", 2) == doctest::Approx(8));
   CHECK(e.readback(false).find("fn={x^3}") != std::string::npos);
 }
+
+TEST_CASE("a re-mark eases every number it changes: to an expression, on a link, on a group; it lands on what was written") {
+  initFonts();
+  Engine e(live());
+  REQUIRE(e.loadText("schema axes x=[0,6] y=[0,6]\nmark k param value=4\nmark p dot x=1 y=1 label=\"P\"\n"
+                     "mark a box label=\"A\"\nmark b box label=\"B\"\nwait 0.5s\nmark p x={k} y={k}\n"));
+  run(e, 0.55); // just after the re-mark: on its way, neither where it was nor where it goes
+  std::string rb = e.readback(false);
+  CHECK(rb.find("x={k}") == std::string::npos);
+  CHECK(rb.find("x=1 ") == std::string::npos);
+  runOut(e);
+  CHECK(e.readback(false).find("x={k}") != std::string::npos);
+  Engine g(live());
+  REQUIRE(g.loadText("mark a box label=\"A\"\nmark b box label=\"B\"\nlink w arrow a -> b w=0.5\nwait 0.5s\nmark w w=0.9\n"));
+  run(g, 0.55); // a frame or two after the re-mark: still on its way
+  std::string mid = g.readback(false);
+  CHECK(mid.find("w=0.9") == std::string::npos);
+  runOut(g);
+  CHECK(g.readback(false).find("w=0.9") != std::string::npos);
+}

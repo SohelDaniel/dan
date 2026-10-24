@@ -1141,9 +1141,46 @@ void Engine::execLine(const Line &ln) {
   }
 }
 
+// A re-mark of a mark, a link or a group: each property it names changes in place, eased like a morph (axioms 1, 4)
+void Engine::updateProps(Obj &o, const Props &props) {
+  for (auto &p : props) {
+    settleActive(o.id, p.key);
+    Value *cur = findProp(o.props, p.key);
+    double was = cur && cur->isNumeric() ? num(*cur) : NAN, to = p.val.isNumeric() ? num(p.val) : NAN;
+    if (std::isfinite(was) && std::isfinite(to) && (was != to || cur->markup() != p.val.markup())) {
+      // a number, or an expression ({k}): eased from where it is, landing on what was written
+      Active a;
+      a.kind = Active::NUM; a.id = o.id; a.prop = p.key;
+      a.from = was; a.to = to; a.finalVal = p.val;
+      a.dur = opt_.instant ? 0 : 0.7f;
+      a.blocking = false;
+      a.log = "mark " + o.id + "." + p.key + " " + fmtNum(a.from) + " -> " + fmtNum(a.to);
+      recordActive(a, *cur);
+      actives_.push_back(a);
+    } else if (cur && cur->type == Value::LIST && p.val.type == Value::LIST && cur->markup() != p.val.markup()) {
+      // a list re-marked: points glide, array items travel to their new cells
+      o.strBlend[p.key] = {cur->markup(), opt_.instant ? 1.f : 0.f};
+      *cur = p.val;
+      Active a;
+      a.kind = Active::STR; a.id = o.id; a.prop = p.key; a.dur = opt_.instant ? 0 : 0.9f; a.blocking = false;
+      actives_.push_back(a);
+    } else if (cur && cur->type == Value::STR && p.val.type == Value::STR && cur->str != p.val.str) {
+      o.strBlend[p.key] = {cur->str, opt_.instant ? 1.f : 0.f};
+      *cur = p.val;
+      if (Mark *mk = mark(o.id); mk && p.key == catProp(*mk)) colorForKey("cat:" + p.val.str); // only a category's new value is a colour (not a label, a pointer's at=)
+      Active a;
+      a.kind = Active::STR; a.id = o.id; a.prop = p.key; a.dur = opt_.instant ? 0 : 0.8f; a.blocking = false;
+      actives_.push_back(a);
+    } else {
+      if (p.val.isNumeric() || (cur && cur->isNumeric())) recordSet(o.id, p.key, cur ? *cur : Value::number(NAN), p.val);
+      setProp(o.props, p.key, p.val);
+    }
+  }
+}
+
 void Engine::doMark(const Line &ln) {
   if (auto lk = links_.find(ln.id); lk != links_.end()) { // "mark w11 color=yellow" on a link: update it in place
-    for (auto &p : ln.props) setProp(lk->second.props, p.key, p.val);
+    updateProps(lk->second, ln.props);
     caption("re-mark " + ln.id + " -> the link updates in place (identity)");
     return;
   }
@@ -1191,37 +1228,7 @@ void Engine::doMark(const Line &ln) {
     a.kind = Active::STR; a.id = m.id; a.prop = "@category"; a.dur = opt_.instant ? 0 : 0.8f; a.blocking = false;
     actives_.push_back(a);
   }
-  for (auto &p : ln.props) {
-    settleActive(m.id, p.key);
-    Value *cur = findProp(m.props, p.key);
-    if (cur && cur->type == Value::NUM && p.val.type == Value::NUM && cur->num != p.val.num) {
-      Active a;
-      a.kind = Active::NUM; a.id = m.id; a.prop = p.key;
-      a.from = cur->num; a.to = p.val.num; a.finalVal = p.val;
-      a.dur = opt_.instant ? 0 : 0.7f;
-      a.blocking = false;
-      a.log = "mark " + m.id + "." + p.key + " " + fmtNum(a.from) + " -> " + fmtNum(a.to);
-      recordActive(a, *cur);
-      actives_.push_back(a);
-    } else if (cur && cur->type == Value::LIST && p.val.type == Value::LIST && cur->markup() != p.val.markup()) {
-      // a list re-marked: points glide, array items travel to their new cells
-      m.strBlend[p.key] = {cur->markup(), opt_.instant ? 1.f : 0.f};
-      *cur = p.val;
-      Active a;
-      a.kind = Active::STR; a.id = m.id; a.prop = p.key; a.dur = opt_.instant ? 0 : 0.9f; a.blocking = false;
-      actives_.push_back(a);
-    } else if (cur && cur->type == Value::STR && p.val.type == Value::STR && cur->str != p.val.str) {
-      m.strBlend[p.key] = {cur->str, opt_.instant ? 1.f : 0.f};
-      *cur = p.val;
-      if (p.key == catProp(m)) colorForKey("cat:" + p.val.str); // only a category's new value is a colour (not a label, a pointer's at=)
-      Active a;
-      a.kind = Active::STR; a.id = m.id; a.prop = p.key; a.dur = opt_.instant ? 0 : 0.8f; a.blocking = false;
-      actives_.push_back(a);
-    } else {
-      if (p.val.isNumeric() || (cur && cur->isNumeric())) recordSet(m.id, p.key, cur ? *cur : Value::number(NAN), p.val);
-      setProp(m.props, p.key, p.val);
-    }
-  }
+  updateProps(m, ln.props);
   caption("re-mark " + m.id + " -> same mark, updated in place (identity)");
 }
 
@@ -1238,7 +1245,7 @@ void Engine::doLink(const Line &ln) {
   } else {
     Link &l = it->second;
     l.kind = ln.kind; l.a = ln.a; l.b = ln.b; l.directed = ln.directed;
-    for (auto &p : ln.props) setProp(l.props, p.key, p.val);
+    updateProps(l, ln.props);
   }
   if (ln.kind == "arrow") caption("relation (cause / maps-to) -> an arrow between the marks");
   else if (ln.kind == "similar") caption("relation (similar) -> dashed link marked ≈");
@@ -1257,7 +1264,7 @@ void Engine::doGroup(const Line &ln) {
     groups_.emplace(ln.id, g);
   } else {
     it->second.members = ln.members;
-    for (auto &p : ln.props) setProp(it->second.props, p.key, p.val);
+    updateProps(it->second, ln.props);
   }
   caption("part-of -> an enclosure around " + std::to_string(ln.members.size()) + " parts");
 }
