@@ -29,6 +29,9 @@ tutor write [f.dan]   # a playground: an editor in the browser, the stage beside
 ```
 
 - In the browser: model, thinking level, voice on/off, which voice (Inworld's 166 English voices) and speed.
+- **Images and PDFs**: paste, drop, or 📎 in the browser. They are kept in the chat's `attachments/` folder and sent
+  to Claude with the message as image / document blocks (photos scaled to 1600 px in the browser), with an
+  `<attachments>` note in the context.
   The choices are remembered in `chat/settings.json` (gitignored); flags given to `tutor` win.
 - **After changing the engine, the prompt or the server, run `tutor restart`.** `bin/tutor` rebuilds the engine
   first, and the server relaunches the stage.

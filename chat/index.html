@@ -77,6 +77,16 @@
   textarea:focus { outline: 2px solid var(--me); outline-offset: -1px; }
   #send { background: var(--me); color: #fff; border: none; height: 42px; padding: 0 16px; border-radius: 10px; }
   .hint { max-width: 720px; margin: 6px auto 0; color: var(--muted); font-size: 12px; }
+  #attach { background: none; border: 1px solid var(--line); color: var(--ink); height: 42px; width: 42px; border-radius: 10px; font-size: 18px; }
+  .files { max-width: 720px; margin: 0 auto 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .files:empty { display: none; }
+  .file { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 8px;
+    padding: 3px 6px; font-size: 12px; background: var(--bg); max-width: 260px; }
+  .file img { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; }
+  .file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file button { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 14px; }
+  .bubble .att { display: block; margin-top: 4px; font-size: 12px; opacity: .85; }
+  form.drop { outline: 2px dashed var(--me); outline-offset: -6px; }
   .hint.turn { color: var(--now); }
 
   dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); width: min(640px, 92vw); padding: 16px; }
@@ -129,8 +139,11 @@
   <main id="log"></main>
 
   <form id="f">
+    <div class="files" id="files"></div>
     <div class="row">
-      <textarea id="in" rows="1" placeholder="Ask anything… (or type straight onto the stage window)" autofocus></textarea>
+      <button type="button" id="attach" title="Attach images or PDFs (or paste / drop them here)">📎</button>
+      <input type="file" id="pick" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf" multiple hidden>
+      <textarea id="in" rows="1" placeholder="Ask anything… paste or drop an image or PDF (or type straight onto the stage window)" autofocus></textarea>
       <button id="send">Send</button>
     </div>
     <div class="hint" id="hint">The stage answers by speaking and drawing. Typing while it talks interrupts it. Paused (space)? Type ? on the stage to ask about that moment.</div>
@@ -165,8 +178,9 @@ function add(cls, html) {
   if (stick) log.scrollTop = log.scrollHeight;
   return d;
 }
-function userMsg(text, source) {
-  add('me', `<div class="bubble">${esc(text)}</div>` + (source === 'stage' ? '<div class="src">typed on the stage</div>' : ''));
+function userMsg(text, source, files) {
+  const att = (files || []).map((f) => `<span class="att">${f.type === 'application/pdf' ? '📄' : '🖼'} ${esc(f.name)}</span>`).join('');
+  add('me', `<div class="bubble">${esc(text)}${att}</div>` + (source === 'stage' ? '<div class="src">typed on the stage</div>' : ''));
 }
 
 // ---- a tutor block: chips, spoken lines, then details
@@ -235,7 +249,7 @@ async function load() {
   log.innerHTML = ''; block = null;
   if (!r.messages.length) emptyState(r.library);
   for (const m of r.messages) {
-    if (m.role === 'user') { userMsg(m.text, m.source); continue; }
+    if (m.role === 'user') { userMsg(m.text, m.source, m.files); continue; }
     const b = newBlock();
     if (m.memory) chip(b, 'mem', '🧠 remembered');
     if (m.cut) chip(b, 'cut', 'interrupted');
@@ -280,7 +294,7 @@ let turnMeta = {};
 es.onmessage = (msg) => {
   const e = JSON.parse(msg.data);
   if (e.t === 'user') {
-    userMsg(e.text, e.source);
+    userMsg(e.text, e.source, e.files);
     block = newBlock(); turnMeta = {};
     thinking(block, true);
     $('#hint').textContent = 'The stage answers by speaking and drawing. Typing while it talks interrupts it. Paused (space)? Type ? on the stage to ask about that moment.';
@@ -311,12 +325,56 @@ es.onmessage = (msg) => {
 
 const post = (u, b) => fetch(u, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b || {}) })
   .then((r) => r.json());
+// ---- attachments: images and PDFs, pasted, dropped or picked; they go with the next message
+let pending = []; // { name, type, data (base64), url (a preview) }
+const ACCEPT = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf'];
+const readB64 = (blob) => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = no; r.readAsDataURL(blob); });
+// a photo straight off a phone is too big to send: scale it so its long side is at most 1600 px (what Claude sees anyway)
+async function shrink(file) {
+  if (!file.type.startsWith('image/') || file.type === 'image/gif') return file;
+  const img = await createImageBitmap(file).catch(() => null);
+  if (!img || (Math.max(img.width, img.height) <= 1600 && file.size < 3e6)) return file;
+  const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+  const c = Object.assign(document.createElement('canvas'), { width: Math.round(img.width * k), height: Math.round(img.height * k) });
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return new Promise((ok) => c.toBlob((b) => ok(new File([b], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' })), 'image/jpeg', 0.88));
+}
+async function addFiles(list) {
+  for (let f of list) {
+    if (!ACCEPT.includes(f.type)) { alert(`${f.name || 'That file'}: only images (PNG, JPEG, GIF, WebP) and PDFs can be attached.`); continue; }
+    f = await shrink(f);
+    if (f.size > 30e6) { alert(`${f.name}: too big (over 30 MB).`); continue; }
+    pending.push({ name: f.name || (f.type === 'application/pdf' ? 'document.pdf' : 'pasted image.png'), type: f.type, data: await readB64(f),
+      url: f.type.startsWith('image/') ? URL.createObjectURL(f) : '' });
+  }
+  showFiles();
+}
+function showFiles() {
+  $('#files').innerHTML = pending.map((f, i) => `<span class="file">${f.url ? `<img src="${f.url}" alt="">` : '📄'}<span>${esc(f.name)}</span>` +
+    `<button type="button" data-i="${i}" title="Remove">✕</button></span>`).join('');
+}
+$('#files').onclick = (e) => { const i = e.target.dataset?.i; if (i != null) { pending.splice(+i, 1); showFiles(); } };
+$('#attach').onclick = () => $('#pick').click();
+$('#pick').onchange = (e) => { addFiles([...e.target.files]); e.target.value = ''; };
+input.addEventListener('paste', (e) => {
+  const files = [...(e.clipboardData?.files || [])];
+  if (files.length) { e.preventDefault(); addFiles(files); }
+});
+const form = $('#f');
+form.addEventListener('dragover', (e) => { e.preventDefault(); form.classList.add('drop'); });
+form.addEventListener('dragleave', () => form.classList.remove('drop'));
+form.addEventListener('drop', (e) => { e.preventDefault(); form.classList.remove('drop'); addFiles([...(e.dataTransfer?.files || [])]); });
+document.addEventListener('dragover', (e) => e.preventDefault()); // a file dropped beside the box isn't opened as a page
+document.addEventListener('drop', (e) => { if (!form.contains(e.target)) { e.preventDefault(); addFiles([...(e.dataTransfer?.files || [])]); } });
+
 $('#f').onsubmit = (e) => {
   e.preventDefault();
-  const t = input.value.trim(); if (!t) return;
+  const t = input.value.trim(); if (!t && !pending.length) return;
   input.value = ''; input.style.height = '';
-  if (t.startsWith('?')) post('/api/explain', { text: t.slice(1).trim() }); // about the paused moment, beside the lesson
-  else post('/api/send', { text: t, model: $('#model').value, effort: $('#effort').value });
+  if (t.startsWith('?') && !pending.length) { post('/api/explain', { text: t.slice(1).trim() }); return; } // about the paused moment, beside the lesson
+  const files = pending.map(({ name, type, data }) => ({ name, type, data }));
+  pending.forEach((f) => f.url && URL.revokeObjectURL(f.url)); pending = []; showFiles();
+  post('/api/send', { text: t, files, model: $('#model').value, effort: $('#effort').value });
 };
 input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#f').requestSubmit(); } });
 input.addEventListener('input', () => { input.style.height = ''; input.style.height = input.scrollHeight + 'px'; });

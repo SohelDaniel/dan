@@ -304,15 +304,39 @@ function heardSoFar() {
   return parts.join(' ');
 }
 
-function submit(text, source) {
+// Files the learner attached (pasted, dropped or picked in the browser): images and PDFs. Each is kept in the chat's
+// attachments/ folder and goes to Claude with the message, as the stage frame does: an image block or a document.
+const ATTACH_TYPES = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif', 'image/webp': '.webp', 'application/pdf': '.pdf' };
+function saveAttachments(files) {
+  const out = [];
+  for (const f of Array.isArray(files) ? files : []) {
+    const ext = ATTACH_TYPES[f?.type];
+    if (!ext || typeof f.data !== 'string') continue;
+    const dir = path.join(S.dir, 'attachments');
+    fs.mkdirSync(dir, { recursive: true });
+    const name = `${Date.now()}-${out.length}-${path.basename(String(f.name || 'file')).replace(/[^\w.-]+/g, '_').slice(0, 60)}`;
+    const where = path.join(dir, name.endsWith(ext) ? name : name + ext);
+    fs.writeFileSync(where, Buffer.from(f.data, 'base64'));
+    out.push({ name: String(f.name || path.basename(where)), type: f.type, path: where });
+  }
+  return out;
+}
+const attachmentBlock = (a) => ({
+  type: a.type === 'application/pdf' ? 'document' : 'image',
+  source: { type: 'base64', media_type: a.type, data: fs.readFileSync(a.path).toString('base64') },
+});
+
+function submit(text, source, files) {
   text = String(text || '').trim();
+  const attached = saveAttachments(files);
+  if (!text && attached.length) text = attached.some((a) => a.type === 'application/pdf') ? 'Explain this.' : 'Explain what this shows.';
   if (!text) return;
-  broadcast({ t: 'user', text, source });
+  broadcast({ t: 'user', text, source, files: attached.map((a) => ({ name: a.name, type: a.type })) });
   stageSend(`#!state thinking ${text.replace(/\n/g, ' ')}`);
   broadcast({ t: 'state', v: 'thinking' });
   if (S.busy) { // still writing: cut it here, answer this next
     S.cut = true;
-    S.pending = { text, source };
+    S.pending = { text, source, attached };
     S.note = `(The learner interrupted you. They had heard: "${heardSoFar()}". The rest of your last answer was not shown.)`;
     stageSend('#!interrupt');
     return;
@@ -321,10 +345,10 @@ function submit(text, source) {
     S.note = `(The learner interrupted you. They had heard: "${heardSoFar()}". The rest of that answer was skipped.)`;
     stageSend('#!interrupt');
   }
-  runTurn(text, source);
+  runTurn(text, source, undefined, attached);
 }
 
-function contextFor(text) {
+function contextFor(text, attached = []) {
   const parts = [];
   const mem = fs.readFileSync(MEMORY, 'utf8');
   if (mem !== S.memSent) { parts.push(`<memory>\n${mem.trim()}\n</memory>`); S.memSent = mem; }
@@ -344,16 +368,17 @@ function contextFor(text) {
   if (/\b(show me (what|everything)|what (you|u) can do|display|tour|demo|showcase|longer|bigger|more (aesthetic|beautiful|visual|detail)|full (display|show))\b/i.test(text))
     parts.push('<request_note>The learner explicitly asked for more: a showcase, longer, bigger or more beautiful. Give exactly that, at showcase scale (several full scenes), not the default length.</request_note>');
   if (S.frame) parts.push('<last_frame> (attached image): the stage as the learner saw it at the end of your last turn. If it is crowded, cut off or hard to read, keep that in mind as you build on it.');
+  if (attached.length) parts.push(`<attachments> (attached before the stage frame): ${attached.map((a) => `${a.name} (${a.type === 'application/pdf' ? 'PDF' : 'image'})`).join(', ')}. The learner sent these with the question: read them, teach from them, and show on the stage what they are about (draw it; never paste their text on stage).</attachments>`);
   parts.push(`<stage>\n${read('state.dan').trim() || '(empty)'}\n</stage>`);
   return parts.join('\n') + `\n\nLearner: ${text}`;
 }
 
-function runTurn(text, source, model = defaultModel) {
+function runTurn(text, source, model = defaultModel, attached = []) {
   S.busy = true;
   S.cut = false;
   speech.lines = []; speech.current = null;
   if (!S.title) S.title = text.replace(/\s+/g, ' ').trim().slice(0, 60);
-  logMsg({ role: 'user', text, source, frame: !!S.frame }); // frame: the last picture went with it
+  logMsg({ role: 'user', text, source, frame: !!S.frame, files: attached.map((a) => ({ name: a.name, type: a.type })) }); // frame: the last picture went with it
   const t0 = Date.now();
   S.turnAt = () => +((Date.now() - t0) / 1000).toFixed(1);
   const times = S.turnTimes = { first: null, stage: null, voice: null, done: null }; // seconds after send
@@ -461,7 +486,7 @@ function runTurn(text, source, model = defaultModel) {
     saveMeta();
     S.busy = false;
     S.turnTimes = null;
-    if (S.pending) { const p = S.pending; S.pending = null; runTurn(p.text, p.source); }
+    if (S.pending) { const p = S.pending; S.pending = null; runTurn(p.text, p.source, undefined, p.attached); }
   };
 
   // the model and the thinking level are fixed per process: a change starts a new one (the session carries on)
@@ -477,7 +502,8 @@ function runTurn(text, source, model = defaultModel) {
       finish('Claude stopped: ' + (e.err.trim().split('\n').pop() || 'process exited'));
     }
   };
-  const content = [{ type: 'text', text: contextFor(text) }];
+  const content = [{ type: 'text', text: contextFor(text, attached) }];
+  for (const a of attached) try { content.push(attachmentBlock(a)); } catch {}
   if (S.frame) { // what the learner last saw, as an image
     try { content.push({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: fs.readFileSync(S.frame).toString('base64') } }); } catch {}
     S.frame = null;
@@ -532,7 +558,7 @@ const server = http.createServer(async (req, res) => {
     if (b.model) defaultModel = b.model;
     if (EFFORTS.includes(b.effort)) defaultEffort = b.effort;
     saveSettings();
-    submit(b.text, 'browser');
+    submit(b.text, 'browser', b.files);
     return json(res, { ok: true });
   }
   if (url.pathname === '/api/explain') { // "?…" typed in the browser: a side answer about the paused moment
