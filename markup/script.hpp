@@ -66,6 +66,7 @@ struct Line {
   std::string a, b;
   bool directed = true;
   std::string writtenAs;        // a link the author wrote as a path, line or arrow between two things: that word
+  std::vector<std::string> notes; // what the parser read differently from how it was written (linted at load)
   // group
   std::vector<std::string> members;
   // morph

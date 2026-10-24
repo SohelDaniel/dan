@@ -188,7 +188,7 @@ int main(int argc, char **argv) {
       bool same = model == model2;
       auto lints = eng.lintMessages();
       int zero = 0;
-      for (auto &l : lints) if (l.rfind("zero", 0) == 0 || l.rfind("identity", 0) == 0 || l.rfind("tex", 0) == 0) zero++;
+      for (auto &l : lints) if (l.rfind("zero", 0) == 0 || l.rfind("identity", 0) == 0 || l.rfind("tex", 0) == 0 || l.rfind("draw", 0) == 0) zero++;
       std::printf("decodable: %s\n", same ? "yes (readback re-parses to the same scene)" : "NO");
       if (!same) std::printf("--- first\n%s--- re-read\n%s", model.c_str(), model2.c_str());
       std::printf("axiom warnings: %d\n", zero);

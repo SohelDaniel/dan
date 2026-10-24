@@ -821,3 +821,26 @@ TEST_CASE("re-marking a path between two things re-routes the same link (identit
   CHECK(rb.find("link p arrow a -> c label=route") != std::string::npos);
   CHECK(rb.find("link p ") == rb.rfind("link p ")); // one thing, updated in place
 }
+
+TEST_CASE("a curve or a shape on a schema that can't draw it is an axiom warning; a stray duration or second kind word spoils nothing") {
+  initFonts();
+  auto lints = [](const std::string &text) {
+    Engine e(instant());
+    played(e, text);
+    return e.lintMessages();
+  };
+  auto has = [](const std::vector<std::string> &ls, const std::string &part) {
+    for (auto &l : ls) if (l.find(part) != std::string::npos) return true;
+    return false;
+  };
+  CHECK(has(lints("schema free\nmark a bar score v=3\nmark f path fn={x^2/4}\n"), "draw: line 3: path 'f' can't be drawn on schema free"));
+  CHECK(has(lints("schema graph\nmark a box\nmark c circle x=1 y=1 r=1\n"), "circle 'c' can't be drawn on schema graph"));
+  CHECK(!has(lints("schema axes x=[0,3] y=[0,3]\nmark f path fn={x}\n"), "can't be drawn"));
+  CHECK(!has(lints("mark f path fn={x}\n"), "can't be drawn")); // no schema said: it is inferred from the path
+  Engine d(instant());
+  played(d, "schema plane x=[0,6] y=[0,6]\nmark sec line x1=0 y1=0 x2=2 y2=2 label=\"secant\" 5s\nmark A rect area x=2 y=2 w=3 h=2\n");
+  std::string rb = d.readback(false);
+  CHECK(rb.find("mark sec line x1=0") != std::string::npos); // the duration is dropped, not a category
+  CHECK(rb.find("mark A rect area") != std::string::npos);   // the second kind word is the category; the line survives
+  CHECK(has(d.lintMessages(), "'5s' is a duration"));
+}

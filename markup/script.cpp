@@ -311,10 +311,14 @@ static bool readMark(Reading &r) {
       std::string verr;
       setProp(ln.props, k, Value::parse(v, &verr));
       if (!verr.empty()) return r.fail(verr);
-    } else if (isMarkKind(lower(toks[i]))) {
-      if (!ln.kind.empty()) return r.fail("kind given twice ('" + ln.kind + "' and '" + toks[i] + "')");
+    } else if (float d; isDuration(toks[i], d)) { // dropped, not a category: one slip spoils one word, not the line
+      ln.notes.push_back("'" + toks[i] + "' is a duration, which a mark doesn't take (it enters on its own; to draw it "
+                         "over time, morph a property): ignored");
+    } else if (isMarkKind(lower(toks[i])) && ln.kind.empty()) {
       ln.kind = lower(toks[i]);
     } else if (ln.category.empty()) {
+      if (isMarkKind(lower(toks[i]))) // "mark A rect area": the second kind word is read as the category
+        ln.notes.push_back("'" + toks[i] + "' is a kind too; '" + ln.kind + "' is the kind, so '" + toks[i] + "' is the category");
       ln.category = stripQuotes(toks[i]);
     } else {
       return r.fail("unexpected '" + toks[i] + "' (one kind and one category per mark)");

@@ -215,8 +215,23 @@ void Engine::analyze(bool fresh) {
   };
   std::set<std::string> defined, sayHooks, deferredHooks, parts; // parts: formula parts named by annotations (f[id])
   std::vector<std::pair<int, std::string>> pointed; // [id] in Say lines
+  // a curve, a field or a world shape needs a plot (axes, plane, space) to be drawn on; on any other schema it would
+  // be in the readback and not on stage (axioms 3 and 6)
+  std::map<std::string, std::string> viewSchema; // view -> its schema, in this scene
+  std::string schemaNow;                         // the schema the next marks are laid out by ("" = not said: inferred)
+  std::vector<std::string> undrawable;
   eachLine(script_, [&](const Line &ln) {
     if (!ln.deferred.empty()) deferredHooks.insert(ln.deferred);
+    if (ln.verb == Verb::SCHEMA) {
+      if (!ln.kind.empty()) schemaNow = ln.kind;
+      else if (auto v = viewSchema.find(ln.id); v != viewSchema.end()) schemaNow = v->second;
+      if (!ln.id.empty() && !ln.kind.empty()) viewSchema[ln.id] = ln.kind;
+    }
+    if (ln.verb == Verb::SCENE) { viewSchema.clear(); schemaNow.clear(); }
+    if (ln.verb == Verb::MARK && !ln.kind.empty() && !schemaNow.empty() && schemaNow != "auto" && !isAxes(schemaNow) && !isSpace(schemaNow) &&
+        (isWorldKind(ln.kind) || isFieldKind(ln.kind) || isCurveKind(ln.kind) || ln.kind == "region" || ln.kind == "line" || ln.kind == "arrow"))
+      undrawable.push_back("draw: line " + std::to_string(ln.lineNo) + ": " + ln.kind + " '" + ln.id + "' can't be drawn on schema " + schemaNow +
+                           " (only on axes, plane or space), so it would be in the scene but not on stage");
     switch (ln.verb) {
     case Verb::MARK:
       defined.insert(ln.id);
@@ -298,6 +313,7 @@ void Engine::analyze(bool fresh) {
       it = (it->rfind("hook:", 0) == 0 || it->rfind("relation:", 0) == 0 || it->find("which is never marked") != std::string::npos || it->find("\\textcolor{") != std::string::npos) ? lint_.erase(it)
                                                                                                     : std::next(it);
   for (auto &w : riderLints) warn(w);
+  for (auto &w : undrawable) warn(w);
   for (auto &h : deferredHooks)
     if (!sayHooks.count(h)) warn("hook: lines tagged @" + h + " have no |" + h + "| spoken, so they only run when their sentence ends");
   for (auto &h : sayHooks)
@@ -336,6 +352,7 @@ void Engine::analyze(bool fresh) {
            (ln.writtenAs == "path" ? " (a path is a curve: fn= or xt= yt=)" : "") +
            (ln.category.empty() ? "" : "; a link has no category, so '" + ln.category + "' is dropped"));
     if (ln.verb == Verb::GROUP) for (auto &m : ln.members) need(m, "group");
+    for (auto &n : ln.notes) warn("mark: line " + std::to_string(ln.lineNo) + ": " + n);
   });
 
   // ---- formulas: typeset every literal one now (warms the cache; headless check reports TeX errors)
