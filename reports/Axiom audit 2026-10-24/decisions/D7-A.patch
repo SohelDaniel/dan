@@ -1,0 +1,636 @@
+diff --git a/README.md b/README.md
+index 09160e0..a715ba3 100644
+--- a/README.md
++++ b/README.md
+@@ -172,6 +172,8 @@ mark p dot x={2*cos(clock)} y={2*sin(clock)} trail=1.5s label="planet"
+ mark gd dot x=-2.6 y=1.4 trail=all label="you"                       # re-mark x= y= step by step: a zig-zag with exact corners
+ ```
+ 
++A kept path is part of the thing, so it outlives the turn: the readback writes it as `was=[x,y, x,y, …]` (`x,y,z` triples in a space), the points it went through before where it is now, `-` where it jumped, and a dot loaded with `was=` draws that path and continues it. You can give `was=` yourself for a journey already made (a trajectory a python block computed).
++
+ ### Fields: a function of x and y, everywhere at once (schema `plane`, or `axes`)
+ 
+ Write fields in terms of `x` and `y` (and any `param`, so they morph). Use `*` between letters: `x*y`, not `xy`.
+diff --git a/markup/engine.cpp b/markup/engine.cpp
+index 02c746c..cbcc985 100644
+--- a/markup/engine.cpp
++++ b/markup/engine.cpp
+@@ -21,10 +21,10 @@ static const std::set<std::string> kPositional = {"x",  "y",     "t",     "at",
+                                                   "grid", "axes", "equal", "index", "cells", "items", "n", "m", "xlabel", "ylabel",
+                                                   "vx", "vy", "levels", "labels", "trail", "colors",
+                                                   "parts", "by", "bylabels", "bycolors",
+-                                                  "z", "z1", "z2", "dz", "zt", "normal", "units", "zlabel", "drop"};
++                                                  "z", "z1", "z2", "dz", "zt", "normal", "units", "zlabel", "drop", "was"};
+ static const std::set<std::string> kTextKeys = {"label", "name", "text", "set", "fn",   "of",   "color",
+                                                 "shape", "ease", "unit", "note", "title", "tex",
+-                                                "at", "to", "side", "style", "cmap", "levels", "trail", "drop", "units"};
++                                                "at", "to", "side", "style", "cmap", "levels", "trail", "drop", "units", "was"};
+ 
+ Engine::Engine(EngineOptions opt) : opt_(std::move(opt)) {}
+ Engine::~Engine() {
+@@ -74,11 +74,13 @@ bool Engine::appendText(const std::string &text) {
+   if (from && from - 1 < cursor_) {
+     const Step &last = script_.steps[from - 1];
+     bool ran = last.hook.empty() || hookFired_[from - 1];
+-    if (ran)
++    if (ran) {
++      curStep_ = from - 1; // its changes belong to that step: they move with it (trails)
+       for (size_t w = lastWiths; w < last.withs.size(); w++) {
+         Line ln = last.withs[w]; // a copy: a later append may grow this vector
+         execLine(ln);
+       }
++    }
+   }
+   if (!opt_.shadow)
+     for (size_t i = errs; i < script_.errors.size(); i++) std::fprintf(stderr, "parse: %s\n", script_.errors[i].c_str());
+@@ -334,6 +336,8 @@ void Engine::reset() {
+   spc_ = SpaceView{};
+   hist_.clear();
+   bornAt_.clear();
++  bornSeq_.clear();
++  histSeq_ = 0;
+   clock_ = 0;
+   lastTex_.clear();
+   labelSlots_.clear();
+@@ -689,6 +693,8 @@ void Engine::clearStage() {
+   clearFieldCaches();
+   hist_.clear();
+   bornAt_.clear();
++  bornSeq_.clear();
++  histSeq_ = 0;
+   schema_ = "auto";
+   schemaProps_.clear();
+   if (sceneIdx_ + 1 < autoSchemas_.size()) autoSchema_ = autoSchemas_[++sceneIdx_];
+@@ -761,6 +767,7 @@ float Engine::entranceDelay() {
+ 
+ void Engine::execStep(size_t idx) {
+   const Step &s = script_.steps[idx];
++  curStep_ = idx; // the changes it makes are one moment (trails)
+   if (s.main.verb == Verb::SAY) sayStep_ = idx;
+   execLine(s.main);
+   for (auto &w : s.withs) execLine(w);
+@@ -903,6 +910,7 @@ void Engine::doMark(const Line &ln) {
+     order_.push_back(ln.id);
+     Mark &mm = marks_.emplace(ln.id, m).first->second;
+     bornAt_[ln.id] = clock_;
++    bornSeq_[ln.id] = histSeq_;
+     claimColor(mm);
+     std::string k = effectiveKind(mm), mp = magProp(mm), cv = catValue(mm);
+     std::string rule = "thing -> a " + k;
+@@ -1557,7 +1565,7 @@ std::string Engine::readback(bool comments) {
+   std::string inView;
+   for (auto &id : order_) {
+     if (auto it = marks_.find(id); it != marks_.end()) {
+-      const Mark &m = it->second;
++      Mark &m = it->second;
+       if (!m.view.empty() && m.view != inView) { // switch to its view (declaring it the first time)
+         inView = m.view;
+         o << "schema " << m.view;
+@@ -1571,7 +1579,9 @@ std::string Engine::readback(bool comments) {
+       }
+       o << "mark " << m.id << " " << effectiveKind(m);
+       if (!m.category.empty()) o << " " << Value::string(m.category).markup();
++      bool kept = keepsTrail(m); // its path is part of it: written last, as it is now (`was=`, trails.cpp)
+       for (auto &p : m.props) {
++        if (p.key == "was" && kept) continue;
+         o << " " << p.key << "=" << p.val.markup();
+         if (p.val.type == Value::EXPR && p.key != "fn" && p.key != "xt" && p.key != "yt" && p.key != "zt" && p.key != "vx" && p.key != "vy" && p.key != "vz") {
+           double v = num(p.val);
+@@ -1580,6 +1590,8 @@ std::string Engine::readback(bool comments) {
+             warn("value: " + m.id + "." + p.key + " = {" + p.val.str + "} is not a number (division by zero, a cyclic reference, or an unknown name)");
+         }
+       }
++      if (kept)
++        if (std::string was = trailCarried(m); !was.empty()) o << " was=" << was;
+       o << "\n";
+     } else if (auto lt = links_.find(id); lt != links_.end()) {
+       const Link &l = lt->second;
+diff --git a/markup/engine.hpp b/markup/engine.hpp
+index 2c4fa76..ea4f793 100644
+--- a/markup/engine.hpp
++++ b/markup/engine.hpp
+@@ -681,15 +681,21 @@ private:
+   // recomputed from the motion, not accumulated per frame, so they are the same at any frame rate, in
+   // snapshots, after a skip or after appended lines.
+   struct HistSeg {
++    std::string id, prop;     // whose number
+     double t0 = 0;
+     float dur = 0;
+     double from = 0, to = 0;
+     rm::RateFunc ease = nullptr;
+     Value final, before;      // the value it ends at; the value it had before (for times earlier than this)
+     bool set = false;         // an instant change
++    size_t step = 0;          // the script step that made it: one step's changes move together
++    unsigned seq = 0;         // its place in the order things happened (an instant run has no clock)
+   };
+   std::map<std::string, std::vector<HistSeg>> hist_; // by "id.prop"
+   std::map<std::string, double> bornAt_;
++  std::map<std::string, unsigned> bornSeq_; // how many changes had happened when each mark appeared
++  unsigned histSeq_ = 0;
++  size_t curStep_ = 0;        // the step being carried out, recorded with each change
+   double histT_ = NAN;        // when finite, num() reads properties as they were at this time
+   float frameDt_ = 0;
+   void recordActive(const Active &a, const Value &before);
+@@ -700,6 +706,11 @@ private:
+   void drawTrail(Mark &m);
+   std::vector<std::vector<rm::StripPt>> trailRuns(Mark &m);
+   std::vector<Vector2> trailLine(Mark &m); // thinned, for the placer and the checker
++  // across the fold: a kept path is part of its thing, so the readback writes it (`was=`) and a load draws it
++  bool keepsTrail(const Mark &m);                       // trail=all on a plot or in a space
++  std::vector<viz::V3> trailSeed(const Mark &m);        // the path carried in by `was=` (a NaN point: a jump)
++  std::vector<std::vector<viz::V3>> trailPath(Mark &m); // the whole path so far, in data units, split at jumps
++  std::string trailCarried(Mark &m);                    // the path as `was=` writes it ("" if there is none)
+ };
+ 
+ } // namespace mk
+diff --git a/markup/trails.cpp b/markup/trails.cpp
+index e437e15..35abec0 100644
+--- a/markup/trails.cpp
++++ b/markup/trails.cpp
+@@ -2,6 +2,7 @@
+ //
+ //   mark p dot x={cos(t)} y={sin(t)} trail=1.5s     a fading tail: where p was over the last 1.5 s
+ //   mark p dot ... trail=all                        the whole path since p appeared, kept
++//   mark p dot ... trail=all was=[x,y, x,y, …]      … and the path it had before this scene was loaded
+ //
+ // A trail is recomputed every frame from the recorded history of every number that changed (morphs,
+ // re-marks, instant sets), not accumulated frame by frame (manim's TracedPath, Unity's TrailRenderer):
+@@ -9,6 +10,10 @@
+ // on an absolute time grid (they don't slide with the frame time, so the line doesn't shimmer) plus the
+ // moments motions start and stop (corners stay exact). Fading by time, not length: a faster thing leaves
+ // a longer tail, so speed shows. Drawn as a tapered, feathered strip.
++//
++// A kept path is part of its thing, so the readback writes it (`was=`, trailCarried) and it survives the
++// chat's fold between turns. It is read off the history in the order things happened, not by time: the
++// instant run that folds a chat never advances its clock.
+ #include "engine.hpp"
+ #include "viz/viz.hpp"
+ #include <algorithm>
+@@ -20,6 +25,8 @@ using namespace rm;
+ 
+ void Engine::recordActive(const Active &a, const Value &before) {
+   HistSeg h;
++  h.id = a.id;
++  h.prop = a.prop;
+   h.t0 = clock_ - frameDt_; // the active's own clock starts a frame back: it has run dt by the end of this frame
+   h.dur = a.dur;
+   h.from = a.from;
+@@ -27,15 +34,21 @@ void Engine::recordActive(const Active &a, const Value &before) {
+   h.ease = a.ease;
+   h.final = a.finalVal;
+   h.before = before;
++  h.step = curStep_;
++  h.seq = histSeq_++;
+   hist_[a.id + "." + a.prop].push_back(h);
+ }
+ 
+ void Engine::recordSet(const std::string &id, const std::string &prop, const Value &before, const Value &after) {
+   HistSeg h;
++  h.id = id;
++  h.prop = prop;
+   h.t0 = clock_;
+   h.set = true;
+   h.final = after;
+   h.before = before;
++  h.step = curStep_;
++  h.seq = histSeq_++;
+   hist_[id + "." + prop].push_back(h);
+ }
+ 
+@@ -121,18 +134,27 @@ std::vector<std::vector<StripPt>> Engine::trailRuns(Mark &m) {
+   bool space = isSpace(schemaNow()); // a path in space: re-projected every frame, so it turns with the view
+   if (!trailSpec(m, window, all) || !(isAxes(schemaNow()) || space)) return runs;
+   if (!findProp(m.props, "x") || !findProp(m.props, "y")) return runs;
++  float a = alphaOf(m);
++  Color c = colorOf(m);
++  const float width = all ? 2.2f : 3.6f;
++  std::vector<StripPt> run;
++  auto flush = [&] { if (run.size() > 1) runs.push_back(run); run.clear(); };
++  auto screen = [&](double x, double y, double z) {
++    if (space) { viz::Projected q = spc_.proj.project({x, y, z}); return Vector2{(float)q.x, (float)q.y}; }
++    return axes_.toScreen((float)x, (float)y);
++  };
++  if (all) // the path it carried in (`was=`): the kept path begins there, and the history continues it
++    for (auto &p : trailSeed(m)) {
++      if (!std::isfinite(p.x)) { flush(); continue; }
++      run.push_back({screen(p.x, p.y, p.z), width, fade(c, a * 0.7f)});
++    }
+   double t1 = clock_, born = bornAt_.count(m.id) ? bornAt_[m.id] : 0;
+   double t0 = std::max(born, all ? born : t1 - window);
+-  if (t1 - t0 < 1e-3) return runs;
++  if (t1 - t0 < 1e-3) { flush(); return runs; }
+   // at most ~1500 samples: long persistent paths step coarser (still on a fixed grid)
+   double h = std::max(1.0 / 120, (t1 - t0) / 1500);
+   h = std::pow(2.0, std::ceil(std::log2(h))); // powers of two keep the grid fixed as the trail grows
+   std::vector<double> ts = viz::trailTimes(t0, t1, h, histBreaks(t0, t1));
+-  float a = alphaOf(m);
+-  Color c = colorOf(m);
+-  const float width = all ? 2.2f : 3.6f;
+-  std::vector<StripPt> run;
+-  auto flush = [&] { if (run.size() > 1) runs.push_back(run); run.clear(); };
+   Vector2 last{};
+   bool have = false;
+   double maxJump = std::max(40.0, 2400.0 * h); // a jump this big in one sample is a teleport, not motion
+@@ -142,8 +164,7 @@ std::vector<std::vector<StripPt>> Engine::trailRuns(Mark &m) {
+     double x = num(m, "x", &hx), y = num(m, "y", &hy), z = space ? num(m, "z", &hz) : 0;
+     histT_ = NAN;
+     if (!hx || !hy || !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) { flush(); have = false; continue; }
+-    Vector2 P = axes_.toScreen((float)x, (float)y);
+-    if (space) { viz::Projected q = spc_.proj.project({x, y, z}); P = {(float)q.x, (float)q.y}; }
++    Vector2 P = screen(x, y, z);
+     if (have && len(P - last) > maxJump) flush();
+     float u = all ? 0.f : (float)std::clamp((t1 - t) / window, 0.0, 1.0); // 0 at the head, 1 at the tail
+     float w = all ? width : std::max(0.6f, width * std::sqrt(1 - u));
+@@ -156,4 +177,179 @@ std::vector<std::vector<StripPt>> Engine::trailRuns(Mark &m) {
+   return runs;
+ }
+ 
++// ---- across the fold
++
++bool Engine::keepsTrail(const Mark &m) {
++  double window;
++  bool all = false;
++  return trailSpec(m, window, all) && all && (isAxes(schemaOf(m)) || isSpace(schemaOf(m)));
++}
++
++// `was=`: x,y pairs (x,y,z triples in a space) it went through before where it is now; "-" is a jump
++std::vector<viz::V3> Engine::trailSeed(const Mark &m) {
++  std::vector<viz::V3> out;
++  std::vector<double> v = listNums(m, "was");
++  size_t stride = isSpace(schemaOf(m)) ? 3 : 2;
++  for (size_t i = 0; i < v.size();) {
++    if (!std::isfinite(v[i])) { out.push_back({NAN, NAN, NAN}); i++; continue; }
++    if (i + stride > v.size()) break;
++    out.push_back({v[i], v[i + 1], stride == 3 ? v[i + 2] : 0});
++    i += stride;
++  }
++  return out;
++}
++
++static constexpr size_t kTrailPts = 160; // the most points a carried path is written with
++
++// The whole path so far, in data units: the carried points, then the history walked in the order it
++// happened. The changes one step made (a re-mark's x and y, a morph and its `with` lines) move together,
++// sampled along the way; a `set` that jumps more than 5 % of the path's extent breaks it (a teleport leaves
++// no line). Each run is then reduced to the fewest points within 0.2 % of the extent, axis by axis, so a tall
++// thin plot keeps its corners too; the points are rounded as they will be written, so the written path reads
++// back to itself.
++std::vector<std::vector<viz::V3>> Engine::trailPath(Mark &m) {
++  bool space = isSpace(schemaOf(m));
++  auto round6 = [](double v) { return Value::parse(Value::number(v).markup()).num; };
++  std::vector<viz::V3> pts;
++  std::vector<int> jump;     // per point: 0 moved here, 1 a set changed it here (a jump if far), 2 carried in after a gap
++  std::vector<char> carried; // per point: came in as `was=` (already reduced: kept as it is)
++  bool gap = false, seed = true;
++  auto push = [&](viz::V3 p, int j) {
++    if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) { gap = true; return; }
++    viz::V3 q{round6(p.x), round6(p.y), round6(p.z)};
++    if (!gap && !pts.empty() && q.x == pts.back().x && q.y == pts.back().y && q.z == pts.back().z) return; // it stayed
++    pts.push_back(q);
++    jump.push_back(gap ? 2 : j);
++    carried.push_back(seed);
++    gap = false;
++  };
++  for (auto &p : trailSeed(m)) push(p, 0);
++  seed = false;
++
++  std::vector<const HistSeg *> evs; // every change so far, in order
++  for (auto &[key, segs] : hist_) for (auto &h : segs) evs.push_back(&h);
++  std::sort(evs.begin(), evs.end(), [](const HistSeg *a, const HistSeg *b) { return a->seq < b->seq; });
++  auto literal = [&](const char *k) { // a position given as numbers depends on its own changes only; an expression may read anything
++    const Value *v = findProp(m.props, k);
++    if (v && v->type == Value::EXPR) return false;
++    if (auto it = hist_.find(m.id + "." + k); it != hist_.end())
++      for (auto &h : it->second) if (h.before.type == Value::EXPR || h.final.type == Value::EXPR) return false;
++    return true;
++  };
++  bool own = literal("x") && literal("y") && (!space || literal("z"));
++  // the model is put back to before anything changed, walked forward, then restored
++  std::map<std::string, Value> now;
++  for (auto &[key, segs] : hist_)
++    if (Obj *o = find(segs.front().id))
++      if (const Value *cur = findProp(o->props, segs.front().prop)) {
++        now[key] = *cur;
++        setProp(o->props, segs.front().prop, segs.front().before);
++      }
++  auto apply = [&](const HistSeg &h, const Value &v) { if (Obj *o = find(h.id)) setProp(o->props, h.prop, v); };
++  auto at = [&]() {
++    bool hx, hy, hz = true;
++    double x = num(m, "x", &hx), y = num(m, "y", &hy), z = space ? num(m, "z", &hz) : 0;
++    return hx && hy && hz ? viz::V3{x, y, z} : viz::V3{NAN, NAN, NAN};
++  };
++  unsigned born = bornSeq_.count(m.id) ? bornSeq_[m.id] : 0;
++  size_t i = 0;
++  for (; i < evs.size() && evs[i]->seq < born; i++) apply(*evs[i], evs[i]->final); // before it appeared: only the outcome matters
++  push(at(), 0); // where it appeared (or where it was when this scene was loaded)
++  const int kSamples = 128;
++  while (i < evs.size()) {
++    size_t j = i;
++    bool mine = !own;
++    for (; j < evs.size() && evs[j]->step == evs[i]->step; j++) if (evs[j]->id == m.id) mine = true;
++    if (!mine) { // cannot have moved it
++      for (size_t k = i; k < j; k++) apply(*evs[k], evs[k]->final);
++      i = j;
++      continue;
++    }
++    std::vector<const HistSeg *> moves;
++    for (size_t k = i; k < j; k++) {
++      if (evs[k]->set) apply(*evs[k], evs[k]->final); else moves.push_back(evs[k]);
++    }
++    push(at(), 1); // after the step's instant changes
++    if (!moves.empty())
++      for (int s = 1; s <= kSamples; s++) {
++        float k = (float)s / kSamples;
++        for (auto *h : moves) apply(*h, Value::number(h->from + (h->to - h->from) * (h->ease ? h->ease(k) : k)));
++        push(at(), 0);
++      }
++    for (auto *h : moves) apply(*h, h->final); // the exact ends (an expression stays one)
++    i = j;
++  }
++  for (auto &[key, segs] : hist_) if (auto it = now.find(key); it != now.end()) apply(segs.front(), it->second);
++  push(at(), 0); // where it is now, whatever the history missed
++
++  if (pts.size() < 2) return {};
++  viz::V3 lo = pts[0], hi = pts[0];
++  for (auto &p : pts) {
++    lo = {std::min(lo.x, p.x), std::min(lo.y, p.y), std::min(lo.z, p.z)};
++    hi = {std::max(hi.x, p.x), std::max(hi.y, p.y), std::max(hi.z, p.z)};
++  }
++  viz::V3 ext = hi - lo;
++  if (!(std::max({ext.x, ext.y, ext.z}) > 0)) return {}; // it never moved
++  auto unit = [&](viz::V3 p) {
++    return viz::V3{ext.x > 0 ? (p.x - lo.x) / ext.x : 0, ext.y > 0 ? (p.y - lo.y) / ext.y : 0, ext.z > 0 ? (p.z - lo.z) / ext.z : 0};
++  };
++  std::vector<std::vector<viz::V3>> runs(1);
++  std::vector<size_t> lead(1, 0); // per run: how many of its first points were carried in
++  for (size_t k = 0; k < pts.size(); k++) {
++    bool broken = jump[k] == 2 || (jump[k] == 1 && k > 0 && viz::norm(unit(pts[k]) - unit(pts[k - 1])) > 0.05);
++    if (broken && !runs.back().empty()) { runs.emplace_back(); lead.push_back(0); }
++    if (carried[k] && lead.back() == runs.back().size()) lead.back()++;
++    runs.back().push_back(pts[k]);
++  }
++  // a run's first `from` points stay as they are; the rest is reduced to the fewest within eps
++  auto reduce = [&](const std::vector<viz::V3> &run, size_t from, double eps) {
++    std::vector<viz::V3> u, kept(run.begin(), run.begin() + (long)from);
++    for (size_t k = from; k < run.size(); k++) u.push_back(unit(run[k]));
++    for (size_t k : viz::simplify(u, eps)) kept.push_back(run[from + k]);
++    return kept;
++  };
++  // what was carried in is kept as it is; what happened since is reduced from the junction on. Only when the
++  // whole (less where it is now) would be too long is everything reduced again, coarser until it fits
++  std::vector<std::vector<viz::V3>> out;
++  size_t total = 0;
++  for (size_t r = 0; r < runs.size(); r++) {
++    out.push_back(reduce(runs[r], lead[r] ? lead[r] - 1 : 0, 0.002));
++    total += out.back().size();
++  }
++  for (double eps = 0.002; total - 1 > kTrailPts && eps <= 1; eps *= 2) {
++    out.clear();
++    total = 0;
++    for (auto &run : runs) {
++      out.push_back(reduce(run, 0, eps));
++      total += out.back().size();
++    }
++  }
++  return out;
++}
++
++// `was=[…]`: the path before where the thing is now, which its mark line states. A jump that ended there is
++// kept as a closing "-", so a load does not join the carried path to it.
++std::string Engine::trailCarried(Mark &m) {
++  std::vector<std::vector<viz::V3>> runs = trailPath(m);
++  if (runs.empty()) return "";
++  runs.back().pop_back();
++  bool space = isSpace(schemaOf(m));
++  auto fmt = [](double v) { return Value::number(v).markup(); };
++  std::string s;
++  for (size_t r = 0; r < runs.size(); r++) {
++    bool last = r + 1 == runs.size();
++    if (!last && runs[r].size() < 2) continue; // a lone point before a jump draws nothing
++    if (last && runs[r].empty()) {
++      if (!s.empty()) s += ", -";
++      break;
++    }
++    if (!s.empty()) s += ", -, ";
++    for (size_t k = 0; k < runs[r].size(); k++) {
++      const viz::V3 &p = runs[r][k];
++      s += (k ? ", " : "") + fmt(p.x) + ", " + fmt(p.y) + (space ? ", " + fmt(p.z) : "");
++    }
++  }
++  return s.empty() ? "" : "[" + s + "]";
++}
++
+ } // namespace mk
+diff --git a/markup/viz/space.cpp b/markup/viz/space.cpp
+index 8567ba5..f5a17ad 100644
+--- a/markup/viz/space.cpp
++++ b/markup/viz/space.cpp
+@@ -14,6 +14,36 @@ bool namedView(const std::string &name, Orbit &o) {
+ 
+ double clampTilt(double phi) { return std::clamp(phi, 0.5 * kDeg, 90 * kDeg); }
+ 
++// ================================================================ polylines
++static double segDist(V3 p, V3 a, V3 b) {
++  V3 ab = b - a;
++  double l2 = dot(ab, ab);
++  double t = l2 > 0 ? std::clamp(dot(p - a, ab) / l2, 0.0, 1.0) : 0;
++  return norm(p - (a + ab * t));
++}
++
++std::vector<size_t> simplify(const std::vector<V3> &pts, double eps) {
++  std::vector<size_t> keep;
++  if (pts.size() < 3) {
++    for (size_t i = 0; i < pts.size(); i++) keep.push_back(i);
++    return keep;
++  }
++  std::vector<char> kept(pts.size(), 0);
++  kept.front() = kept.back() = 1;
++  std::vector<std::pair<size_t, size_t>> todo{{0, pts.size() - 1}};
++  while (!todo.empty()) { // split each span at its point farthest from the chord, while one is farther than eps
++    auto [a, b] = todo.back();
++    todo.pop_back();
++    double worst = eps;
++    size_t at = 0;
++    for (size_t i = a + 1; i < b; i++)
++      if (double d = segDist(pts[i], pts[a], pts[b]); d > worst) { worst = d; at = i; }
++    if (at) { kept[at] = 1; todo.push_back({a, at}); todo.push_back({at, b}); }
++  }
++  for (size_t i = 0; i < pts.size(); i++) if (kept[i]) keep.push_back(i);
++  return keep;
++}
++
+ V3 Space::world(V3 d) const {
+   double s[3];
+   double widest = std::max({hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2], 1e-9});
+diff --git a/markup/viz/space.hpp b/markup/viz/space.hpp
+index b4f65be..4f2ec11 100644
+--- a/markup/viz/space.hpp
++++ b/markup/viz/space.hpp
+@@ -9,6 +9,7 @@
+ #pragma once
+ #include <cmath>
+ #include <string>
++#include <vector>
+ 
+ namespace viz {
+ 
+@@ -23,6 +24,10 @@ inline V3 cross(V3 a, V3 b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b
+ inline double norm(V3 a) { return std::sqrt(dot(a, a)); }
+ inline V3 unit(V3 a) { double n = norm(a); return n > 0 ? a * (1 / n) : a; }
+ 
++// Ramer–Douglas–Peucker: the indices of the fewest points (always both ends) that keep a polyline within eps
++// of the original. Simplifying the result again changes nothing.
++std::vector<size_t> simplify(const std::vector<V3> &pts, double eps);
++
+ constexpr double kDeg = 3.14159265358979323846 / 180;
+ 
+ // where the camera is: a named view, or one reached by turning
+diff --git a/tests/test_engine.cpp b/tests/test_engine.cpp
+index 8e8c0eb..d9a93a4 100644
+--- a/tests/test_engine.cpp
++++ b/tests/test_engine.cpp
+@@ -5,6 +5,8 @@
+ #include "doctest/doctest.h"
+ #include "../markup/engine.hpp"
+ #include "../rm/raymanim.hpp"
++#include <cmath>
++#include <sstream>
+ 
+ using namespace mk;
+ 
+@@ -476,3 +478,77 @@ TEST_CASE("a formula part pointed at with indicate f[part] is a named part: no t
+   for (auto &w : bare.lintMessages()) if (w.find("textcolor{sq}") != std::string::npos) bareLint = true;
+   CHECK(bareLint);
+ }
++
++// ---------------------------------------------------------------- trails across the fold (the chat keeps the stage as the readback)
++
++// the numbers of a mark's `was=[…]` list in a readback ("-", a jump, reads as NaN)
++static std::vector<double> wasOf(const std::string &rb, const std::string &id) {
++  std::vector<double> out;
++  size_t line = rb.find("mark " + id + " ");
++  size_t at = line == std::string::npos ? line : rb.find("was=[", line);
++  if (at == std::string::npos) return out;
++  std::string body = rb.substr(at + 5, rb.find(']', at) - at - 5), tok;
++  for (std::stringstream ss(body); std::getline(ss, tok, ',');)
++    out.push_back(tok.find_first_of("0123456789") == std::string::npos ? NAN : std::stod(tok));
++  return out;
++}
++
++TEST_CASE("a kept trail survives the fold: the readback carries the path, and a scene loaded from it draws it") {
++  Engine e(instant());
++  played(e, "schema plane x=[-100,-60] y=[10,40]\nmark storm dot x=-75 y=24 trail=all label=\"Katrina\"\n"
++            "morph storm.x -> -82 1s\nwith morph storm.y -> 25 1s\nmorph storm.x -> -89 1s\nwith morph storm.y -> 29.5 1s\n");
++  std::string rb = e.readback(false);
++  CHECK(rb.find("mark storm dot x=-89 y=29.5 trail=all label=Katrina was=[-75, 24, -82, 25]") != std::string::npos);
++  Engine again(instant()); // the next turn starts from the readback, as the chat does
++  played(again, rb);
++  place::Picture pic = again.picture();
++  const place::Ink *trail = anyInk(pic, "storm~trail");
++  REQUIRE(trail);
++  CHECK(trail->line.size() >= 3);     // both legs of the track, not a point
++  CHECK(again.readback(false) == rb); // and --check's round trip holds
++}
++
++TEST_CASE("a path driven by a param clock is carried as the curve it traced, not as a chord") {
++  Engine e(instant());
++  played(e, "schema axes x=[0,10] y=[0,4]\nmark clock param value=0\nmark small dot x={clock} y={pow(0.7,clock)} trail=all\n"
++            "morph clock.value 0 -> 10 4s ease=linear\n");
++  std::string rb = e.readback(false);
++  std::vector<double> v = wasOf(rb, "small");
++  REQUIRE(v.size() >= 12); // at least six points along the curve
++  CHECK(v[0] == doctest::Approx(0));
++  CHECK(v[1] == doctest::Approx(1)); // it starts where it was born
++  for (size_t i = 0; i + 1 < v.size(); i += 2) CHECK(v[i + 1] == doctest::Approx(std::pow(0.7, v[i])).epsilon(0.01));
++  Engine again(instant());
++  played(again, rb);
++  CHECK(again.readback(false) == rb);
++}
++
++TEST_CASE("a carried path continues: a dot loaded with was= that moves again writes back the old path plus the new") {
++  Engine e(instant());
++  played(e, "schema plane x=[0,4] y=[0,4]\nmark p dot x=1 y=1 trail=all was=[0, 0, 1, 0]\nmark p x=2 y=1\n");
++  CHECK(e.readback(false).find("was=[0, 0, 1, 0, 1, 1]") != std::string::npos);
++}
++
++TEST_CASE("a jump leaves no line: a set that teleports the dot breaks the carried path") {
++  Engine e(instant());
++  played(e, "schema plane x=[0,6] y=[0,2]\nmark c param value=5\nmark p dot x=0 y=0 trail=all\nmark p x=1 y=1\nmark p x={c}\n");
++  std::string rb = e.readback(false);
++  CHECK(rb.find("was=[0, 0, 1, 1, -]") != std::string::npos);
++  Engine again(instant());
++  played(again, rb);
++  CHECK(again.readback(false) == rb);
++}
++
++TEST_CASE("in a space the carried path has three numbers a point, and follows the surface it was tied to") {
++  Engine e(instant());
++  played(e, "schema space x=[-3,3] y=[-3,3] z=[0,5]\nmark p dot x=-2 y=-2 z={0.4*(p.x^2 + p.y^2)} trail=all\n"
++            "morph p.x -> -1 1s\nwith morph p.y -> -1 1s\n");
++  std::string rb = e.readback(false);
++  std::vector<double> v = wasOf(rb, "p");
++  REQUIRE(v.size() >= 9); // the bowl's side is a curve: more than its two ends
++  CHECK(v.size() % 3 == 0);
++  for (size_t i = 0; i + 2 < v.size(); i += 3) CHECK(v[i + 2] == doctest::Approx(0.4 * (v[i] * v[i] + v[i + 1] * v[i + 1])).epsilon(0.01));
++  Engine again(instant());
++  played(again, rb);
++  CHECK(again.readback(false) == rb);
++}
+diff --git a/tests/test_viz.cpp b/tests/test_viz.cpp
+index 950bb75..67f936b 100644
+--- a/tests/test_viz.cpp
++++ b/tests/test_viz.cpp
+@@ -186,6 +186,31 @@ TEST_CASE("trail times: absolute grid, exact ends and corners, independent of wh
+   CHECK(std::is_sorted(a.begin(), a.end()));
+ }
+ 
++TEST_CASE("simplify: points on a straight line go, corners stay, and simplifying twice changes nothing") {
++  std::vector<V3> pts;
++  for (int i = 0; i <= 10; i++) pts.push_back({(double)i, 0, 0});
++  pts.push_back({10, 5, 0});
++  CHECK(simplify(pts, 0.01) == std::vector<size_t>{0, 10, 11});
++  std::vector<V3> arc; // a half circle at 1 % tolerance: a handful of points, all within eps
++  for (int i = 0; i <= 100; i++) arc.push_back({std::cos(i * 3.14159265 / 100), std::sin(i * 3.14159265 / 100), 0});
++  std::vector<size_t> k = simplify(arc, 0.01);
++  CHECK(k.size() > 5);
++  CHECK(k.size() < 30);
++  CHECK(k.front() == 0);
++  CHECK(k.back() == 100);
++  std::vector<V3> kept;
++  for (size_t i : k) kept.push_back(arc[i]);
++  CHECK(simplify(kept, 0.01).size() == kept.size());
++  for (size_t j = 0; j + 1 < k.size(); j++) // every dropped point is within eps of the chord that replaced it
++    for (size_t i = k[j]; i <= k[j + 1]; i++) {
++      V3 a = arc[k[j]], b = arc[k[j + 1]], ab = b - a, ap = arc[i] - a;
++      double t = std::max(0.0, std::min(1.0, dot(ap, ab) / dot(ab, ab)));
++      CHECK(norm(arc[i] - (a + ab * t)) <= 0.01 + 1e-12);
++    }
++  CHECK(simplify({}, 1).empty());
++  CHECK(simplify({{1, 2, 3}}, 1) == std::vector<size_t>{0});
++}
++
+ // ---------------------------------------------------------------- compiled expressions
+ #include "../markup/expr.hpp"
+ #include <map>
+
+# ---- git diff --stat
+ README.md             |   2 +
+ markup/engine.cpp     |  20 ++++-
+ markup/engine.hpp     |  11 +++
+ markup/trails.cpp     | 212 ++++++++++++++++++++++++++++++++++++++++++++++++--
+ markup/viz/space.cpp  |  30 +++++++
+ markup/viz/space.hpp  |   5 ++
+ tests/test_engine.cpp |  76 ++++++++++++++++++
+ tests/test_viz.cpp    |  25 ++++++
+ 8 files changed, 369 insertions(+), 12 deletions(-)
+
+# ---- git status --short (tools/tex/node_modules is the MathJax symlink the brief asks for, not part of the change)
+ M README.md
+ M markup/engine.cpp
+ M markup/engine.hpp
+ M markup/trails.cpp
+ M markup/viz/space.cpp
+ M markup/viz/space.hpp
+ M tests/test_engine.cpp
+ M tests/test_viz.cpp
+?? tools/tex/node_modules

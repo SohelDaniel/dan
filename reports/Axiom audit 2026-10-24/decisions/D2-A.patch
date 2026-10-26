@@ -1,0 +1,451 @@
+diff --git a/README.md b/README.md
+index 09160e0..5c0bb49 100644
+--- a/README.md
++++ b/README.md
+@@ -65,7 +65,7 @@ The language is called Dan; its files end in `.dan`. One line, one statement. `#
+ mark  <id> [kind] [category] key=value ...          a thing and its properties
+ link  <id> [kind] <a> -> <b> key=value ...          a relation: arrow (cause, maps-to), line (connected), similar, equals
+ group <id> part-of=[a,b,...] label="..."            a relation: part-of
+-morph <id>.<prop> [from] -> <to> [1.5s] [ease=..]   a change; the only way anything moves
++morph <id>.<prop> [from] -> <to> [1.5s] [ease=..]   a change; the only way anything moves (0s: a cut, below)
+ focus <id> | none                                   what the voice is about (everything else dims, for one sentence)
+ Say: "text with |hook| markers"                     the voice
+ ```
+@@ -88,6 +88,7 @@ show <id> [0.6s]               bring it back (opacity=1)
+ Modifiers:
+ - `with <line>` runs alongside the previous line.
+ - `@hook <line>` waits until the voice reaches `|hook|`.
++- `0s` on a morph is a **cut**: the change takes no time, and the engine leaves the thing's afterimage where it was, fading, so the eye reads a jump and not a slide. Only for a change that really is instantaneous (a quantum jump, a border redrawn by treaty, a price gap at the open, a collision), and always on its word (`@jump morph e.level -> 3 0s`): a cut with no cue is linted. Everything else morphs; a quick change is a short morph (`0.05s`), not a cut.
+ - `[id]` glued to a word points at that thing as the word is spoken: `Say: "each [w11]weight is learned"` pulses `w11` on "weight". It is the cheapest way to point; use it whenever a sentence names something on stage.
+ - `{expr}` in a Say speaks a value off the stage: `Say: "That gives |h|{h}, so cat goes in slot {h}."` says the value `h` has when the word is reached (after the lines cued on that word; a morph counts at its end value), and pulses `h` on that word. `{h.y}` reads a property, `{a + b}` an expression, as in properties and `\val{}`. The voice can't say a number the stage doesn't hold, so speak stage values this way rather than typing them. A value read off the stage still has to be readable on it: a label or a value on the thing.
+ 
+@@ -354,7 +355,7 @@ If no schema is given, one is inferred. Paths, regions or `x=` give `axes`. `t=`
+ | connected / cause | line / arrow | `drawLink`: an arc over bars; in a graph, routed through the gaps between columns (never through a box), against the flow as an arc |
+ | equals / similar | dashed link marked `=` / `≈` | `drawLink` |
+ | name, value | short text | labels; the voice carries sentences |
+-| change | motion | `Active` morphs; categories cross-fade color |
++| change | motion | `Active` morphs; categories cross-fade color; a cut (`0s`) leaves an afterimage where the thing was |
+ | voice subject | focus | everything else eases to 20% |
+ 
+ ## Axioms, enforced
+@@ -362,7 +363,7 @@ If no schema is given, one is inferred. Paths, regions or `x=` give `axes`. `t=`
+ 1. **Identity.** There is no delete verb. A re-mark updates in place. A `morph … from X` that doesn't match the real value is warned about and animated from the real value, so there are no jump cuts.
+ 2. **Structure.** Bars share a zero baseline. Scales are per property and never jump mid-script, because the whole script is pre-scanned.
+ 3. **Zero.** Unrelated things never share a color. Two things share ink only when the script relates them (`of=`, `on=`/`in=`/`over=`, `at=`, a name and its thing, data placed on one plot), because touching reads as a relation. Everything else is kept apart by construction where it can be (the band of formulas never reaches into a plot; a note's name never sits on another part of a formula), pulled apart in graph layouts, and otherwise reported by the checker, which sees every view's plot, ticks and title too. Where position is data (axes, number line), an overlap is reported as a lint, because coinciding reads as "equal".
+-4. **Continuity.** Every change is a morph with easing. New marks grow in, links draw themselves, and focus fades.
++4. **Continuity.** Every change is a morph with easing. New marks grow in, links draw themselves, and focus fades. The one break is a cut (`morph … 0s`), and it is the author's: stated in the line, said on its word (uncued, it is linted and fails `--check`), named in the readback's history, and drawn as an event (the thing's afterimage fades where it was), never a silent jump.
+ 5. **Bounded focus.** `focus` lights one thing (or a group and its parts) and dims the rest, for one sentence: the one it is cued in, or the next one if it stands between sentences. Then everything is at full strength again.
+ 6. **Decodability.** `--readback` prints the final scene in the same vocabulary, plus derived facts (max, mean, order), overlaps, recent changes and lint. `--check` re-parses that readback and confirms it rebuilds the same scene.
+ 
+diff --git a/chat/prompt.md b/chat/prompt.md
+index 1d9b363..85c442a 100644
+--- a/chat/prompt.md
++++ b/chat/prompt.md
+@@ -91,6 +91,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
+ | a name or symbol ("picture f as a height", "call this point P", "the weights α") | the thing it names carries it the moment it is said: `label="f(x, y) = x² + y²"` on the curve or field, `label="P"` on the point, or a formula that writes it |
+ | a process ("multiply each input by its weight and add") | the process happening: values travel, appear on links, combine at the node, step by step |
+ | a rate, a slope | a tangent or an arrow, not just words |
++| a change that takes no time ("jumps straight to", "overnight", "the day it is signed", "snaps", a collision) | a cut: `morph … 0s` on that word (`@jump morph e.level -> 3 0s`); the engine leaves an afterimage where the thing was. Rare: only when the change really is instantaneous, and never uncued. Anything that takes time morphs, however briefly (`0.05s`) |
+ | two views of one thing (arrows ↔ a matrix) | both, tied by colour, and only if the second view adds something |
+ 
+ - Point while you talk: `[id]` glued to a word pulses that thing as it is said (`the [w11]weight from x₁`).
+@@ -193,6 +194,7 @@ In space, write every number you say on stage (a label with `value={…}`): a he
+ ## Pitfalls seen in testing
+ 
+ - Bars for a physics law. Show the objects moving instead.
++- A one-second morph for a change the voice calls instantaneous (the electron slides through n = 2 while you say "never in between"). Cut it: `morph … 0s` on the word.
+ - A "Key idea" card on every answer. Say the takeaway; the picture already shows it.
+ - Boxes standing in for physical things (chambers, cells, ions, parts of a machine). Draw them where they are.
+ - Numbers spoken but nowhere on stage.
+diff --git a/chat/toolbox.md b/chat/toolbox.md
+index dace992..f21da52 100644
+--- a/chat/toolbox.md
++++ b/chat/toolbox.md
+@@ -220,6 +220,16 @@ Say: "Turn up the |k|steepness and the curve climbs faster."
+ @k morph k.value 1 -> 3 2s
+ ```
+ 
++### A change that takes no time (a cut)
++Use only for a change that really is instantaneous: a quantum jump, a border redrawn by treaty, a price gap at the open, a collision. Say it on its word; the thing's afterimage fades where it was, so the learner sees a jump, not a slide. Rare: anything that takes time morphs, however briefly.
++Tools: `morph … 0s`, always cued on the word (uncued, the engine lints it); `trail=all` keeps a true gap across the cut.
++```
++schema numberline range=[0,4] prop=level
++mark e dot level=1 label="electron"
++Say: "It absorbs a photon and |jumps|jumps straight to level three; it is never in between."
++@jumps morph e.level -> 3 0s
++```
++
+ ### Motion and physical systems
+ Use for anything that moves or has parts in real places: draw the parts where they are, and move what moves.
+ Tools: `schema plane x=[…] y=[…]`; `circle` `rect` `polygon` `vector`; a hidden `param` clock with `x={…}`; `trail=`.
+diff --git a/docs/HANDOFF.md b/docs/HANDOFF.md
+index 746f2ce..bc1bd4d 100644
+--- a/docs/HANDOFF.md
++++ b/docs/HANDOFF.md
+@@ -6,7 +6,7 @@ what is open. The dated story of how it got here (what was tried, measured, kept
+ **Keep this file current.** Each session ends by updating it (see `CLAUDE.md`): change the map where the code
+ changed, add gotchas, move finished items out of "Open", and add a dated entry to `docs/history.md`.
+ 
+-Last updated: 2026-10-24 (`tutor write`, the Dan playground).
++Last updated: 2026-10-24 (the cut: `morph … 0s` named, drawn as an afterimage, linted when uncued).
+ 
+ ## 1. What it is
+ 
+@@ -93,7 +93,7 @@ engine stays the only author of pixels.
+ |---|---|
+ | `main.cpp` | CLI: play, `--check`, `--readback`, `--snapshot`, `--layout-report`, `--stdin` (the live mode the chat uses), voice flags |
+ | `markup/script.*` | the parser: verbs, kinds, schemas, `[id]` pointers and `{expr}` in Say |
+-| `markup/engine.*` | model and timeline: steps, cues, morphs (`Active`), history, readback, lints, the prescan, the instant **shadow** engine (values known before they are spoken), key sets `kPositional`/`kTextKeys`, the **rest** after a formula step (`kRest`, `quiet_`, `restDue_`) and the `timeline` log |
++| `markup/engine.*` | model and timeline: steps, cues, morphs (`Active`), history, readback, lints, the prescan, the instant **shadow** engine (values known before they are spoken), key sets `kPositional`/`kTextKeys`, the **rest** after a formula step (`kRest`, `quiet_`, `restDue_`), the `timeline` log, and the **cut** (`morph … 0s`: `afterimages_`, the `continuity:` lint) |
+ | `markup/layout.cpp` | per-frame layout: ranges, the formula band (`layoutBand`, `bandFit`), schema layouts, pointers and attachments, easing, `fitStage` |
+ | `markup/placement.cpp` | engine side of placement: `picture()` (all ink for the checker, with regions and view frames), labels, link geometry |
+ | `markup/place/*` | pure C++, unit-tested: `flow` (layered graph layout), `qp`, the label placer, the exact checker (`check.*`), springs |
+@@ -153,6 +153,9 @@ code, no stubs left behind.
+   The band's need only grows within a scene (`bandNeed_`).
+ - **`bandFit` must be infinite when no plot is on stage**, or every scene shrinks and the corpus "improves" falsely.
+ - **raylib's `CheckCollisionLines` writes to its output pointer even when given null.**
++- **A cut is the author's `0s`, read off the `Line` (`ln.dur <= 0`), never off the `Active`:** in instant mode
++  (`--check`, `--readback`, the shadow) every `Active` has `dur` 0, so testing the Active would call every morph
++  a cut. Afterimages are drawn only (not in `picture()`, like pulses), so the checker never sees them.
+ - **Name clashes with raymanim globals** (`H`, `W`, ...) in engine code: pick other names for locals.
+ - **3D:** labels, the placer and the checker all go through `Space::project`; never compute a 3D screen position
+   any other way. The fit has a 0.96 margin; an exact fit fails tests on rounding.
+@@ -175,8 +178,8 @@ code, no stubs left behind.
+ 
+ Done and measured (details in `docs/history.md`):
+ - 2D: graphs as layered flow; annotations, views side by side, derivations, grids, area diagrams, histograms, trees.
+-- Teaching: a decide-first prompt, the toolbox of 27 checked moves, 4 annotated examples, `{expr}` in Say,
+-  pointing ahead, python blocks, pause and ask.
++- Teaching: a decide-first prompt, the toolbox of 32 checked moves, 4 annotated examples, `{expr}` in Say,
++  pointing ahead, python blocks, pause and ask, the cut (`morph … 0s`) for a change that takes no time.
+ - Voice: 48 kHz, sentence context, a picker in the browser.
+ - Pacing: one formula step per sentence and a 1 s rest after it (engine); a digest sentence and `wait 2s`/`3s`
+   after subgoal and crux steps (prompt). On 20 derivations: 2+ changes per sentence 15-21% -> 0-4%, rest >= 0.8 s
+diff --git a/docs/history.md b/docs/history.md
+index 8675cfd..ff859d5 100644
+--- a/docs/history.md
++++ b/docs/history.md
+@@ -508,3 +508,33 @@ it, `#!interrupt`s (instant to that state) and appends the rest, so the changed
+ state. The line being typed waits for its newline (Cmd+Enter sends it). Exercised through the API: append,
+ partial line, forced partial, earlier edit, load, skip, replay, SSE events. No engine change. Also written, not
+ committed: a personal HTML map of the architecture and the language for the user (on their Desktop).
++
++## 8m. 2026-10-24: the cut, named (decision D2 of the axiom audit)
++
++The continuity auditor found that the language had no word for a change that takes no time: `morph … 0s` worked
++but was undocumented, the README called morph "the only way anything moves", so Claude never wrote it (0 of 220
++morphs in 63 real turns), and the electron of a quantum-jump scene slid through n = 2 while the voice said "never
++in between" (frame at 3.7 s, cue at 3.18 s). An uncued `0s` passed `--check` clean and the history said only
++"done".
++
++**Decided:** the cut is `0s` on a morph (no new verb or key: a cut is a morph of no duration, the end of the
++`0.05s` continuum). It is drawn as an event, an afterimage: the thing as it was fades where it was over 0.6 s
++(a trail of zero length, so it has a trail's meaning and no other; the new place needs no flash, an abrupt onset
++captures the eye on its own). The history names it (`# since: morph e.level 1 -> 3 0s done`). A cut with no cue
++word is linted (`continuity:`) and counts as an axiom warning in `--check`. Rejected: a `cut` verb (two spellings
++of one thing, nothing to read back), `ease=step` (a wait plus a cut), a `discrete=` flag on the thing, fade-out
++then fade-in (two things, three lines).
++
++**Built:** engine (`Afterimage`, `leaveAfterimage`, `afterimage(id)`, the lint in `analyze`, the log suffix),
++render (`drawAfterimages` under the shapes, names off the trace), `main.cpp` (the axiom count), README (the morph
++line, a Modifiers bullet, the dictionary row, axiom 4's stated exception), prompt (a "Show what you say" row and a
++pitfall), toolbox ("A change that takes no time (a cut)"). Test: an uncued cut is linted and the readback says
++`0s`; a cued one is clean; live, the afterimage of a `0s` morph is > 0.3 one frame in and gone 0.75 s later, and an
++eased morph leaves none (3 of 8 assertions fail on the old engine). Regressions: test 192/192, check 93 scenes +
++32 moves ok, golden 52/52 same on both placers, append 152 identical + the 4 known 3D cases. Frames: the electron
++jumps on the word with a dimmer dot fading on n = 1; the treaty's old border and ceded strip fade; the price gap's
++trail keeps its true gap.
++
++**Not done:** no afterimage for text, blocks, boxes, notes, params or 3D things (a param's dependents jump without
++a trace); the afterimage is not in `picture()` (like pulses); no corpus measurement of how often Claude now
++writes a cut, and whether it over-uses it (the prompt says rare).
+diff --git a/main.cpp b/main.cpp
+index 64a20af..8fc5251 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -188,7 +188,8 @@ int main(int argc, char **argv) {
+       bool same = model == model2;
+       auto lints = eng.lintMessages();
+       int zero = 0;
+-      for (auto &l : lints) if (l.rfind("zero", 0) == 0 || l.rfind("identity", 0) == 0 || l.rfind("tex", 0) == 0) zero++;
++      for (auto &l : lints) // the axioms' own lints; an uncued cut is a silent jump (continuity)
++        if (l.rfind("zero", 0) == 0 || l.rfind("identity", 0) == 0 || l.rfind("tex", 0) == 0 || l.rfind("continuity", 0) == 0) zero++;
+       std::printf("decodable: %s\n", same ? "yes (readback re-parses to the same scene)" : "NO");
+       if (!same) std::printf("--- first\n%s--- re-read\n%s", model.c_str(), model2.c_str());
+       std::printf("axiom warnings: %d\n", zero);
+diff --git a/markup/engine.cpp b/markup/engine.cpp
+index 02c746c..e122084 100644
+--- a/markup/engine.cpp
++++ b/markup/engine.cpp
+@@ -235,6 +235,16 @@ void Engine::analyze(bool fresh) {
+     if (!deferredHooks.count(h)) warn("hook: |" + h + "| is spoken but no line is tagged @" + h);
+   for (auto &[line, id] : pointed)
+     if (!defined.count(baseId(id))) warn("say: line " + std::to_string(line) + " points at [" + id + "], which is never marked");
++  for (auto &st : script_.steps) { // a cut (0s) is an event, and an event happens on a word; uncued, it is a silent jump
++    if (!st.hook.empty()) continue;
++    auto cutNeedsWord = [&](const Line &ln) {
++      if (ln.verb == Verb::MORPH && ln.dur <= 0)
++        warn("continuity: line " + std::to_string(ln.lineNo) + " cuts " + ln.id + "." + ln.prop + " (0s) with no cue word; a cut is an "
++             "event the voice names: cue it on its word (@word morph " + ln.id + "." + ln.prop + " -> " + ln.to.markup() + " 0s), or let it morph");
++    };
++    cutNeedsWord(st.main);
++    for (auto &w : st.withs) cutNeedsWord(w);
++  }
+   eachLine(script_, [&](const Line &ln) {
+     auto need = [&](const std::string &id, const char *what) {
+       if (!id.empty() && id != "none" && !defined.count(baseId(id)))
+@@ -302,6 +312,7 @@ void Engine::reset() {
+   firedBySay_.clear();
+   marks_.clear(); links_.clear(); groups_.clear(); order_.clear();
+   actives_.clear();
++  afterimages_.clear();
+   say_ = SayRun{};
+   focus_.clear();
+   schema_ = "auto";
+@@ -398,6 +409,7 @@ void Engine::interrupt() {
+   tickActives(0);
+   while (!finished()) update(0);
+   opt_.instant = was;
++  afterimages_.clear(); // the learner asked for the end state: no trace of what was skipped
+   for (auto &id : order_) if (Obj *o = find(id)) o->appear = 1;
+   readbackPrinted_ = false;
+ }
+@@ -660,6 +672,7 @@ void Engine::clearStage() {
+   links_.clear();
+   groups_.clear();
+   order_.clear();
++  afterimages_.clear();
+   focus_.clear();
+   actives_.erase(std::remove_if(actives_.begin(), actives_.end(),
+                                 [](const Active &a) { return a.kind == Active::NUM || a.kind == Active::STR; }),
+@@ -1028,6 +1041,13 @@ void Engine::doMorph(const Line &ln) {
+   Value *cur = findProp(o->props, ln.prop);
+   std::string target = ln.id + "." + ln.prop;
+   float dur = opt_.instant ? 0 : std::max(0.f, ln.dur);
++  // `0s` is a cut: the author says the change takes no time (a quantum jump, a treaty, a price gap). It is the
++  // one break in continuity, so it is drawn as an event (an afterimage where the thing was) and named in the history.
++  bool cut = ln.dur <= 0;
++  Mark *mk = mark(ln.id);
++  auto said = [&](const std::string &rule) {
++    caption(cut ? "cut -> " + target + " changes at once (0s): its afterimage marks where it was (the one break in continuity, said on its word)" : rule);
++  };
+ 
+   if (ln.to.type == Value::STR || ln.to.type == Value::LIST) {
+     std::string old = cur ? (cur->type == Value::STR ? cur->str : cur->markup()) : "";
+@@ -1035,16 +1055,17 @@ void Engine::doMorph(const Line &ln) {
+     if (ln.hasFrom && cur && (list ? ln.from.markup() != old : ln.from.markup() != Value::string(old).markup() && ln.from.str != old))
+       warn("identity: line " + std::to_string(ln.lineNo) + " morphs " + target + " from '" + ln.from.str +
+            "' but it is '" + old + "'; morphing from the real value");
++    if (cut && mk && (list ? ln.to.markup() : ln.to.str) != old) leaveAfterimage(*mk);
+     setProp(o->props, ln.prop, ln.to);
+     o->strBlend[ln.prop] = {old, dur > 0 ? 0.f : 1.f};
+-    if (Mark *om = mark(ln.id); om && !list && ln.prop == catProp(*om)) colorForKey("cat:" + ln.to.str); // a category's new value only
++    if (mk && !list && ln.prop == catProp(*mk)) colorForKey("cat:" + ln.to.str); // a category's new value only
+     Active a;
+     a.kind = Active::STR; a.id = ln.id; a.prop = ln.prop; a.dur = dur;
+     a.ease = rateByName(ln.ease);
+-    a.log = "morph " + target + " " + Value::string(old).markup() + " -> " + ln.to.markup();
++    a.log = "morph " + target + " " + Value::string(old).markup() + " -> " + ln.to.markup() + (cut ? " 0s" : "");
+     actives_.push_back(a);
+-    caption(ln.prop == "tex" ? "change of formula -> shared symbols move to their new places, the rest fade (" + target + ")"
+-                             : "change of category -> color morphs, label cross-fades (" + target + ")");
++    said(ln.prop == "tex" ? "change of formula -> shared symbols move to their new places, the rest fade (" + target + ")"
++                          : "change of category -> color morphs, label cross-fades (" + target + ")");
+     return;
+   }
+ 
+@@ -1064,17 +1085,34 @@ void Engine::doMorph(const Line &ln) {
+   a.dur = dur;
+   a.ease = rateByName(ln.ease);
+   recordActive(a, before);
+-  a.log = "morph " + target + " " + fmtNum(a.from) + " -> " + ln.to.markup();
++  if (cut && mk && a.to != a.from) leaveAfterimage(*mk); // before the value lands: the trace is the thing as it was
++  a.log = "morph " + target + " " + fmtNum(a.from) + " -> " + ln.to.markup() + (cut ? " 0s" : "");
+   actives_.push_back(a);
+ 
+   std::string ch = "its value";
+-  if (Mark *m = mark(ln.id)) {
+-    std::string k = effectiveKind(*m);
+-    if (ln.prop == magProp(*m)) ch = k == "bar" ? "bar length" : k == "dot" ? (schemaOf(*m) == "numberline" ? "position" : "dot area") : "the number shown";
++  if (mk) {
++    std::string k = effectiveKind(*mk);
++    if (ln.prop == magProp(*mk)) ch = k == "bar" ? "bar length" : k == "dot" ? (schemaOf(*mk) == "numberline" ? "position" : "dot area") : "the number shown";
+     if (ln.prop == "x" || ln.prop == "y" || ln.prop == "t") ch = "position";
+     if (ln.prop == "from" || ln.prop == "to") ch = "the region's extent";
+   }
+-  caption("change -> motion over time: " + target + " drives " + ch + " (it morphs, never redrawn)");
++  said("change -> motion over time: " + target + " drives " + ch + " (it morphs, never redrawn)");
++}
++
++// A cut leaves the thing as it was, fading where it was: a trail of zero length, so the eye reads a jump and not
++// a slide. Only for shapes whose geometry is their own numbers; text (blocks, boxes, notes, names) gets none, two
++// texts on one spot read as neither, and a space draws its things by depth, not here.
++void Engine::leaveAfterimage(const Mark &m) {
++  std::string k = effectiveKind(m);
++  bool shape = k == "dot" || k == "bar" || k == "line" || k == "arrow" || k == "path" || k == "region" || isWorldKind(k);
++  if (opt_.instant || !shape || isSpace(schemaOf(m))) return;
++  afterimages_.push_back({m, 0});
++}
++
++float Engine::afterimage(const std::string &id) {
++  float s = 0;
++  for (auto &g : afterimages_) if (g.was.id == id) s = std::max(s, afterimageStrength(g.t));
++  return s;
+ }
+ 
+ void Engine::startSay(const Line &ln) {
+@@ -1429,6 +1467,9 @@ void Engine::update(float dt) {
+   }
+   tickSay(dt);
+   tickActives(dt);
++  for (auto &g : afterimages_) g.t += dt;
++  afterimages_.erase(std::remove_if(afterimages_.begin(), afterimages_.end(), [](const Afterimage &g) { return g.t >= kAfterimage; }),
++                     afterimages_.end());
+   bool moving = say_.active;
+   for (auto &a : actives_) if (a.kind != Active::WAIT) moving = true;
+   quiet_ = moving ? 0 : quiet_ + dt;
+diff --git a/markup/engine.hpp b/markup/engine.hpp
+index 2c4fa76..2b543ad 100644
+--- a/markup/engine.hpp
++++ b/markup/engine.hpp
+@@ -75,6 +75,7 @@ struct Obj {
+   float lit = 1;      // focus brightness, eased
+   float pulse = 0;    // indicate: 0..1..0
+   std::string pulseRef; // what the pulse points at (the thing, or one cell: a[3])
++  float afterimage = 0; // > 0: this copy is a cut's trace, the thing as it was, drawn at this strength without its names
+   // a category (string) property mid-morph: prop -> (old text, progress 0..1)
+   std::map<std::string, std::pair<std::string, float>> strBlend;
+ };
+@@ -186,6 +187,7 @@ public:
+   std::vector<std::string> prefetchVoice(const std::string &sayLine);
+   std::vector<std::string> spokenLines();   // every Say as it will be spoken, {expr} read off the stage
+   std::string pulsing(const std::string &id); // what of this thing pulses right now ("a[2]", "a"), "" if nothing
++  float afterimage(const std::string &id);    // a cut's trace of this thing: how strongly it still shows (0: none)
+   // numbers and names said aloud: how many, how many on stage at their word, pointed by the script, pointed ahead
+   std::string pointingReport() const;
+   // numbers said aloud with the words they span ("seven hundred eighty-four", "zero point one four"); pure, for tests too
+@@ -408,6 +410,7 @@ private:
+   void drawWorld(const Mark &m);            // circle rect polygon angle vector
+   void drawBlock(const Mark &m);            // card code array table
+   void drawPulses();
++  void drawAfterimages();                   // cuts: the thing as it was, fading where it was
+   Vector2 blockSize(const Mark &m);
+   Rectangle cellRect(const Mark &m, int k); // array cell k on screen
+   bool anchorBox(const std::string &ref, Rectangle &out); // "id" or "id[k]" -> its box on screen
+@@ -463,6 +466,16 @@ private:
+   Props schemaProps_;
+   std::vector<std::string> since_;
+   std::set<std::string> lint_;
++  // a cut (morph … 0s) is the one break in continuity, and it is drawn as an event: the thing as it was fades
++  // where it was, a trail of zero length, so the eye reads a jump and not a slide
++  struct Afterimage {
++    Mark was;
++    float t = 0;
++  };
++  std::vector<Afterimage> afterimages_;
++  static constexpr float kAfterimage = 0.6f; // how long it lingers (the hide/show fade)
++  static float afterimageStrength(float t) { return 0.55f * std::pow(std::max(0.f, 1 - t / kAfterimage), 1.5f); }
++  void leaveAfterimage(const Mark &m);
+   std::string caption_;
+   float captionT_ = 0;
+   bool paused_ = false, showDict_ = true, waitingPause_ = false;
+diff --git a/markup/render.cpp b/markup/render.cpp
+index 195d8c3..35cd5e5 100644
+--- a/markup/render.cpp
++++ b/markup/render.cpp
+@@ -30,7 +30,7 @@ bool Engine::ghost(const Obj &o) {
+ }
+ 
+ float Engine::alphaOf(const Obj &o) {
+-  return easeOut(std::clamp(o.appear, 0.f, 1.f)) * o.lit * stageFade_ * opacityOf(o);
++  return easeOut(std::clamp(o.appear, 0.f, 1.f)) * o.lit * stageFade_ * opacityOf(o) * (o.afterimage > 0 ? o.afterimage : 1.f);
+ }
+ 
+ // shape= : the second categorical channel for things drawn as dots
+@@ -432,6 +432,15 @@ void Engine::drawPulses() {
+   }
+ }
+ 
++// a cut's trace: the thing as it was, where it was, fading; drawn under the things so the real one stays crisp
++void Engine::drawAfterimages() {
++  for (auto &g : afterimages_) {
++    Mark was = g.was;
++    was.afterimage = afterimageStrength(g.t);
++    drawMark(was);
++  }
++}
++
+ // the box a reference names as it is drawn now: a thing, a cell or span, or a formula part f[id]
+ bool Engine::refBox(const std::string &ref, Rectangle &out) {
+   Mark *t = mark(baseId(ref));
+@@ -500,6 +509,7 @@ void Engine::drawFlights() {
+ 
+ // a mark's outside text, exactly where layout put it (markLabels)
+ void Engine::drawLabels(const Mark &m) {
++  if (m.afterimage > 0) return; // a cut's trace keeps its shape, not its names (the thing itself carries them)
+   float a = alphaOf(m);
+   Color c = colorOf(m);
+   for (const TextLabel &l : markLabels(m)) {
+@@ -910,6 +920,7 @@ void Engine::draw() {
+         bool curve = isCurveKind(k) || k == "line" || k == "arrow";
+         if ((pass == 0 && under) || (pass == 1 && curve)) drawMark(*m);
+       }
++  drawAfterimages(); // where a cut thing was: under what moved, and under its name
+   for (auto &id : order_) // grids, then world shapes, then the vectors drawn over them
+     if (Mark *m = mark(id); m && effectiveKind(*m) == "grid") drawMark(*m);
+   for (auto &id : order_)
+diff --git a/tests/test_engine.cpp b/tests/test_engine.cpp
+index 8e8c0eb..3e4011d 100644
+--- a/tests/test_engine.cpp
++++ b/tests/test_engine.cpp
+@@ -476,3 +476,25 @@ TEST_CASE("a formula part pointed at with indicate f[part] is a named part: no t
+   for (auto &w : bare.lintMessages()) if (w.find("textcolor{sq}") != std::string::npos) bareLint = true;
+   CHECK(bareLint);
+ }
++
++TEST_CASE("a cut (morph … 0s) is the one stated break in continuity: it needs its word, the history says so, and it leaves an afterimage") {
++  Engine e(instant()); // uncued: a silent jump, linted
++  played(e, "schema axes x=[0,6] y=[0,4]\nmark q dot x=1 y=2 label=\"q\"\nmorph q.x -> 5 0s\n");
++  bool linted = false;
++  for (auto &l : e.lintMessages()) if (l.rfind("continuity:", 0) == 0 && l.find("q.x") != std::string::npos) linted = true;
++  CHECK(linted);
++  CHECK(e.readback().find("# since: morph q.x 1 -> 5 0s done") != std::string::npos); // the history names the cut
++  Engine c(instant()); // cued on its word: an event the voice names
++  played(c, "schema axes x=[0,6] y=[0,4]\nmark q dot x=1 y=2 label=\"q\"\nSay: \"It |jumps|jumps across.\"\n@jumps morph q.x -> 5 0s\n");
++  for (auto &l : c.lintMessages()) CHECK(l.rfind("continuity:", 0) != 0);
++  EngineOptions o; // live: the thing as it was fades where it was, for about half a second; an eased morph leaves none
++  o.quiet = true;
++  Engine live(o);
++  REQUIRE(live.loadText("schema axes x=[0,6] y=[0,4]\nmark q dot x=1 y=2 label=\"q\"\nmark p dot x=1 y=3 label=\"p\"\n"
++                        "morph q.x -> 5 0s\nwith morph p.x -> 5 1s\n"));
++  live.update(1.f / 60);
++  CHECK(live.afterimage("q") > 0.3f);
++  CHECK(live.afterimage("p") == 0.f);
++  for (int i = 0; i < 45; i++) live.update(1.f / 60); // 0.75 s later it is gone
++  CHECK(live.afterimage("q") == 0.f);
++}
+
+# git diff --stat
+ README.md             |  7 +++---
+ chat/prompt.md        |  2 ++
+ chat/toolbox.md       | 10 +++++++++
+ docs/HANDOFF.md       | 11 ++++++----
+ docs/history.md       | 30 ++++++++++++++++++++++++++
+ main.cpp              |  3 ++-
+ markup/engine.cpp     | 59 +++++++++++++++++++++++++++++++++++++++++++--------
+ markup/engine.hpp     | 13 ++++++++++++
+ markup/render.cpp     | 13 +++++++++++-
+ tests/test_engine.cpp | 22 +++++++++++++++++++
+ 10 files changed, 152 insertions(+), 18 deletions(-)
+# git status --short
+ M README.md
+ M chat/prompt.md
+ M chat/toolbox.md
+ M docs/HANDOFF.md
+ M docs/history.md
+ M main.cpp
+ M markup/engine.cpp
+ M markup/engine.hpp
+ M markup/render.cpp
+ M tests/test_engine.cpp
+?? tools/tex/node_modules

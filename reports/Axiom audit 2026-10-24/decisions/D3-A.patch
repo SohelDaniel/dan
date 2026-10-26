@@ -1,0 +1,820 @@
+diff --git a/README.md b/README.md
+index 09160e0..786bab0 100644
+--- a/README.md
++++ b/README.md
+@@ -123,6 +123,8 @@ mark f tex tex="y = \textcolor{w11}{w_{11}}\,x_1"     # a symbol coloured like i
+ ```
+ 
+ Colours by name: blue, orange, green, red, yellow, purple, teal, pink, brown, lime, white, grey. `\textcolor{yellow}{…}` works in formulas too.
++A colour by name relates things as a kind's colour does, so never name the colour of an unrelated kind on stage (the
++stage's `palette` line says which kind has which); a kind that arrives later leaves a named colour free.
+ 
+ ### Mark kinds
+ 
+@@ -226,7 +228,7 @@ mark T surface xt={cos(u)*sin(v)} yt={sin(u)*sin(v)} zt={cos(v)} u=[0,6.28] v=[0
+ mark B sphere x=0 y=0 z=0 r=1
+ mark P plane normal=[1,1,1] d=1                           # a x + b y + c z = d, the part inside the box
+ mark F polygon pts=[0,0,0, 1,0,0, 0,1,0]                  # a flat face (x,y,z triples): build solids face by face
+-mark G grid space m=[1,0,0, 0,1,0, 0,0,1]                 # the lattice and the unit cube under a 3x3 matrix; morph m
++mark G grid m=[1,0,0, 0,1,0, 0,0,1] color=grey           # the lattice (ground) and the unit cube under a 3x3 matrix; morph m
+ mark E field vx={-y} vy={x} vz={0.5}                      # arrows on a sparse lattice
+ ```
+ 
+@@ -319,7 +321,8 @@ mark k array items=[1,1,1] on=x[0:2]      # a row of cells seated over another's
+ 
+ ```
+ title "..."
+-scene "Part 2"             # fade the stage out and start a fresh one (ids, colors, schema reset)
++scene "Part 2"             # fade the stage out and start a fresh one (ids and schema reset; a word keeps its colour)
++palette input=blue loss=orange   # the stage's record of each kind's colour for the whole lesson; the engine writes it
+ schema free | numberline [prop=score range=[0,100] bin=5] | axes [x=[a,b] y=[c,d] zero=false] | timeline | graph | sequence
+ wait 2s                    # a beat: nothing moves, nothing is said, the last words stay up (after a step that matters)
+ pause                      # wait for space / →
+@@ -348,7 +351,7 @@ If no schema is given, one is inferred. Paths, regions or `x=` give `axes`. `t=`
+ | --- | --- | --- |
+ | thing | a mark with a stable id | `doMark`; there is no delete |
+ | magnitude | bar length / dot area, from a shared zero | `layoutFree`: one scale per property, fixed by pre-scanning every value the script ever uses |
+-| category | color | `colorOf`: one palette slot per category, and every uncategorized thing gets its own slot |
++| category | color | `colorOf`: one palette slot per category word for the whole lesson (it survives `scene`), and every uncategorized thing gets its own slot for its scene; a new kind skips the hues named on stage; past ten kinds, the one that left the stage longest ago gives its slot up. The readback writes the table as a `palette` line |
+ | order | position | the schema's axis; in a graph, the column a thing's links give it, then declaration order within the column (`place/flow`) |
+ | part-of | enclosure | `drawGroup`; in a graph, a lane: its parts stay together, and stages line up across lanes |
+ | connected / cause | line / arrow | `drawLink`: an arc over bars; in a graph, routed through the gaps between columns (never through a box), against the flow as an arc |
+@@ -361,14 +364,15 @@ If no schema is given, one is inferred. Paths, regions or `x=` give `axes`. `t=`
+ 
+ 1. **Identity.** There is no delete verb. A re-mark updates in place. A `morph … from X` that doesn't match the real value is warned about and animated from the real value, so there are no jump cuts.
+ 2. **Structure.** Bars share a zero baseline. Scales are per property and never jump mid-script, because the whole script is pre-scanned.
+-3. **Zero.** Unrelated things never share a color. Two things share ink only when the script relates them (`of=`, `on=`/`in=`/`over=`, `at=`, a name and its thing, data placed on one plot), because touching reads as a relation. Everything else is kept apart by construction where it can be (the band of formulas never reaches into a plot; a note's name never sits on another part of a formula), pulled apart in graph layouts, and otherwise reported by the checker, which sees every view's plot, ticks and title too. Where position is data (axes, number line), an overlap is reported as a lint, because coinciding reads as "equal".
++3. **Zero.** Unrelated things never share a color, in one scene or across a lesson's scenes; a kind never takes a colour something on stage has by name, and a name given to an unrelated kind's colour is reported. Two things share ink only when the script relates them (`of=`, `on=`/`in=`/`over=`, `at=`, a name and its thing, data placed on one plot), because touching reads as a relation. Everything else is kept apart by construction where it can be (the band of formulas never reaches into a plot; a note's name never sits on another part of a formula), pulled apart in graph layouts, and otherwise reported by the checker, which sees every view's plot, ticks and title too. Where position is data (axes, number line), an overlap is reported as a lint, because coinciding reads as "equal".
+ 4. **Continuity.** Every change is a morph with easing. New marks grow in, links draw themselves, and focus fades.
+ 5. **Bounded focus.** `focus` lights one thing (or a group and its parts) and dims the rest, for one sentence: the one it is cued in, or the next one if it stands between sentences. Then everything is at full strength again.
+-6. **Decodability.** `--readback` prints the final scene in the same vocabulary, plus derived facts (max, mean, order), overlaps, recent changes and lint. `--check` re-parses that readback and confirms it rebuilds the same scene.
++6. **Decodability.** `--readback` prints the final scene in the same vocabulary, plus derived facts (max, mean, order), overlaps, recent changes and lint; its `palette` line carries every kind's colour, so a re-parse (and the chat's state between turns) colours the same. `--check` re-parses that readback and confirms it rebuilds the same scene.
+ 
+ Readback looks like this:
+ 
+ ```
++palette account=blue
+ mark alice bar account balance=70 label=Alice unit=$
+ mark bob bar account balance=50 label=Bob unit=$
+ link pay arrow alice -> bob amount=30
+diff --git a/chat/examples/compare.dan b/chat/examples/compare.dan
+index af5c8ea..af85552 100644
+--- a/chat/examples/compare.dan
++++ b/chat/examples/compare.dan
+@@ -18,8 +18,8 @@ mark t1 box attn label="word 1"
+ mark t2 box attn label="word 2"
+ mark t3 box attn label="word 3"
+ link s2 arrow seq -> t1
+-link a2 arrow t1 -> t2 label="0.6" color=orange
+-link a3 arrow t1 -> t3 label="0.3" color=orange
++link a2 arrow t1 -> t2 label="0.6" color=yellow
++link a3 arrow t1 -> t3 label="0.3" color=yellow
+ group tf part-of=[t1,t2,t3] label="transformer: all at once"
+ # "Weighs the others" is a claim with numbers: the weights are on the links, coloured as one kind of thing.
+ Say: "A transformer looks at every word |all|at once, and each word weighs the others."
+diff --git a/chat/examples/heart.dan b/chat/examples/heart.dan
+index 2dcd2ef..3484b0d 100644
+--- a/chat/examples/heart.dan
++++ b/chat/examples/heart.dan
+@@ -3,13 +3,14 @@
+ # right side on the left), and what flows through it moves. Boxes in a row would hide the two loops.
+ title "Blood through the heart"
+ schema plane x=[0,10] y=[0,7] grid=false axes=false
++# The blood's colour is said by name (blue, then red), so it comes first: the kinds after it take other colours.
++mark blood dot x=1.4 y=0.35 r=9 trail=1.2s color=blue label="blood"
+ mark lungs rect organ x=5 y=6.2 w=6 h=1.1 label="lungs"
+ mark ra rect chamber x=3.2 y=4.1 w=2.2 h=1.4 label="right atrium"
+ mark rv rect chamber x=3.2 y=2.4 w=2.2 h=1.6 label="right ventricle"
+ mark la rect chamber x=6.8 y=4.1 w=2.2 h=1.4 label="left atrium"
+ mark lv rect chamber x=6.8 y=2.4 w=2.2 h=1.6 label="left ventricle"
+ mark body rect organ x=5 y=0.6 w=6 h=0.9 label="the body"
+-mark blood dot x=1.4 y=0.35 r=9 trail=1.2s color=blue label="blood"
+ # Each sentence moves the blood exactly where it says, on the word that says it; the trail keeps the path readable.
+ Say: "Used blood comes back from the |body|body into the right atrium."
+ @body morph blood.x -> 3.2 1s
+diff --git a/chat/prompt.md b/chat/prompt.md
+index 1d9b363..309f99f 100644
+--- a/chat/prompt.md
++++ b/chat/prompt.md
+@@ -151,7 +151,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
+ | distributions, statistics | a dot plot: dots on a `numberline`, `mean(...)` markers; two groups as two views; a histogram of samples with `schema numberline … bin=1`, adding samples beat by beat so it grows |
+ | fractions, proportions, conditional probability, the area model of multiplication | `area parts=[…]` (strips in proportion), `by=[[…],[…]]` to split each strip again; area is the quantity. For rare events (1 in 1000) a tree of counts reads better |
+ | comparing a few quantities | bars: **only** for this |
+-| an idea that lives in three dimensions: a surface z = f(x, y), partial derivatives, gradients and tangent planes, a loss over two weights, the cross product, a determinant as a volume, a 3x3 matrix moving space, planes and normals, rotations in space, solids and their volumes, curves in space (helix), molecules, crystal lattices | `schema space` (z up) + `surface`, `vector`s with `dz`, `dot`s with `drop=true`, `plane`, `sphere`, `polygon` faces, `grid space m=[9 numbers]`; `camera spin` while a surface is the subject; `camera view=front`/`top` to show a right angle or a projection |
++| an idea that lives in three dimensions: a surface z = f(x, y), partial derivatives, gradients and tangent planes, a loss over two weights, the cross product, a determinant as a volume, a 3x3 matrix moving space, planes and normals, rotations in space, solids and their volumes, curves in space (helix), molecules, crystal lattices | `schema space` (z up) + `surface`, `vector`s with `dz`, `dot`s with `drop=true`, `plane`, `sphere`, `polygon` faces, `grid m=[9 numbers] color=grey`; `camera spin` while a surface is the subject; `camera view=front`/`top` to show a right angle or a projection |
+ 
+ If no row fits, still show the thing itself rather than a chart about it.
+ 
+diff --git a/chat/toolbox.md b/chat/toolbox.md
+index dace992..4d735e9 100644
+--- a/chat/toolbox.md
++++ b/chat/toolbox.md
+@@ -360,11 +360,11 @@ Say: "From the |up|front, it is plainly perpendicular."
+ 
+ ### A 3x3 matrix moves all of space (3D)
+ Use for linear maps in three dimensions and the determinant as a volume.
+-Tools: `grid space m=[9 numbers]` (the lattice and the unit cube), morphed to the matrix; the basis `vector`s morphed
+-with it; the volume in a formula; `camera spin` to see the slanted box.
++Tools: `grid m=[9 numbers] color=grey` (the lattice, ground, and the unit cube), morphed to the matrix; the basis
++`vector`s morphed with it; the volume in a formula; `camera spin` to see the slanted box.
+ ```
+ schema space x=[-3,3] y=[-3,3] z=[-3,3]
+-mark G grid space m=[1,0,0, 0,1,0, 0,0,1]
++mark G grid m=[1,0,0, 0,1,0, 0,0,1] color=grey
+ mark i vector dx=1 dy=0 dz=0 color=green label="i"
+ mark k vector dx=0 dy=0 dz=1 color=blue label="k"
+ mark d tex tex="\det M = 1"
+diff --git a/markup/controls.cpp b/markup/controls.cpp
+index 3790176..dd90119 100644
+--- a/markup/controls.cpp
++++ b/markup/controls.cpp
+@@ -10,7 +10,7 @@ using namespace rm;
+ 
+ static const float kTrackW = 150, kRowY = 572;
+ 
+-bool Engine::learnerSets(const Mark &m) {
++bool Engine::learnerSets(const Mark &m) const {
+   const Value *s = findProp(m.props, "set");
+   return effectiveKind(m) == "param" && s && s->type == Value::STR && s->str == "learner";
+ }
+diff --git a/markup/engine.cpp b/markup/engine.cpp
+index 02c746c..1e37f4c 100644
+--- a/markup/engine.cpp
++++ b/markup/engine.cpp
+@@ -318,7 +318,8 @@ void Engine::reset() {
+   since_.clear();
+   caption_.clear();
+   colorSlot_.clear();
+-  nextSlot_ = 0;
++  leftAt_.clear();
++  leaveSeq_ = 0;
+   rangesInit_ = false;
+   barScale_.clear();
+   graphSig_.clear();
+@@ -652,6 +653,8 @@ bool Engine::paramAt(const Mark &p, double t, double &x, double &y) {
+ }
+ 
+ void Engine::clearStage() {
++  ++leaveSeq_; // the kinds on stage all leave it now (the lower slot counts as the older)
++  for (auto &[k, s] : colorSlot_) if (colorKeyOnStage(k)) leftAt_[k] = leaveSeq_;
+   views_.clear();
+   curView_.clear();
+   dataCtx_.clear();
+@@ -664,8 +667,9 @@ void Engine::clearStage() {
+   actives_.erase(std::remove_if(actives_.begin(), actives_.end(),
+                                 [](const Active &a) { return a.kind == Active::NUM || a.kind == Active::STR; }),
+                  actives_.end());
+-  colorSlot_.clear();
+-  nextSlot_ = 0;
++  for (auto it = colorSlot_.begin(); it != colorSlot_.end();) // a scene's ids start fresh; its words are the lesson's
++    if (it->first.rfind("id:", 0) == 0) { leftAt_.erase(it->first); it = colorSlot_.erase(it); }
++    else ++it;
+   labelSlots_.clear();
+   linkSlots_.clear();
+   barScale_.clear();
+@@ -716,21 +720,123 @@ double Engine::pathAt(const Mark &p, double x, int depth) {
+ }
+ 
+ // ================================================================ colors
++// The palette is the lesson's dictionary for colour: a category word holds one slot from its first appearance to
++// the end, across scenes; an uncategorised thing holds its own slot for its scene. A new kind takes the lowest
++// free slot, skipping hues something on stage uses by name; when none is free, the kind that left the stage
++// longest ago gives its slot up. The readback writes the table as a `palette` line, so a re-parse gives the same
++// colours and gives up the same slot next (axiom 6), and a palette line never moves a colour already given.
++std::string Engine::colorKey(const Mark &m) const {
++  if (findProp(m.props, "of") || findProp(m.props, "color")) return "";
++  std::string c = catValue(m);
++  if (c.empty() && isBlockKind(effectiveKind(m))) return ""; // formulas, cards, code: ink, not a color slot
++  if (effectiveKind(m) == "param" && !learnerSets(m)) return ""; // an invisible driver (a slider is seen, though)
++  return c.empty() ? "id:" + m.id : "cat:" + c;
++}
++bool Engine::colorKeyOnStage(const std::string &key) {
++  for (auto &[id, m] : marks_) if (colorKey(m) == key) return true;
++  return false;
++}
++void Engine::noteLeft(const std::string &key) {
++  if (colorSlot_.count(key) && !colorKeyOnStage(key)) leftAt_[key] = ++leaveSeq_;
++}
++static int hueOf(Color c) { // the palette slot of a colour; -1 for white, grey and anything else
++  for (int i = 0; i < categoricalCount(); i++) {
++    Color p = categorical(i);
++    if (p.r == c.r && p.g == c.g && p.b == c.b) return i;
++  }
++  return -1;
++}
++// the palette hues a thing names by hand: color=, colors=[...], \textcolor{<colour>} in a formula
++static void namedHuesIn(const Props &props, std::set<int> &out) {
++  auto add = [&](const std::string &name) {
++    Color c;
++    if (colorByName(name, c)) if (int h = hueOf(c); h >= 0) out.insert(h);
++  };
++  for (auto &p : props) {
++    if (p.key == "color" && p.val.type == Value::STR) add(p.val.str);
++    else if (p.key == "colors" && p.val.type == Value::LIST) for (auto &n : p.val.list) add(n);
++    else if (p.key == "tex" && p.val.type == Value::STR)
++      for (size_t q = 0; (q = p.val.str.find("\\textcolor{", q)) != std::string::npos; q += 11)
++        if (size_t e = p.val.str.find('}', q); e != std::string::npos) add(p.val.str.substr(q + 11, e - q - 11));
++  }
++}
++std::set<int> Engine::namedHues() {
++  std::set<int> out;
++  for (auto &[id, m] : marks_) namedHuesIn(m.props, out);
++  for (auto &[id, l] : links_) namedHuesIn(l.props, out);
++  for (auto &[id, g] : groups_) namedHuesIn(g.props, out);
++  return out;
++}
++int Engine::freeSlot() {
++  const int n = categoricalCount();
++  std::set<int> named = namedHues(), taken = named;
++  for (auto &[k, s] : colorSlot_) if (s < n) taken.insert(s);
++  for (int i = 0; i < n; i++) if (!taken.count(i)) return i;
++  // none free: the kind that left the stage longest ago gives its slot up, unless something on stage names its hue
++  auto left = [&](const std::string &k) { auto t = leftAt_.find(k); return std::pair(t == leftAt_.end() ? 0 : t->second, colorSlot_.at(k)); };
++  std::string oldest;
++  for (auto &[k, s] : colorSlot_)
++    if (s < n && !named.count(s) && !colorKeyOnStage(k) && (oldest.empty() || left(k) < left(oldest))) oldest = k;
++  if (!oldest.empty()) {
++    int s = colorSlot_[oldest];
++    colorSlot_.erase(oldest);
++    leftAt_.erase(oldest);
++    return s;
++  }
++  warn(named.empty() ? "zero: more than " + std::to_string(n) + " distinct kinds of thing, colors repeat"
++                     : "zero: more than " + std::to_string(n) + " colours needed (the kinds on stage and the colours named by hand), colors repeat");
++  int top = n - 1;
++  for (auto &[k, s] : colorSlot_) top = std::max(top, s);
++  return top + 1; // the overflow: slot 10 repeats hue 0, as it always did
++}
+ Color Engine::colorForKey(const std::string &key) {
+   auto it = colorSlot_.find(key);
+-  if (it == colorSlot_.end()) {
+-    if (nextSlot_ == categoricalCount())
+-      warn("zero: more than " + std::to_string(categoricalCount()) + " distinct kinds of thing, colors repeat");
+-    it = colorSlot_.emplace(key, nextSlot_++).first;
+-  }
++  if (it == colorSlot_.end()) it = colorSlot_.emplace(key, freeSlot()).first;
+   return categorical(it->second);
+ }
+ void Engine::claimColor(const Mark &m) {
+-  if (findProp(m.props, "of") || findProp(m.props, "color")) return;
+-  std::string c = catValue(m);
+-  if (c.empty() && isBlockKind(effectiveKind(m))) return; // formulas, cards, code: ink, not a color slot
+-  if (effectiveKind(m) == "param") return;                  // an invisible driver (a clock, a constant)
+-  colorForKey(c.empty() ? "id:" + m.id : "cat:" + c);
++  if (std::string key = colorKey(m); !key.empty()) colorForKey(key);
++}
++// the readback's own line: each kind and its colour ("[id]" an uncategorised thing), the kinds that left the stage
++// first, oldest first, so a fresh parse knows which gives its slot up next. It only gives a kind that has no colour
++// one that is free: a colour already given never moves, and a colour held is never given twice
++void Engine::doPalette(const Line &ln) {
++  for (auto &[who, hue] : ln.props) {
++    bool thing = who.size() > 2 && who.front() == '[' && who.back() == ']';
++    std::string key = thing ? "id:" + who.substr(1, who.size() - 2) : "cat:" + who;
++    Color c;
++    int h = colorByName(hue.str, c) ? hueOf(c) : -1;
++    if (h < 0) warn("palette: " + hue.str + " is not one of the ten palette colours");
++    bool free = h >= 0 && !colorSlot_.count(key);
++    for (auto &[k, s] : colorSlot_) if (s == h) free = false;
++    if (!free) continue;
++    colorSlot_[key] = h;
++    leftAt_[key] = ++leaveSeq_;
++  }
++  caption("palette -> each kind keeps its colour for the whole lesson");
++}
++// a colour given by hand (color=, colors=[...], \textcolor{<colour>}) on the hue an unrelated kind holds by
++// palette: the one clash the palette cannot avoid, because the kind came first. Its own kind's hue is no clash, nor
++// the hue of the thing it points at or sits on
++void Engine::lintNamedColors(const std::string &id, const std::string &category, const Props &props) {
++  std::set<int> named;
++  namedHuesIn(props, named);
++  const Mark *m = mark(id); // a link or a group takes no category; a formula colours a term by its thing's id instead
++  std::string orKind = m && effectiveKind(*m) != "tex" ? ", or give '" + id + "' that category" : "";
++  auto relatedTo = [&](const std::string &k) { // on= in= over= at= of= a thing of that colour: the script relates them
++    for (const char *rel : {"on", "in", "over", "at", "of"})
++      if (const Value *v = m ? findProp(m->props, rel) : nullptr; v && v->type == Value::STR)
++        if (const Mark *t = mark(baseId(v->str)); t && colorKey(*t) == k) return true;
++    return false;
++  };
++  for (int h : named)
++    for (auto &[k, s] : colorSlot_) {
++      if (s % categoricalCount() != h || k == "id:" + id || k == "cat:" + category || !colorKeyOnStage(k) || relatedTo(k)) continue;
++      std::string name = colorName(categorical(h));
++      std::string holder = k.rfind("cat:", 0) == 0 ? "the kind '" + k.substr(4) + "'" : "'" + k.substr(3) + "'";
++      warn("zero: '" + id + "' is " + name + " by name and " + holder + " is " + name +
++           " by palette, but they are unrelated; use another colour name" + orKind);
++    }
+ }
+ Color Engine::colorOf(const Mark &m) {
+   if (auto v = findProp(m.props, "color"); v && v->type == Value::STR) {
+@@ -743,9 +849,11 @@ Color Engine::colorOf(const Mark &m) {
+   std::string cp = catProp(m);
+   std::string cv = catValue(m);
+   Color now = colorForKey(cv.empty() ? "id:" + m.id : "cat:" + cv);
+-  if (!cp.empty()) {
++  if (!cp.empty()) { // a category that is cross-fading from its old word (a word that left keeps no slot: no blend)
+     auto it = m.strBlend.find(cp);
+-    if (it != m.strBlend.end()) return lerpColor(colorForKey("cat:" + it->second.first), now, it->second.second);
++    if (it != m.strBlend.end())
++      if (auto old = colorSlot_.find("cat:" + it->second.first); old != colorSlot_.end())
++        return lerpColor(categorical(old->second), now, it->second.second);
+   }
+   return now;
+ }
+@@ -866,13 +974,14 @@ void Engine::execLine(const Line &ln) {
+     break;
+   case Verb::TITLE: title_ = ln.id; headline_ = stageEmpty() ? 0 : 1; break;
+   case Verb::CAMERA: doCamera(ln); break;
++  case Verb::PALETTE: doPalette(ln); break;
+   case Verb::SCENE: {
+     Active a;
+     a.kind = Active::CLEAR;
+     a.prop = ln.id;
+     a.dur = opt_.instant ? 0 : 0.7f;
+     actives_.push_back(a);
+-    caption("new scene -> the stage clears; ids start fresh");
++    caption("new scene -> the stage clears; ids start fresh, the kinds keep their colours");
+     break;
+   }
+   }
+@@ -904,6 +1013,7 @@ void Engine::doMark(const Line &ln) {
+     Mark &mm = marks_.emplace(ln.id, m).first->second;
+     bornAt_[ln.id] = clock_;
+     claimColor(mm);
++    lintNamedColors(mm.id, catValue(mm), mm.props);
+     std::string k = effectiveKind(mm), mp = magProp(mm), cv = catValue(mm);
+     std::string rule = "thing -> a " + k;
+     if (!mp.empty() && (k == "bar")) rule += " · magnitude " + mp + " -> length from a shared zero";
+@@ -919,11 +1029,11 @@ void Engine::doMark(const Line &ln) {
+   }
+   // re-mark: update in place, never redraw (axiom 1)
+   Mark &m = it->second;
++  std::string was = colorKey(m);
+   if (!ln.kind.empty()) m.kind = ln.kind;
+   if (!ln.category.empty() && ln.category != m.category) {
+     m.strBlend["@category"] = {m.category, opt_.instant ? 1.f : 0.f};
+     m.category = ln.category;
+-    colorForKey("cat:" + ln.category);
+     Active a;
+     a.kind = Active::STR; a.id = m.id; a.prop = "@category"; a.dur = opt_.instant ? 0 : 0.8f; a.blocking = false;
+     actives_.push_back(a);
+@@ -950,7 +1060,6 @@ void Engine::doMark(const Line &ln) {
+     } else if (cur && cur->type == Value::STR && p.val.type == Value::STR && cur->str != p.val.str) {
+       m.strBlend[p.key] = {cur->str, opt_.instant ? 1.f : 0.f};
+       *cur = p.val;
+-      if (p.key == catProp(m)) colorForKey("cat:" + p.val.str); // only a category's new value is a colour (not a label, a pointer's at=)
+       Active a;
+       a.kind = Active::STR; a.id = m.id; a.prop = p.key; a.dur = opt_.instant ? 0 : 0.8f; a.blocking = false;
+       actives_.push_back(a);
+@@ -959,6 +1068,11 @@ void Engine::doMark(const Line &ln) {
+       setProp(m.props, p.key, p.val);
+     }
+   }
++  if (std::string now = colorKey(m); now != was) { // a new kind (or a slider now shown) takes its colour; the old may have left
++    if (!now.empty()) colorForKey(now);
++    noteLeft(was);
++  }
++  lintNamedColors(m.id, catValue(m), ln.props);
+   caption("re-mark " + m.id + " -> same mark, updated in place (identity)");
+ }
+ 
+@@ -977,6 +1091,7 @@ void Engine::doLink(const Line &ln) {
+     l.kind = ln.kind; l.a = ln.a; l.b = ln.b; l.directed = ln.directed;
+     for (auto &p : ln.props) setProp(l.props, p.key, p.val);
+   }
++  lintNamedColors(ln.id, "", ln.props);
+   if (ln.kind == "arrow") caption("relation (cause / maps-to) -> an arrow between the marks");
+   else if (ln.kind == "similar") caption("relation (similar) -> dashed link marked ≈");
+   else if (ln.kind == "equals") caption("relation (equals) -> dashed link marked =");
+@@ -996,6 +1111,7 @@ void Engine::doGroup(const Line &ln) {
+     it->second.members = ln.members;
+     for (auto &p : ln.props) setProp(it->second.props, p.key, p.val);
+   }
++  lintNamedColors(ln.id, "", ln.props);
+   caption("part-of -> an enclosure around " + std::to_string(ln.members.size()) + " parts");
+ }
+ 
+@@ -1037,7 +1153,10 @@ void Engine::doMorph(const Line &ln) {
+            "' but it is '" + old + "'; morphing from the real value");
+     setProp(o->props, ln.prop, ln.to);
+     o->strBlend[ln.prop] = {old, dur > 0 ? 0.f : 1.f};
+-    if (Mark *om = mark(ln.id); om && !list && ln.prop == catProp(*om)) colorForKey("cat:" + ln.to.str); // a category's new value only
++    if (Mark *om = mark(ln.id); om && !list && ln.prop == catProp(*om)) { // a category's new value only
++      colorForKey("cat:" + ln.to.str);
++      noteLeft("cat:" + old);
++    }
+     Active a;
+     a.kind = Active::STR; a.id = ln.id; a.prop = ln.prop; a.dur = dur;
+     a.ease = rateByName(ln.ease);
+@@ -1544,6 +1663,20 @@ std::string Engine::readback(bool comments) {
+   std::ostringstream o;
+   if (comments) o << "# readback t=" << fmtNum(std::round(clock_ * 10) / 10) << "s\n";
+   if (!title_.empty()) o << "title \"" << title_ << "\"\n";
++  if (!colorSlot_.empty()) { // the lesson's kinds and their colours, so a re-parse colours the same (axiom 6): the
++    // kinds that left the stage first, oldest first (the next to give a slot up), then those on stage, then the overflow
++    std::vector<std::tuple<bool, bool, int, int, std::string>> kinds; // overflow, on stage, when it left, slot, key
++    for (auto &[k, s] : colorSlot_) {
++      bool on = colorKeyOnStage(k);
++      auto t = leftAt_.find(k);
++      kinds.push_back({s >= categoricalCount(), on, on || t == leftAt_.end() ? 0 : t->second, s, k});
++    }
++    std::sort(kinds.begin(), kinds.end());
++    o << "palette";
++    for (auto &[over, on, left, s, k] : kinds)
++      o << " " << (k.rfind("id:", 0) == 0 ? "[" + k.substr(3) + "]" : Value::string(k.substr(4)).markup()) << "=" << colorName(categorical(s));
++    o << "\n";
++  }
+   if (!views_.empty()) { // views are declared where their first mark is (below)
+   } else if (schema_ != "auto") {
+     o << "schema " << schema_;
+diff --git a/markup/engine.hpp b/markup/engine.hpp
+index 2c4fa76..ff9a9f6 100644
+--- a/markup/engine.hpp
++++ b/markup/engine.hpp
+@@ -328,6 +328,13 @@ private:
+   Color colorOf(const Mark &m);
+   Color colorForKey(const std::string &key);
+   void claimColor(const Mark &m);
++  std::string colorKey(const Mark &m) const;     // the slot a mark holds, "" when it is ink or borrows a colour
++  bool colorKeyOnStage(const std::string &key);
++  void noteLeft(const std::string &key);         // a kind nothing on stage carries any more: note when it left
++  std::set<int> namedHues();                     // palette hues something on stage uses by name
++  int freeSlot();
++  void doPalette(const Line &ln);
++  void lintNamedColors(const std::string &id, const std::string &category, const Props &props);
+ 
+   // ---- layout (layout.cpp)
+   std::string schemaNow() const;
+@@ -417,7 +424,7 @@ private:
+   void drawSubtitle();
+   // ---- what the learner sets (controls.cpp)
+   struct Control { std::string id, name; double value = 0, lo = 0, hi = 1; float width = 0; Rectangle track{}; };
+-  bool learnerSets(const Mark &m);
++  bool learnerSets(const Mark &m) const;
+   std::vector<Control> controls();
+   void drawControls();
+   std::string dragging_;
+@@ -487,9 +494,11 @@ private:
+   std::vector<Prescan> scenePrescan_;
+   void usePrescan(); // make the current scene's prescan the active one
+ 
+-  // colors
++  // colors: the lesson's palette. "cat:<word>" holds its slot from first appearance to the end, across scenes;
++  // "id:<id>" (an uncategorised thing) for its scene. Slots from 10 up are the overflow past ten kinds (hue = slot % 10)
+   std::map<std::string, int> colorSlot_;
+-  int nextSlot_ = 0;
++  std::map<std::string, int> leftAt_; // when each kind last left the stage: past ten kinds, the oldest gives its slot up
++  int leaveSeq_ = 0;
+ 
+   // ranges for schemas, eased
+   float binR_ = 10;         // number line with bin=: the dot size that lets its tallest column fit
+diff --git a/markup/script.cpp b/markup/script.cpp
+index fa6318b..f68b7b2 100644
+--- a/markup/script.cpp
++++ b/markup/script.cpp
+@@ -512,6 +512,21 @@ static bool readCamera(Reading &r) {
+   return true;
+ }
+ 
++// the readback's own line: each kind of the lesson and its colour (`input=blue`, `[id]=green` for an uncategorised
++// thing), the kinds that left the stage first, oldest first
++static bool readPalette(Reading &r) {
++  auto &[toks, verb, raw, ln, err] = r;
++  ln.verb = Verb::PALETTE;
++  for (size_t i = 1; i < toks.size(); i++) {
++    size_t eq = toks[i].rfind('=');
++    if (eq == std::string::npos || eq == 0 || eq + 1 == toks[i].size())
++      return r.fail("a palette entry is a kind and its colour: input=blue");
++    ln.props.push_back({stripQuotes(toks[i].substr(0, eq)), Value::string(toks[i].substr(eq + 1))});
++  }
++  if (ln.props.empty()) return r.fail("palette needs the kinds and their colours: palette input=blue output=orange");
++  return true;
++}
++
+ static bool readSceneTitle(Reading &r) {
+   auto &[toks, verb, raw, ln, err] = r;
+   ln.verb = verb == "scene" ? Verb::SCENE : Verb::TITLE;
+@@ -564,7 +579,8 @@ static bool parseLine(const std::string &rawIn, int lineNo, Line &ln, std::strin
+       {"mark", readMark},   {"link", readLink},     {"group", readGroup},       {"morph", readMorph},
+       {"focus", readFocus}, {"indicate", readIndicate}, {"point", readIndicate}, {"send", readSend},
+       {"hide", readHideShow}, {"show", readHideShow}, {"wait", readWait},     {"pause", readPause},
+-      {"schema", readSchema}, {"camera", readCamera}, {"scene", readSceneTitle}, {"title", readSceneTitle}};
++      {"schema", readSchema}, {"camera", readCamera}, {"scene", readSceneTitle}, {"title", readSceneTitle},
++      {"palette", readPalette}};
+   auto it = readers.find(verb);
+   if (it == readers.end()) { err = "unknown verb '" + toks[0] + "'"; return false; }
+   Reading r{toks, verb, raw, ln, err};
+diff --git a/markup/script.hpp b/markup/script.hpp
+index 2f51b3d..1e56d70 100644
+--- a/markup/script.hpp
++++ b/markup/script.hpp
+@@ -10,7 +10,7 @@
+ //   @name <line>    deferred until the voice reaches |name|
+ //
+ // Setup lines (not part of the model): title "…", schema <free|numberline|axes|timeline|graph> …,
+-// wait 1s, pause.  Comments start with # or //.
++// wait 1s, pause, palette input=blue … (the readback's: each kind's colour).  Comments start with # or //.
+ #pragma once
+ #include "expr.hpp"
+ #include <deque>
+@@ -46,7 +46,7 @@ const Value *findProp(const Props &p, const std::string &k);
+ Value *findProp(Props &p, const std::string &k);
+ void setProp(Props &p, const std::string &k, const Value &v);
+ 
+-enum class Verb { MARK, LINK, GROUP, MORPH, FOCUS, SAY, WAIT, PAUSE, SCHEMA, TITLE, SCENE, INDICATE, CAMERA, SEND };
++enum class Verb { MARK, LINK, GROUP, MORPH, FOCUS, SAY, WAIT, PAUSE, SCHEMA, TITLE, SCENE, INDICATE, CAMERA, SEND, PALETTE };
+ 
+ struct SayWord {
+   std::string text;             // as displayed; {expr} parts are read off the stage when the word is reached
+diff --git a/rm/raymanim.cpp b/rm/raymanim.cpp
+index f42fef3..deb2cb1 100644
+--- a/rm/raymanim.cpp
++++ b/rm/raymanim.cpp
+@@ -56,17 +56,22 @@ Color lerpColor(Color a, Color b, float t) {
+   return {(unsigned char)lerpf(a.r, b.r, t), (unsigned char)lerpf(a.g, b.g, t),
+           (unsigned char)lerpf(a.b, b.b, t), (unsigned char)lerpf(a.a, b.a, t)};
+ }
++struct NamedColor { const char *n; Color c; };
++static const NamedColor kNamed[] = {{"blue", col::blue},     {"orange", col::orange}, {"green", col::green},
++                                    {"red", col::red},       {"yellow", col::yellow}, {"purple", col::purple},
++                                    {"teal", col::teal},     {"pink", col::pink},     {"brown", col::brown},
++                                    {"lime", col::lime},     {"white", col::fg},      {"grey", col::muted},
++                                    {"gray", col::muted}};
+ bool colorByName(const std::string &n, Color &out) {
+-  struct E { const char *n; Color c; };
+-  static const E table[] = {{"blue", col::blue},     {"orange", col::orange}, {"green", col::green},
+-                            {"red", col::red},       {"yellow", col::yellow}, {"purple", col::purple},
+-                            {"teal", col::teal},     {"pink", col::pink},     {"brown", col::brown},
+-                            {"lime", col::lime},     {"white", col::fg},      {"grey", col::muted},
+-                            {"gray", col::muted}};
+-  for (auto &e : table)
++  for (auto &e : kNamed)
+     if (n == e.n) { out = e.c; return true; }
+   return false;
+ }
++const char *colorName(Color c) {
++  for (auto &e : kNamed)
++    if (e.c.r == c.r && e.c.g == c.g && e.c.b == c.b) return e.n;
++  return "";
++}
+ 
+ // ================================================================ rate functions
+ namespace rate {
+diff --git a/rm/raymanim.hpp b/rm/raymanim.hpp
+index c771d45..2ec8222 100644
+--- a/rm/raymanim.hpp
++++ b/rm/raymanim.hpp
+@@ -44,6 +44,7 @@ int categoricalCount();
+ Color fade(Color c, float alpha);        // multiply alpha
+ Color lerpColor(Color a, Color b, float t);
+ bool colorByName(const std::string &name, Color &out);
++const char *colorName(Color c);          // the name of a named colour, "" for any other
+ 
+ // ---------------------------------------------------------------- rate functions
+ using RateFunc = std::function<float(float)>;
+diff --git a/scripts/backprop.dan b/scripts/backprop.dan
+index 8d1efdf..8728280 100644
+--- a/scripts/backprop.dan
++++ b/scripts/backprop.dan
+@@ -11,8 +11,8 @@ link f3 arrow y -> L
+ Say: "Forward: x and w |make|make y, and y makes the loss."
+ @make indicate f3
+ mark y box process label="y = 6"
+-link g1 arrow L -> y label="∂L/∂y = 4" color=orange
+-link g2 arrow y -> w label="∂y/∂w = 2" color=orange
++link g1 arrow L -> y label="∂L/∂y = 4" color=yellow
++link g2 arrow y -> w label="∂y/∂w = 2" color=yellow
+ Say: "Backward: the loss sends its |grad|gradient to y, and y passes it on to w."
+ @grad indicate g2
+ mark key card text="gradient = incoming gradient × local slope" label="Key idea"
+diff --git a/scripts/lanes.dan b/scripts/lanes.dan
+index cd18bbc..221d0aa 100644
+--- a/scripts/lanes.dan
++++ b/scripts/lanes.dan
+@@ -6,8 +6,8 @@ mark px  box dense label="784 pixels"
+ mark hid box dense label="hidden layer"
+ mark out box output label="scores"
+ link f1 arrow img -> px label="flatten"
+-link d1 arrow px -> hid label="fixed W₁" color=blue
+-link d2 arrow hid -> out label="fixed W₂" color=blue
++link d1 arrow px -> hid label="fixed W₁" color=teal
++link d2 arrow hid -> out label="fixed W₂" color=teal
+ group mlp part-of=[px,hid] label="dense net"
+ Say: "A dense net |flat|flattens the image and multiplies by the same weights every time."
+ @flat indicate d1
+@@ -15,8 +15,8 @@ mark p1 box token label="patch 1"
+ mark p2 box token label="patch 2"
+ mark p3 box token label="patch 3"
+ link t1 arrow img -> p1 label="cut"
+-link a12 arrow p1 -> p2 label="0.73" color=orange
+-link a13 arrow p1 -> p3 label="0.20" color=orange
++link a12 arrow p1 -> p2 label="0.73" color=yellow
++link a13 arrow p1 -> p3 label="0.20" color=yellow
+ link m2 arrow p2 -> out
+ group vit part-of=[p1,p2,p3] label="transformer"
+ Say: "A transformer cuts it into |cut|patches, and each patch weighs the others."
+diff --git a/scripts/pointers.dan b/scripts/pointers.dan
+index 5804d3d..f332c90 100644
+--- a/scripts/pointers.dan
++++ b/scripts/pointers.dan
+@@ -6,7 +6,7 @@ mark it box input label="it"
+ mark cat box word label="cat"
+ mark was box word label="was"
+ mark tired box word label="tired"
+-link a1 arrow it -> cat label="score" w=0.73 color=orange
++link a1 arrow it -> cat label="score" w=0.73 color=yellow
+ link a2 arrow it -> was w=0.04
+ link a3 arrow it -> tired w=0.2
+ Say: "Each word |key|offers a key, and the asking word carries a query."
+@@ -15,7 +15,7 @@ with mark k2 label text="key" at=was
+ with mark k3 label text="key" at=tired
+ with mark q label text="query" at=it
+ Say: "The scores |go|go into a formula, a small table and some code."
+-@go mark eq tex tex="\text{new}_{it} = \sum_j \textcolor{orange}{\alpha_j}\, v_j"
++@go mark eq tex tex="\text{new}_{it} = \sum_j \textcolor{yellow}{\alpha_j}\, v_j"
+ with mark t table cols=3 cells=[word,score,share, cat,3,0.73, tired,1.7,0.2]
+ with mark src code text="float s = dot(q, k);\nfloat a = softmax(s);" line=1 label="attend.cpp"
+ Say: "And in an |arr|array, pointers sit under their cells."
+diff --git a/scripts/space-determinant.dan b/scripts/space-determinant.dan
+index bd6582d..3adfc51 100644
+--- a/scripts/space-determinant.dan
++++ b/scripts/space-determinant.dan
+@@ -1,6 +1,6 @@
+ title "The determinant is a volume"
+ schema space x=[-3,3] y=[-3,3] z=[-3,3]
+-mark G grid space m=[1,0,0, 0,1,0, 0,0,1]
++mark G grid m=[1,0,0, 0,1,0, 0,0,1] color=grey
+ mark i vector dx=1 dy=0 dz=0 color=green label="i"
+ mark j vector dx=0 dy=1 dz=0 color=red label="j"
+ mark k vector dx=0 dy=0 dz=1 color=blue label="k"
+diff --git a/tests/test_engine.cpp b/tests/test_engine.cpp
+index 8e8c0eb..a709ca6 100644
+--- a/tests/test_engine.cpp
++++ b/tests/test_engine.cpp
+@@ -476,3 +476,141 @@ TEST_CASE("a formula part pointed at with indicate f[part] is a named part: no t
+   for (auto &w : bare.lintMessages()) if (w.find("textcolor{sq}") != std::string::npos) bareLint = true;
+   CHECK(bareLint);
+ }
++
++// ---- the palette is the lesson's: a word keeps its colour across scenes and across the readback (axioms 3, 6)
++
++static bool anyLint(Engine &e, const std::string &needle) {
++  for (auto &w : e.lintMessages()) if (w.find(needle) != std::string::npos) return true;
++  return false;
++}
++
++TEST_CASE("a category keeps its colour across scenes, whatever order the next scene declares them in") {
++  Engine e(instant());
++  played(e, "schema free\nmark a bar input v=3\nmark b bar output v=2\nscene \"Two\"\nschema free\nmark c bar output v=4\nmark d bar input v=1\n");
++  CHECK(sameColor(e.colorFor("d"), rm::categorical(0))); // input was the first kind of the lesson: still blue
++  CHECK(sameColor(e.colorFor("c"), rm::categorical(1)));
++  CHECK(!anyLint(e, "colors repeat"));
++}
++
++TEST_CASE("a scene's ids start fresh: an uncategorised thing's own slot is free again after the cut") {
++  Engine e(instant());
++  played(e, "schema free\nmark a bar input v=3\nmark z bar v=1\nscene \"Two\"\nschema free\nmark q bar v=2\nmark b bar input v=1\n");
++  CHECK(sameColor(e.colorFor("b"), rm::categorical(0))); // the word input: the lesson's
++  CHECK(sameColor(e.colorFor("q"), rm::categorical(1))); // q takes the slot z gave up; it was never z
++}
++
++TEST_CASE("the readback re-parses to the same colours: a category changed by re-mark, and a reordered scene") {
++  for (const char *script : {"schema graph\nmark a box x label=\"A\"\nmark b box y label=\"B\"\nmark c box w label=\"C\"\nlink a -> b\nlink b -> c\nmark a z\n",
++                             "schema free\nmark a bar input v=3\nmark b bar output v=2\nscene \"Two\"\nschema free\nmark c bar output v=4\nmark d bar input v=1\n"}) {
++    Engine e(instant());
++    played(e, script);
++    std::string model = e.readback(false);
++    Engine again(instant());
++    played(again, model);
++    for (const char *id : {"a", "b", "c", "d"}) // a missing id is BLANK on both sides
++      CHECK_MESSAGE(sameColor(e.colorFor(id), again.colorFor(id)), id << " changes colour when the readback is re-parsed:\n" << model);
++    CHECK(again.readback(false) == model); // and the palette line is a fixed point of --check
++  }
++}
++
++TEST_CASE("the chat's fold keeps the palette: state(turn 1) + turn 2 colours like turn 1 + turn 2") {
++  const std::string t1 = "schema graph\nmark a box x label=\"A\"\nmark b box y label=\"B\"\nmark a z\n";
++  const std::string t2 = "scene \"Two\"\nschema graph\nmark c box y label=\"C\"\nmark d box z label=\"D\"\nmark e box x label=\"E\"\n";
++  Engine whole(instant());
++  played(whole, t1 + t2);
++  Engine first(instant());
++  played(first, t1);
++  Engine folded(instant());
++  played(folded, first.readback(false) + t2);
++  for (const char *id : {"c", "d", "e"}) CHECK_MESSAGE(sameColor(whole.colorFor(id), folded.colorFor(id)), id << " differs after the fold");
++  CHECK(sameColor(whole.colorFor("e"), rm::categorical(0))); // x: the lesson's first word, though a left it in turn 1
++}
++
++TEST_CASE("a long lesson does not run out of colours: a kind that left the stage gives its slot up, ten on stage never do") {
++  std::string s;
++  for (int sc = 0; sc < 4; sc++) { // four scenes of four new kinds each: sixteen words, never more than four on stage
++    if (sc) s += "scene \"next\"\n";
++    s += "schema free\n";
++    for (int k = 0; k < 4; k++) s += "mark m" + std::to_string(sc) + std::to_string(k) + " bar k" + std::to_string(sc * 4 + k) + " v=" + std::to_string(k + 1) + "\n";
++  }
++  Engine e(instant());
++  played(e, s);
++  CHECK(!anyLint(e, "colors repeat"));
++  for (int i = 0; i < 4; i++)
++    for (int j = i + 1; j < 4; j++) CHECK(!sameColor(e.colorFor("m3" + std::to_string(i)), e.colorFor("m3" + std::to_string(j))));
++  Engine eleven(instant()); // eleven kinds on one stage: the lint, as before
++  std::string t = "schema free\n";
++  for (int k = 0; k < 11; k++) t += "mark n" + std::to_string(k) + " bar k" + std::to_string(k) + " v=1\n";
++  played(eleven, t);
++  CHECK(anyLint(eleven, "colors repeat"));
++}
++
++TEST_CASE("a palette line never moves a colour already given") {
++  Engine e(instant());
++  played(e, "schema free\nmark a bar input v=1\nmark b bar output v=2\npalette output=blue input=orange\n");
++  CHECK(sameColor(e.colorFor("a"), rm::categorical(0)));
++  CHECK(sameColor(e.colorFor("b"), rm::categorical(1)));
++}
++
++TEST_CASE("past ten kinds the one that left the stage longest ago gives its colour up, in the window and after the fold") {
++  // q leaves at the first cut, p (in the slot z freed) at the second: q is the older, though its slot is the higher
++  const std::string t1 = "schema free\nmark z bar v=1\nmark a bar q v=1\nscene \"Two\"\nschema free\nmark b bar p v=1\n"
++                         "scene \"Three\"\nschema free\nmark c bar r v=1\n";
++  std::string t2 = "scene \"Four\"\nschema free\n";
++  for (int k = 3; k <= 9; k++) t2 += "mark w" + std::to_string(k) + " bar w" + std::to_string(k) + " v=1\n";
++  t2 += "mark x bar x v=1\n";
++  Engine whole(instant());
++  played(whole, t1 + t2);
++  CHECK(sameColor(whole.colorFor("x"), rm::categorical(1))); // q's orange
++  Engine first(instant());
++  played(first, t1);
++  Engine folded(instant());
++  played(folded, first.readback(false) + t2);
++  CHECK_MESSAGE(sameColor(folded.colorFor("x"), whole.colorFor("x")), "the fold:\n" << first.readback(false));
++  CHECK(folded.readback(false) == whole.readback(false));
++}
++
++TEST_CASE("a learner's slider holds its colour from the moment it is marked, as the window draws it") {
++  Engine e(instant()); // the window draws the slider before the bars arrive, so it is the first to take a colour
++  played(e, "schema free\nmark k param value=1 range=[0,3] label=\"k\" set=learner\nSay: \"Drag it.\"\nmark a bar input v=1\n");
++  CHECK(sameColor(e.colorFor("a"), rm::categorical(1)));
++  CHECK(e.readback(false).find("palette [k]=blue input=orange") != std::string::npos);
++  Engine later(instant()); // a param handed to the learner by a re-mark takes its colour then, as a re-parse does
++  played(later, "schema free\nmark k param value=1\nmark a bar input v=1\nmark k param set=learner range=[0,3]\n");
++  std::string model = later.readback(false);
++  Engine again(instant());
++  played(again, model);
++  CHECK_MESSAGE(again.readback(false) == model, model);
++}
++
++TEST_CASE("ten hues in use on stage: an eleventh kind is reported, never given a colour named by hand") {
++  std::string s = "schema free\nmark a bar w0 v=1\nscene \"Two\"\nschema free\nmark z bar color=blue v=1\n";
++  for (int k = 1; k <= 9; k++) s += "mark m" + std::to_string(k) + " bar w" + std::to_string(k) + " v=1\n";
++  s += "mark x bar new v=1\n";
++  Engine e(instant());
++  played(e, s);
++  CHECK(anyLint(e, "colors repeat"));
++}
++
++TEST_CASE("a named colour is never shared with an unrelated kind: the palette skips it, or the clash is linted") {
++  Engine first(instant()); // the name comes first: the kind takes the next hue
++  played(first, "schema free\nmark z bar color=blue v=1 label=\"tax\"\nmark a bar input v=3\n");
++  CHECK(!sameColor(first.colorFor("a"), rm::col::blue));
++  CHECK(!anyLint(first, "zero:"));
++  Engine late(instant()); // the kind came first: the only clash left, reported
++  played(late, "schema free\nmark a bar input v=3\nmark b bar output v=2\nmark z bar color=blue v=1 label=\"tax\"\n");
++  CHECK(anyLint(late, "zero: 'z' is blue by name"));
++  Engine same(instant()); // a thing of the kind in the kind's own colour by name: related, no lint
++  played(same, "schema free\nmark a bar input v=3\nmark b bar input v=2 color=blue\n");
++  CHECK(!anyLint(same, "zero:"));
++  Engine near(instant()); // a pointer named its target's colour: the script relates them (at=), no lint
++  played(near, "schema free\nmark a bar input v=3\nmark p label text=\"this one\" at=a color=blue\n");
++  CHECK(!anyLint(near, "zero:"));
++  Engine link(instant()); // a link takes no category, and a formula's term is not the formula: name another colour
++  played(link, "schema graph\nmark a box input\nmark b box process\nmark c box output\nlink g arrow a -> c color=orange\n"
++               "mark f tex tex=\"\\textcolor{orange}{x}\"\n");
++  CHECK(anyLint(link, "zero: 'g' is orange by name and the kind 'process' is orange by palette"));
++  CHECK(anyLint(link, "zero: 'f' is orange by name"));
++  CHECK(!anyLint(link, "give 'g'"));
++  CHECK(!anyLint(link, "give 'f'"));
++}
+diff --git a/tests/test_script.cpp b/tests/test_script.cpp
+index 18c4ad6..8d1657f 100644
+--- a/tests/test_script.cpp
++++ b/tests/test_script.cpp
+@@ -95,3 +95,21 @@ TEST_CASE("a list reads back whole: blank items and items with commas are quoted
+   REQUIRE(again.parse("mark t array items=" + v->markup() + "\n"));
+   CHECK(findProp(again.steps[0].main.props, "items")->list == v->list);
+ }
++
++TEST_CASE("a palette line (the readback's) gives each kind its colour: words, [ids] and quoted words") {
++  Script s;
++  REQUIRE(s.parse("palette input=blue [z]=green \"Alice Smith\"=orange\n"));
++  REQUIRE(s.steps.size() == 1);
++  const Line &l = s.steps[0].main;
++  CHECK(l.verb == Verb::PALETTE);
++  REQUIRE(l.props.size() == 3);
++  CHECK(l.props[0].key == "input");
++  CHECK(l.props[0].val.str == "blue");
++  CHECK(l.props[1].key == "[z]");
++  CHECK(l.props[2].key == "Alice Smith");
++  CHECK(l.props[2].val.str == "orange");
++  for (const char *bad : {"palette\n", "palette input\n", "palette =blue\n", "palette input=\n"}) {
++    Script b;
++    CHECK_MESSAGE(!b.parse(bad), bad);
++  }
++}

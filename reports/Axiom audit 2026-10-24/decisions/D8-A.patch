@@ -1,0 +1,43 @@
+diff --git a/README.md b/README.md
+index 09160e0..3b3998b 100644
+--- a/README.md
++++ b/README.md
+@@ -62,7 +62,7 @@ The language is called Dan; its files end in `.dan`. One line, one statement. `#
+ ### The six verbs
+ 
+ ```
+-mark  <id> [kind] [category] key=value ...          a thing and its properties
++mark  <id> [kind] [category] key=value ...          put a thing on the stage; the same id again updates it in place
+ link  <id> [kind] <a> -> <b> key=value ...          a relation: arrow (cause, maps-to), line (connected), similar, equals
+ group <id> part-of=[a,b,...] label="..."            a relation: part-of
+ morph <id>.<prop> [from] -> <to> [1.5s] [ease=..]   a change; the only way anything moves
+diff --git a/docs/guide.html b/docs/guide.html
+index dd327c0..d720eaf 100644
+--- a/docs/guide.html
++++ b/docs/guide.html
+@@ -407,7 +407,7 @@ focus none</pre></div>
+   <h2>The verbs</h2>
+   <p>Six verbs make the model. A handful of setup lines control the stage. A line starting with <code>#</code> or <code>//</code> is a comment, as is anything after a <code>#</code> that follows whitespace. Lines starting with <code>```</code> are ignored, so you can paste a markdown code block straight in.</p>
+ 
+-  <div class="verb"><div class="head"><span class="name">mark</span><span class="what">a thing and its properties</span></div>
++  <div class="verb"><div class="head"><span class="name">mark</span><span class="what">put a thing on the stage; the same id again updates it in place</span></div>
+   <div class="sig">mark &lt;id&gt; [kind] [category] key=value …</div>
+   <div class="body">
+     <p>Declares a thing. <code>kind</code> is one of <a href="#kinds">the eight mark kinds</a>; leave it out and the schema picks one. A bare word that isn't a kind is the <b>category</b> (one per mark). Everything else is <code>key=value</code>.</p>
+diff --git a/tools/write.html b/tools/write.html
+index 0eb9f24..254daaf 100644
+--- a/tools/write.html
++++ b/tools/write.html
+@@ -78,7 +78,7 @@
+     </div>
+     <div class="panel" id="rb"><pre class="rb" id="readback"></pre></div>
+     <div class="panel cheat" id="cheat">
+-      <h4>lines</h4><pre>mark id kind category k=v …    a thing (re-mark = update in place)
++      <h4>lines</h4><pre>mark id kind category k=v …    put a thing on the stage; the same id again updates it in place
+ link id arrow a -> b k=v       a relation: arrow | line | similar | equals
+ group id part-of=[a,b]         part-of (a lane in a graph)
+ morph id.prop [from] -> to [1.2s] [ease=linear]
+ M README.md
+ M docs/guide.html
+ M tools/write.html
+?? tools/tex/node_modules

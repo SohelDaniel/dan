@@ -1,0 +1,851 @@
+diff --git a/README.md b/README.md
+index 09160e0..e0fc813 100644
+--- a/README.md
++++ b/README.md
+@@ -190,7 +190,7 @@ mark L heat fn={x^2 + y^2} label="f(x, y) = x² + y²"     # label= on a field i
+ 
+ Heat and contour together make a landscape (a loss, a potential, a height map). A dot with `trail=all` walking downhill on it is gradient descent. `solution from=` morphs (`morph s1.from -> [0,2]`), so you can drag the starting point and watch the curve follow.
+ 
+-### The camera (axes and plane)
++### The camera (axes, plane, number line, timeline)
+ 
+ Say what to look at; the engine picks the path and the timing. Text and lines stay the same size on screen, and curves are redrawn for the view, so zooming into a curve really shows it becoming straight.
+ 
+@@ -203,6 +203,8 @@ camera follow=p                       # keep p in view as it moves (camera follo
+ camera reset                          # back to the whole scene
+ ```
+ 
++On a number line or timeline the camera moves along the line: `camera fit=farming,now` (or `camera zoom=100000 on=now`) shows the last ten thousand years of a four-billion-year timeline, with the ticks re-numbered for the window; the line's range stays the whole history, and `camera reset` returns to it.
++
+ One camera move per sentence, cued on the word (`@in camera zoom=8 on=p`), then let it rest. Zoom in to show a detail, then `camera reset` to give the context back.
+ 
+ ### Space: three dimensions (schema `space`)
+diff --git a/chat/prompt.md b/chat/prompt.md
+index 1d9b363..4c6f46c 100644
+--- a/chat/prompt.md
++++ b/chat/prompt.md
+@@ -117,7 +117,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
+ - Labels belong on the things they name; don't stack several names on one point.
+ - Give axes a title.
+ - `hide` dims what's done: it keeps its place, so nothing jumps. When the stage is full or the topic moves on, start a new `scene`.
+-- **The camera points too.** Zoom in on the detail the sentence is about (`@in camera zoom=8 on=p`), at most one move per sentence, then `camera reset` to give the context back. Only on `axes` and `plane`.
++- **The camera points too.** Zoom in on the detail the sentence is about (`@in camera zoom=8 on=p`), at most one move per sentence, then `camera reset` to give the context back. On `axes`, `plane`, `numberline` and `timeline` (a long history, then the sliver that matters: `camera fit=farming,now`).
+ - After a numeric example, morph the formula to its general form (3² + 4² = 5² → a² + b² = c²).
+ - A derivation or a worked solution is **one** formula that grows: `\begin{aligned} … &= … \\ … &= … \end{aligned}`, one morph per step (the new line lights up), and an annotation on the part each move changes. Never several separate formulas for the steps.
+ 
+diff --git a/chat/toolbox.md b/chat/toolbox.md
+index dace992..0cc8fd3 100644
+--- a/chat/toolbox.md
++++ b/chat/toolbox.md
+@@ -308,7 +308,7 @@ Say: "Two points, and their |mean|mean."
+ 
+ ### Zoom into a detail
+ Use when the claim lives at a small scale: a curve looking straight up close, one cell of a big grid.
+-Tools: `camera zoom=8 on=<id>` on the word, then `camera reset` (axes and plane only).
++Tools: `camera zoom=8 on=<id>` on the word, then `camera reset` (axes, plane, number line, timeline).
+ ```
+ schema axes x=[0,4] y=[0,16]
+ mark f path fn={x^2} label="x²"
+@@ -318,6 +318,23 @@ Say: "Up |close|close, the curve is nearly straight. |back|Back out."
+ @back camera reset
+ ```
+ 
++### A long span, then the sliver that matters
++Use when the second half of the lesson lives in a sliver of the first: a timeline of billions of years and the
++last ten thousand, a number line to a million and the interval from zero to one.
++Tools: `camera fit=<a>,<b>` (or `camera zoom= on=`) on a `timeline` or `numberline`, then `camera reset`. The line's
++range never changes, only the window; the ticks re-number for it.
++```
++schema timeline
++mark a event year=-4500000000 label="Earth forms"
++mark c event year=-66000000 label="dinosaurs end"
++mark d event year=-10000 label="farming"
++mark e event year=0 label="now"
++Say: "Farming and now sit on one dot: zoom |in|in to the sliver with people in it."
++@in camera fit=d,e
++Say: "And |back|back out: that is how thin it is."
++@back camera reset
++```
++
+ ### Grids and tables
+ Use for matrices, boards, dynamic-programming tables, truth tables: cells in rows and columns.
+ Tools: `array cols=… items=[…]`; `M[r][c]`, a row `M[r][:]`, a column `M[:][c]` for `enclose`, `focus`, `indicate`.
+diff --git a/docs/HANDOFF.md b/docs/HANDOFF.md
+index 746f2ce..4b8dcca 100644
+--- a/docs/HANDOFF.md
++++ b/docs/HANDOFF.md
+@@ -6,7 +6,7 @@ what is open. The dated story of how it got here (what was tried, measured, kept
+ **Keep this file current.** Each session ends by updating it (see `CLAUDE.md`): change the map where the code
+ changed, add gotchas, move finished items out of "Open", and add a dated entry to `docs/history.md`.
+ 
+-Last updated: 2026-10-24 (`tutor write`, the Dan playground).
++Last updated: 2026-10-24 (the camera on number lines and timelines; the Dan playground).
+ 
+ ## 1. What it is
+ 
+@@ -99,7 +99,7 @@ engine stays the only author of pixels.
+ | `markup/place/*` | pure C++, unit-tested: `flow` (layered graph layout), `qp`, the label placer, the exact checker (`check.*`), springs |
+ | `markup/space.cpp`, `markup/viz/space.*` | 3D: one CPU projection (`viz::Space::project`), shapes, the camera in words, painter's-order drawing |
+ | `markup/render.cpp` | drawing only, reads layout results |
+-| `markup/annotate.cpp`, `area.cpp`, `fields.cpp`, `trails.cpp`, `camera.cpp`, `controls.cpp` | notes (brace, enclose, ...), area diagrams, fields, trails, the 2D camera, learner sliders |
++| `markup/annotate.cpp`, `area.cpp`, `fields.cpp`, `trails.cpp`, `camera.cpp`, `controls.cpp` | notes (brace, enclose, ...), area diagrams, fields, trails, the camera on axes, plane, number line and timeline (a view override of the schema's range; the range itself never moves), learner sliders |
+ | `markup/binding.cpp` | "words vs picture": `binding:` lints and **pointing ahead** (a spoken number or name gets a pointer) |
+ | `markup/expr.*` | expressions, compiled for fields |
+ | `markup/tts.*`, `markup/tex.*` | Inworld streaming TTS (48 kHz, sentence context, disk cache); LaTeX through `tools/tex` (MathJax) |
+@@ -202,5 +202,6 @@ Next candidates, roughly by value:
+ - **Pacing, next:** the share of gaps >= 2 s (14-16%) is above the 4-10% bar set from 3Blue1Brown; watch real
+   lessons before tuning "one step in six". The judge can't see time: a pacing criterion needs the timeline.
+ - **`make append` fails on `space-saddle` and `space-downhill`** (streamed != whole in chunks of 2/3/5).
+-- Small: no camera pan for long arrays or timelines; contour labels and field legends aren't in the checker;
++- Small: no camera pan for long arrays; contour labels, field legends and the tick numbers of number lines and
++  timelines aren't in the checker; the 2D axes' ranges are still `float` (the lines' are `double`);
+   `scripts/*.readback` files are generated junk.
+diff --git a/docs/history.md b/docs/history.md
+index 8675cfd..302e56b 100644
+--- a/docs/history.md
++++ b/docs/history.md
+@@ -508,3 +508,34 @@ it, `#!interrupt`s (instant to that state) and appends the rest, so the changed
+ state. The line being typed waits for its newline (Cmd+Enter sends it). Exercised through the API: append,
+ partial line, forced partial, earlier edit, load, skip, replay, SSE events. No engine change. Also written, not
+ committed: a personal HTML map of the architecture and the language for the user (on their Desktop).
++
++## 8m. 2026-10-24: the camera on number lines and timelines
++
++**Asked.** Decision D11 from the axiom audit: a 4.5-billion-year geology timeline, then "zoom in to the last ten
++thousand years"; a number line to a million, then the interval [0, 1]. Axiom 2 forbids re-ranging the line and the
++camera, the sanctioned way to look closer, refused anything but `axes`/`plane` (camera.cpp:19). The timeline's
++ranges were `float`: ticks read `-4499999744` and the one at year 0 read `256`.
++
++**Found.** `camApply` already works in base pixels and only reads the schema's view at the top and writes it back
++at the bottom; a line is that same camera with one coordinate. Claude had written 2 camera lines in 63 real turns
++(both `camera spin`) and no timelines: the prompt said "only on `axes` and `plane`".
++
++**Built.** One camera for both: on a line the base is the line's range (y a unit range nobody uses, every thing at
++y = 0), `camPoint`/`camBox` give a thing's value on the line, the fit uses only the width (two things frame however
++close they are; one thing gets a third of the line, as on a plot), the zoom cap is 1e9 (the line maps in doubles;
++the float axes keep 1000), the view is written back into `nl_.min/max`, and both 1D layouts cull what leaves the
++window (as `layoutAxes` does; `fitStage` ignores culled things). The schema's range (`nlMin_…tlMax_`, prescan or
++`range=`) is never written by the camera, so `reset` returns to it. The follow spring now acts on the displacement
++to the goal, so a far-off centre keeps its digits. `rm::NumberLine` is `double` with a `ticks()` that uses the
++axes' dividing chain (`viz::tickLevels`: the finer step fades in, ticks are `k * step`, labels from `tickText`), used
++by the number line's `draw` and the timeline's furniture; the 1D ranges, targets and `DataCtx` are `double`.
++No new syntax. README's camera section, chat/prompt.md and the toolbox (a new move, "A long span, then the sliver
++that matters") say so; `scripts/geology.dan` is the regression script.
++
++**Measured.** Tests: four new engine cases (number-line fit with the far thing culled and `range=` untouched;
++timeline zoom-on plus reset; follow on a number line; the exact range and tick labels), all failing on the old
++engine. `make test`, `make check` (125 ok + toolbox 28 ok), `make golden` 0 WORSE, `make append` as before
++(space-downhill / space-saddle). Frames: the geology zoom at 1, 6.5, 7.5 and end, the number line at 1 and end.
++
++**Not done.** The tick numbers of number lines and timelines are still not in the layout checker (they were not
++before); the 2D axes' ranges stay `float`; no thousands separators on big tick numbers ("-4500000000").
+diff --git a/markup/camera.cpp b/markup/camera.cpp
+index a37630c..5131bf0 100644
+--- a/markup/camera.cpp
++++ b/markup/camera.cpp
+@@ -1,11 +1,14 @@
+-// The camera on axes and plane scenes. Claude says what to look at (zoom=8 on=p, fit=a,b, follow=p);
+-// the engine works out the view, the timing and the path:
+-//   - the view is an override of the schema's ranges (layoutAxes), so marks, labels, the placer and the
+-//     checker all see exactly what is drawn; text and strokes keep their screen size, curves are
+-//     re-sampled for the visible range ("zoom in until it's straight" is real);
++// The camera on axes, plane, number line and timeline scenes. Claude says what to look at (zoom=8 on=p,
++// fit=a,b, follow=p); the engine works out the view, the timing and the path:
++//   - the view is an override of the schema's ranges (layoutAxes; layoutNumberline and layoutTimeline for
++//     the one range of a line), so marks, labels, the placer and the checker all see exactly what is drawn;
++//     text and strokes keep their screen size, curves are re-sampled and ticks re-ticked for the visible
++//     range ("zoom in until it's straight" is real); the schema's own range is the world and never moves;
+ //   - moves follow van Wijk & Nuij's smooth zoom-and-pan path (log-linear zoom, zooming out mid-flight on
+ //     long pans), with a duration from the length of the move; following uses a critically damped
+-//     spring with a dead zone (the camera only moves when the thing nears the edge).
++//     spring with a dead zone (the camera only moves when the thing nears the edge);
++//   - a line is a view with one coordinate: its range is the base, y a unit range nobody uses, and every
++//     thing on it sits at y = 0, so the fit and the follow reduce to their x parts on their own.
+ #include "engine.hpp"
+ #include "viz/viz.hpp"
+ #include <algorithm>
+@@ -13,13 +16,19 @@
+ 
+ namespace mk {
+ 
++// how close a camera may come: the axes map in floats, a line in doubles (a 4.5-billion-year timeline can
++// show its last ten thousand years)
++static constexpr double kAxesZoom = 1000, kLineZoom = 1e9;
++
+ void Engine::doCamera(const Line &ln) {
+   std::string s = schemaNow();
+   if (isSpace(s)) { doSpaceCamera(ln); return; }
+-  if (s != "axes" && s != "plane") {
+-    warn("camera: line " + std::to_string(ln.lineNo) + " needs an axes or plane scene (this one is " + s + ")");
++  if (!isAxes(s) && !isLine(s)) {
++    warn("camera: line " + std::to_string(ln.lineNo) + " needs an axes, plane, number line or timeline scene (this one is " + s + ")");
+     return;
+   }
++  if (isLine(s) && findProp(ln.props, "y"))
++    warn("camera: line " + std::to_string(ln.lineNo) + " gives y= on a " + s + ", which has one coordinate (on= a thing, or x= a value on the line)");
+   if (const Value *f = findProp(ln.props, "follow")) {
+     std::string id = f->type == Value::STR ? f->str : f->markup();
+     cam_.follow = (id == "none" || id == "off") ? "" : id;
+@@ -60,10 +69,12 @@ void Engine::doCamera(const Line &ln) {
+                        : "camera -> the view moves to what the voice is about (zoom is a pointer)");
+ }
+ 
+-// where a thing is, in data coordinates: a point, the centre of a shape, or a point on a curve (x=)
++// where a thing is, in data coordinates: a point, the centre of a shape, or a point on a curve (x=);
++// on a line, its value there
+ bool Engine::camPoint(const std::string &ref, const Props &req, double &x, double &y) {
+   Mark *m = mark(baseId(ref));
+   if (!m) return false;
++  if (isLine(schemaNow())) { y = 0; return lineValue(*m, x); }
+   std::string k = effectiveKind(*m);
+   const Value *rx = findProp(req, "x");
+   if (findProp(m->props, "fn")) {
+@@ -92,6 +103,8 @@ bool Engine::camBox(const std::vector<std::string> &ids, double &x0, double &x1,
+   for (auto &id : ids) {
+     Mark *m = mark(baseId(id));
+     if (!m) { warn("camera: fit='" + id + "' is not on stage"); continue; }
++    double v;
++    if (isLine(schemaNow())) { if (lineValue(*m, v)) add(v, 0); continue; }
+     float a, b, c, d;
+     if (findProp(m->props, "fn")) { // a curve: over its domain, or what is in view now
+       float lo = axes_.xmin, hi = axes_.xmax;
+@@ -110,9 +123,20 @@ bool Engine::camBox(const std::vector<std::string> &ids, double &x0, double &x1,
+   return x1 >= x0 && y1 >= y0;
+ }
+ 
++// the camera's frame on a line: as wide as the line, and as tall, so a fit of one thing gets the same
++// "a third of the view" a plot gives it (a line has no height of its own)
++Rectangle Engine::lineFrame() const {
++  float L = nl_.b.x - nl_.a.x;
++  return {nl_.a.x, nl_.a.y - L / 2, L, L};
++}
++
+ void Engine::camApply(Rectangle area) {
+-  const double bx0 = axes_.xmin, bx1 = axes_.xmax, by0 = axes_.ymin, by1 = axes_.ymax;
++  const bool line = isLine(schemaNow());
++  // the base: the schema's own view, as the layout just set it (the axes' ranges; a line's range, y a unit)
++  const double bx0 = line ? nl_.min : axes_.xmin, bx1 = line ? nl_.max : axes_.xmax;
++  const double by0 = line ? -0.5 : axes_.ymin, by1 = line ? 0.5 : axes_.ymax;
+   const double bw = bx1 - bx0, bh = by1 - by0;
++  const double zoomCap = line ? kLineZoom : kAxesZoom;
+   CamView base{(bx0 + bx1) / 2, (by0 + by1) / 2, 1};
+   if (!cam_.on || !(bw > 0) || !(bh > 0)) { cam_.now = base; return; }
+   // base pixels: the schema's view, where x and y have the same unit (so the zoom path is isotropic)
+@@ -131,13 +155,15 @@ void Engine::camApply(Rectangle area) {
+       double x0, x1, y0, y1;
+       if (camBox(ids, x0, x1, y0, y1)) {
+         const double margin = 56; // px around the fitted things (their names need room)
+-        // a single point (or a thin thing) still gets a sensible frame: at least a third of the stage tall
++        // a single point (or a thin thing) still gets a sensible frame: at least a third of the stage tall;
++        // on a line, two things frame however close they are (the last ten thousand years of four billion)
+         double minPx = area.height / 3;
+-        double pw = std::max((x1 - x0) * sx, minPx), ph = std::max((y1 - y0) * sy, minPx);
++        double pw = std::max((x1 - x0) * sx, line && x1 > x0 ? 0.0 : minPx), ph = std::max((y1 - y0) * sy, minPx);
+         T.cx = (x0 + x1) / 2;
+         T.cy = (y0 + y1) / 2;
+-        T.z = std::min((area.width - 2 * margin) / pw, (area.height - 2 * margin) / ph);
+-        T.z = std::clamp(T.z, 0.25, 64.0);
++        T.z = (area.width - 2 * margin) / pw;
++        if (!line) T.z = std::min(T.z, (area.height - 2 * margin) / ph); // a line has no height to fit
++        T.z = std::clamp(T.z, 0.25, line ? zoomCap : 64.0);
+         if (const Value *z = findProp(ln.props, "zoom")) { double zz = num(*z); if (std::isfinite(zz) && zz > 0) T.z = zz; }
+       }
+     } else {
+@@ -154,7 +180,7 @@ void Engine::camApply(Rectangle area) {
+         else warn("camera: zoom should be a positive number (8 = eight times closer)");
+       }
+     }
+-    T.z = std::clamp(T.z, 0.05, 1000.0);
++    T.z = std::clamp(T.z, 0.05, zoomCap);
+     cam_.to = T;
+     cam_.resolved = true;
+     if (cam_.req.dur < 0 && !opt_.instant) { // automatic duration: from how far the view travels
+@@ -194,16 +220,17 @@ void Engine::camApply(Rectangle area) {
+       if (y > v.cy + lim * hh) gy = y - lim * hh;
+       if (y < v.cy - lim * hh) gy = y + lim * hh;
+       if (opt_.instant) { v.cx = gx; v.cy = gy; }
+-      else {
+-        place::Spring spx{(float)v.cx, cam_.vx}, spy{(float)v.cy, cam_.vy};
+-        spx.step((float)gx, 0.18f, lastDt_);
+-        spy.step((float)gy, 0.18f, lastDt_);
+-        v.cx = spx.x; v.cy = spy.x; cam_.vx = spx.v; cam_.vy = spy.v;
++      else { // the spring acts on what is left to go (small: within a view), so a far-off centre keeps its digits
++        place::Spring spx{(float)(v.cx - gx), cam_.vx}, spy{(float)(v.cy - gy), cam_.vy};
++        spx.step(0, 0.18f, lastDt_);
++        spy.step(0, 0.18f, lastDt_);
++        v.cx = gx + spx.x; v.cy = gy + spy.x; cam_.vx = spx.v; cam_.vy = spy.v;
+       }
+     }
+   }
+   cam_.now = v;
+   double hw = bw / (2 * v.z), hh = bh / (2 * v.z);
++  if (line) { nl_.min = v.cx - hw; nl_.max = v.cx + hw; return; }
+   axes_.xmin = (float)(v.cx - hw); axes_.xmax = (float)(v.cx + hw);
+   axes_.ymin = (float)(v.cy - hh); axes_.ymax = (float)(v.cy + hh);
+ }
+diff --git a/markup/engine.hpp b/markup/engine.hpp
+index 2c4fa76..ecd56a2 100644
+--- a/markup/engine.hpp
++++ b/markup/engine.hpp
+@@ -32,6 +32,8 @@
+ namespace mk {
+ 
+ inline bool isAxes(const std::string &schema) { return schema == "axes" || schema == "plane"; }
++// one coordinate: a number line (a property) or a timeline (t, at, year), mapped through rm::NumberLine
++inline bool isLine(const std::string &schema) { return schema == "numberline" || schema == "timeline"; }
+ // a 3D world, z up (space.cpp): projected through one mapping, drawn as 2D strokes and triangles by depth
+ inline bool isSpace(const std::string &schema) { return schema == "space"; }
+ // kinds only a space has (the others there are the 2D ones given a z: dot, vector, line, arrow, path, polygon, grid)
+@@ -371,6 +373,9 @@ private:
+   std::vector<std::pair<Rectangle, std::string>> spaceTicks(); // tick numbers and axis names, on screen
+   int spaceCoincide(const Mark &a, const Mark &b); // -1: not both in a space; 1: they are at one point in 3D; 0: only in projection
+   void layoutTimeline(Rectangle area);
++  bool lineValue(const Mark &m, double &v); // a thing's place on the current line: the number line's property, or t / at / year
++  Rectangle lineFrame() const;              // the camera's frame on a line (camera.cpp)
++  bool offLine(Vector2 p) const;            // outside the camera's window on the line: not drawn, no labels
+   void zeroCheck();
+   float footprint(const Mark &m);
+   float dotRadius(const Mark &m);
+@@ -493,9 +498,12 @@ private:
+ 
+   // ranges for schemas, eased
+   float binR_ = 10;         // number line with bin=: the dot size that lets its tallest column fit
+-  float nlMin_ = 0, nlMax_ = 10, axX0_ = -1, axX1_ = 5, axY0_ = -1, axY1_ = 10, tlMin_ = 0, tlMax_ = 10;
++  // a line's range in doubles: years to the billions, and the camera's window of a few thousand inside them
++  double nlMin_ = 0, nlMax_ = 10, tlMin_ = 0, tlMax_ = 10;
++  float axX0_ = -1, axX1_ = 5, axY0_ = -1, axY1_ = 10;
+   bool rangesInit_ = false;
+-  float nlTarget_[2] = {0, 10}, axTarget_[4] = {-1, 5, -1, 10}, tlTarget_[2] = {0, 10}; // eased towards
++  double nlTarget_[2] = {0, 10}, tlTarget_[2] = {0, 10}; // eased towards
++  float axTarget_[4] = {-1, 5, -1, 10};
+   std::string nlProp_;
+   rm::Axes axes_;
+   rm::NumberLine nl_;
+@@ -585,8 +593,10 @@ private:
+   struct DataCtx {
+     std::string schema = "auto", nlProp, rangeSig;
+     Props props;
+-    float binR = 10, nlMin = 0, nlMax = 10, axX0 = -1, axX1 = 5, axY0 = -1, axY1 = 10, tlMin = 0, tlMax = 10;
+-    float nlTarget[2] = {0, 10}, axTarget[4] = {-1, 5, -1, 10}, tlTarget[2] = {0, 10};
++    float binR = 10, axX0 = -1, axX1 = 5, axY0 = -1, axY1 = 10;
++    double nlMin = 0, nlMax = 10, tlMin = 0, tlMax = 10;
++    double nlTarget[2] = {0, 10}, tlTarget[2] = {0, 10};
++    float axTarget[4] = {-1, 5, -1, 10};
+     bool rangesInit = false;
+     rm::Axes axes;
+     rm::NumberLine nl;
+@@ -657,7 +667,7 @@ private:
+   float stickyFor(const std::string &key); // pointer label id -> side it took (0 below, 1 right, 2 above, 3 left)
+   bool camPoint(const std::string &id, const Props &req, double &x, double &y);
+   bool camBox(const std::vector<std::string> &ids, double &x0, double &x1, double &y0, double &y1);
+-  void camApply(Rectangle area);  // called by layoutAxes once the schema's view is known
++  void camApply(Rectangle area);  // called by layoutAxes, layoutNumberline and layoutTimeline once the schema's view is known
+ 
+   // ---- fields (fields.cpp)
+   std::function<double(double, double)> fn2(const Mark &m, const char *key, const char *a = "x", const char *b = "y");
+diff --git a/markup/layout.cpp b/markup/layout.cpp
+index d833d0a..99891fe 100644
+--- a/markup/layout.cpp
++++ b/markup/layout.cpp
+@@ -21,7 +21,7 @@ static const Rectangle kStage{40, 66, 1200, 494};
+ std::string Engine::schemaNow() const { return schema_ != "auto" ? schema_ : autoSchema_; }
+ bool Engine::inDataView(const Mark &m) const { return views_.empty() || (!curData_.empty() && dataViewOf(m) == curData_); }
+ 
+-static bool isDataSchema(const std::string &s) { return isAxes(s) || isSpace(s) || s == "numberline" || s == "timeline"; }
++static bool isDataSchema(const std::string &s) { return isAxes(s) || isSpace(s) || isLine(s); }
+ 
+ std::string Engine::dataViewOf(const Mark &m) const {
+   if (views_.empty()) return "";
+@@ -51,10 +51,10 @@ std::string Engine::schemaOf(const Mark &m) const {
+   return views_.empty() ? schemaNow() : views_[0].schema; // marks from before the first view belong to it
+ }
+ 
+-static bool listRange(const Value *v, float &lo, float &hi) {
++template <class F> static bool listRange(const Value *v, F &lo, F &hi) { // [a,b], as floats (axes) or doubles (lines)
+   if (!v || v->type != Value::LIST || v->list.size() < 2) return false;
+-  lo = (float)std::atof(v->list[0].c_str());
+-  hi = (float)std::atof(v->list[1].c_str());
++  lo = (F)std::atof(v->list[0].c_str());
++  hi = (F)std::atof(v->list[1].c_str());
+   return hi > lo;
+ }
+ 
+@@ -453,17 +453,17 @@ void Engine::computeRanges(float dt) {
+       int best = 0;
+       for (auto &[kk, c] : counts) if (c > best) { best = c; nlProp_ = kk; }
+     }
+-    float &tlo = nlTarget_[0], &thi = nlTarget_[1];
++    double &tlo = nlTarget_[0], &thi = nlTarget_[1];
+     if (recompute || !rangesInit_) {
+-      float lo, hi;
++      double lo, hi;
+       if (!listRange(findProp(schemaProps_, "range"), lo, hi)) {
+-        lo = 1e9f; hi = -1e9f;
+-        if (minVal_.count(nlProp_)) { lo = (float)minVal_[nlProp_]; hi = (float)maxVal_[nlProp_]; }
++        lo = 1e300; hi = -1e300;
++        if (minVal_.count(nlProp_)) { lo = minVal_[nlProp_]; hi = maxVal_[nlProp_]; }
+         for (auto &[id, m] : marks_) {
+           if (!inDataView(m)) continue; // another view's thing
+           bool ok;
+           double v = num(m, nlProp_, &ok);
+-          if (ok && std::isfinite(v)) { lo = std::min(lo, (float)v); hi = std::max(hi, (float)v); }
++          if (ok && std::isfinite(v)) { lo = std::min(lo, v); hi = std::max(hi, v); }
+         }
+         if (lo > hi) { lo = 0; hi = 10; }
+         auto z = findProp(schemaProps_, "zero");
+@@ -471,8 +471,8 @@ void Engine::computeRanges(float dt) {
+       }
+       tlo = lo; thi = hi;
+     }
+-    nlMin_ = lerpf(nlMin_, tlo, k);
+-    nlMax_ = lerpf(nlMax_, thi, k);
++    nlMin_ = std::lerp(nlMin_, tlo, (double)k);
++    nlMax_ = std::lerp(nlMax_, thi, (double)k);
+   }
+ 
+   if (isAxes(s)) {
+@@ -555,28 +555,28 @@ void Engine::computeRanges(float dt) {
+   }
+ 
+   if (s == "timeline") {
+-    float &tlo = tlTarget_[0], &thi = tlTarget_[1];
++    double &tlo = tlTarget_[0], &thi = tlTarget_[1];
+     if (recompute || !rangesInit_) {
+-      float lo, hi;
++      double lo, hi;
+       if (!listRange(findProp(schemaProps_, "range"), lo, hi)) {
+-        lo = 1e9f; hi = -1e9f;
++        lo = 1e300; hi = -1e300;
+         for (const char *key : {"t", "at", "year"}) {
+-          if (minVal_.count(key)) { lo = std::min(lo, (float)minVal_[key]); hi = std::max(hi, (float)maxVal_[key]); }
++          if (minVal_.count(key)) { lo = std::min(lo, minVal_[key]); hi = std::max(hi, maxVal_[key]); }
+           for (auto &[id, m] : marks_) {
+             if (!inDataView(m)) continue; // another view's thing
+             bool ok;
+             double v = num(m, key, &ok);
+-            if (ok && std::isfinite(v)) { lo = std::min(lo, (float)v); hi = std::max(hi, (float)v); }
++            if (ok && std::isfinite(v)) { lo = std::min(lo, v); hi = std::max(hi, v); }
+           }
+         }
+         if (lo > hi) { lo = 0; hi = 10; }
+-        float pad = std::max(0.5f, (hi - lo) * 0.08f);
++        double pad = std::max(0.5, (hi - lo) * 0.08);
+         lo -= pad; hi += pad;
+       }
+       tlo = lo; thi = hi;
+     }
+-    tlMin_ = lerpf(tlMin_, tlo, k);
+-    tlMax_ = lerpf(tlMax_, thi, k);
++    tlMin_ = std::lerp(tlMin_, tlo, (double)k);
++    tlMax_ = std::lerp(tlMax_, thi, (double)k);
+   }
+   rangesInit_ = true;
+ }
+@@ -901,7 +901,7 @@ void Engine::fitStage(float dt) {
+     x1 = std::max(x1, b.x + b.width); y1 = std::max(y1, b.y + b.height);
+   };
+   for (auto &[id, m] : marks_) {
+-    if (!m.positioned) continue;
++    if (!m.positioned || m.culled) continue; // culled: outside a line's camera window, far off the stage on purpose
+     std::string k = effectiveKind(m);
+     if (k != "box" && k != "dot" && k != "bar" && k != "label" && !isBlockKind(k) && !isAnnotationKind(k)) continue;
+     Rectangle b = bodyBounds(m);
+@@ -1180,7 +1180,7 @@ void Engine::layoutNumberline(Rectangle area) {
+   nl_.b = {area.x + area.width - 90, lineY};
+   nl_.min = nlMin_;
+   nl_.max = nlMax_;
+-  nl_.step = 0;
++  camApply(lineFrame()); // the camera's window on the line, if one is in force
+   std::vector<std::pair<float, std::string>> pts;
+   std::vector<std::string> rest;
+   // bin=w: each value falls into its bin, and a bin's samples stack into a column (a histogram of dots);
+@@ -1192,13 +1192,14 @@ void Engine::layoutNumberline(Rectangle area) {
+     Mark *m = mark(id);
+     if (!m || !inDataView(*m)) continue;
+     std::string k = effectiveKind(*m);
+-    bool ok;
+-    double v = num(*m, nlProp_, &ok);
++    double v;
++    bool ok = lineValue(*m, v);
+     if (isBlockKind(k)) continue;
+-    if (ok && std::isfinite(v) && k != "path" && k != "region") {
++    if (ok && k != "path" && k != "region") {
+       if (bin > 0 && k == "dot") { long b = (long)std::floor(v / bin + 0.5); perBin[b]++; v = b * bin; } // bins centred on multiples of bin
+-      m->tpos = {nl_.toScreen((float)v).x, lineY};
++      m->tpos = {nl_.toScreen(v).x, lineY};
+       m->positioned = true;
++      m->culled = offLine(m->tpos);
+       m->direct = !(bin > 0 && k == "dot");
+       if (bin > 0 && k == "dot" && !m->placed) { m->pos = {m->tpos.x, area.y}; m->placed = true; }
+       if (k != "label") pts.push_back({m->tpos.x, id});
+@@ -1326,21 +1327,18 @@ void Engine::layoutTimeline(Rectangle area) {
+   nl_.b = {area.x + area.width - 70, lineY};
+   nl_.min = tlMin_;
+   nl_.max = tlMax_;
++  camApply(lineFrame()); // the camera's window on the line, if one is in force
+   std::vector<std::string> rest;
+   for (auto &id : order_) {
+     Mark *m = mark(id);
+     if (!m || !inDataView(*m)) continue;
+     std::string k = effectiveKind(*m);
+     if (k == "path" || k == "region" || k == "label" || isBlockKind(k)) continue;
+-    bool ok = false;
+-    double t = 0;
+-    for (const char *key : {"t", "at", "year"}) {
+-      t = num(*m, key, &ok);
+-      if (ok) break;
+-    }
+-    if (ok && std::isfinite(t)) {
+-      m->tpos = {nl_.toScreen((float)t).x, lineY};
++    double t;
++    if (lineValue(*m, t)) {
++      m->tpos = {nl_.toScreen(t).x, lineY};
+       m->positioned = m->direct = true;
++      m->culled = offLine(m->tpos);
+     } else {
+       rest.push_back(id);
+     }
+@@ -1348,6 +1346,15 @@ void Engine::layoutTimeline(Rectangle area) {
+   if (!rest.empty()) layoutFree({area.x, area.y, area.width, area.height * 0.42f}, rest);
+ }
+ 
++bool Engine::lineValue(const Mark &m, double &v) {
++  bool ok = false;
++  if (schemaNow() == "numberline") v = num(m, nlProp_, &ok);
++  else for (const char *key : {"t", "at", "year"}) { v = num(m, key, &ok); if (ok) break; }
++  return ok && std::isfinite(v);
++}
++
++bool Engine::offLine(Vector2 p) const { return cam_.on && (p.x < nl_.a.x - 2 || p.x > nl_.b.x + 2); }
++
+ // ================================================================ Zero check
+ void Engine::zeroCheck() {
+   std::string s = schemaNow();
+diff --git a/markup/render.cpp b/markup/render.cpp
+index 195d8c3..22c77f0 100644
+--- a/markup/render.cpp
++++ b/markup/render.cpp
+@@ -804,11 +804,10 @@ void Engine::drawFurniture() {
+   if (s == "timeline") {
+     DrawLineEx(nl_.a - Vector2{20, 0}, nl_.b + Vector2{24, 0}, 3, fade(col::muted, F));
+     arrow(nl_.b, nl_.b + Vector2{30, 0}, 3, fade(col::muted, F), 12);
+-    float st = niceStep(nl_.max - nl_.min, 10);
+-    for (float t = std::ceil(nl_.min / st) * st; t <= nl_.max; t += st) {
+-      Vector2 p = nl_.toScreen(t);
+-      DrawLineEx(p - Vector2{0, 5}, p + Vector2{0, 5}, 2, fade(col::muted, F));
+-      text(fmtNum(t), p + Vector2{0, 10}, 15, fade(col::muted, 0.8f * F), 0.5f, 0);
++    for (const rm::Tick &t : nl_.ticks()) { // re-ticked from the visible window, the finer step fading in
++      Vector2 p = nl_.toScreen(t.v);
++      DrawLineEx(p - Vector2{0, 5}, p + Vector2{0, 5}, 2, fade(col::muted, F * t.alpha));
++      if (t.labelAlpha > 0.01f) text(t.text, p + Vector2{0, 10}, 15, fade(col::muted, 0.8f * F * t.labelAlpha), 0.5f, 0);
+     }
+   }
+   if (isAxes(s)) // heat maps lie under the axes and grid
+diff --git a/rm/raymanim.cpp b/rm/raymanim.cpp
+index f42fef3..31617a0 100644
+--- a/rm/raymanim.cpp
++++ b/rm/raymanim.cpp
+@@ -511,41 +511,71 @@ Vector2 rectEdgePoint(Rectangle r, Vector2 toward) {
+   return c + d * t;
+ }
+ 
+-float niceStep(float range, int target) {
++double niceStep(double range, int target) {
+   if (range <= 0) return 1;
+-  float raw = range / std::max(1, target);
+-  float mag = std::pow(10.f, std::floor(std::log10(raw)));
+-  float r = raw / mag;
+-  float nice = r < 1.5f ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10;
++  double raw = range / std::max(1, target);
++  double mag = std::pow(10.0, std::floor(std::log10(raw)));
++  double r = raw / mag;
++  double nice = r < 1.5 ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10;
+   return nice * mag;
+ }
++float niceStep(float range, int target) { return (float)niceStep((double)range, target); }
+ 
+-void niceRange(float &lo, float &hi, bool includeZero) {
+-  if (includeZero) { lo = std::min(lo, 0.f); hi = std::max(hi, 0.f); }
+-  if (hi - lo < 1e-6f) { lo -= 1; hi += 1; }
+-  float pad = (hi - lo) * 0.08f;
++void niceRange(double &lo, double &hi, bool includeZero) {
++  if (includeZero) { lo = std::min(lo, 0.0); hi = std::max(hi, 0.0); }
++  if (hi - lo < 1e-6) { lo -= 1; hi += 1; }
++  double pad = (hi - lo) * 0.08;
+   if (!(includeZero && lo == 0)) lo -= pad;
+   if (!(includeZero && hi == 0)) hi += pad;
+-  float st = niceStep(hi - lo, 8);
++  double st = niceStep(hi - lo, 8);
+   lo = std::floor(lo / st) * st;
+   hi = std::ceil(hi / st) * st;
+ }
++void niceRange(float &lo, float &hi, bool includeZero) {
++  double a = lo, b = hi;
++  niceRange(a, b, includeZero);
++  lo = (float)a; hi = (float)b;
++}
++
++// a tick number with as many decimals as its step needs (zoomed in: 1.002, 1.004 ...)
++static std::string tickText(double v, double step) {
++  if (std::fabs(v) < step * 1e-6) return "0";
++  int dec = std::max(0, (int)std::ceil(-std::log10(step) - 1e-9));
++  char buf[64];
++  std::snprintf(buf, sizeof buf, "%.*f", dec, v);
++  return buf;
++}
+ 
+ // ================================================================ coordinate systems
+-Vector2 NumberLine::toScreen(float v) const { return lerp(a, b, (v - min) / std::max(1e-6f, max - min)); }
+-float NumberLine::fromScreen(Vector2 p) const {
+-  float t = (p.x - a.x) / std::max(1e-6f, b.x - a.x);
++Vector2 NumberLine::toScreen(double v) const { return lerp(a, b, (float)((v - min) / std::max(1e-300, max - min))); }
++double NumberLine::fromScreen(Vector2 p) const {
++  double t = (p.x - a.x) / std::max(1e-6f, b.x - a.x);
+   return min + t * (max - min);
+ }
++std::vector<Tick> NumberLine::ticks(float minPx) const {
++  std::vector<Tick> out;
++  viz::TickLevel M, m;
++  viz::tickLevels(max - min, std::fabs(b.x - a.x), minPx, M, m);
++  auto level = [&](const viz::TickLevel &L, const viz::TickLevel *major) {
++    if (L.alpha <= 0.01f) return;
++    long k0 = (long)std::ceil(min / L.step - 1e-6), k1 = (long)std::floor(max / L.step + 1e-6);
++    if (k1 - k0 > 400) return;
++    for (long k = k0; k <= k1; k++) {
++      double v = k * L.step; // a multiple, never a running sum (which drifts: -4.5e9 + 9 x 5e8 was 256)
++      if (major && std::fabs(std::remainder(v, major->step)) < major->step * 1e-6) continue; // drawn by the major level
++      out.push_back({v, L.alpha, L.labelAlpha, tickText(v, L.step)});
++    }
++  };
++  level(m, &M);
++  level(M, nullptr);
++  return out;
++}
+ void NumberLine::draw(Color c, float alpha, bool labels) const {
+-  Color cc = fade(c, alpha);
+-  DrawLineEx(a - Vector2{12, 0}, b + Vector2{12, 0}, 2.5f, cc);
+-  float st = step > 0 ? step : niceStep(max - min, 10);
+-  float first = std::ceil(min / st - 1e-4f) * st;
+-  for (float v = first; v <= max + st * 1e-3f; v += st) {
+-    Vector2 p = toScreen(v);
+-    DrawLineEx(p - Vector2{0, 7}, p + Vector2{0, 7}, 2, cc);
+-    if (labels) text(fmtNum(v), p + Vector2{0, 14}, 18, fade(col::muted, alpha), 0.5f, 0);
++  DrawLineEx(a - Vector2{12, 0}, b + Vector2{12, 0}, 2.5f, fade(c, alpha));
++  for (const Tick &t : ticks()) {
++    Vector2 p = toScreen(t.v);
++    DrawLineEx(p - Vector2{0, 7}, p + Vector2{0, 7}, 2, fade(c, alpha * t.alpha));
++    if (labels && t.labelAlpha > 0.01f) text(t.text, p + Vector2{0, 14}, 18, fade(col::muted, alpha * t.labelAlpha), 0.5f, 0);
+   }
+ }
+ 
+@@ -558,14 +588,6 @@ Vector2 Axes::toWorld(Vector2 p) const {
+   return {xmin + (p.x - area.x) / area.width * (xmax - xmin),
+           ymin + (area.y + area.height - p.y) / area.height * (ymax - ymin)};
+ }
+-// a tick number with as many decimals as its step needs (zoomed in: 1.002, 1.004 ...)
+-static std::string tickText(double v, double step) {
+-  if (std::fabs(v) < step * 1e-6) return "0";
+-  int dec = std::max(0, (int)std::ceil(-std::log10(step) - 1e-9));
+-  char buf[64];
+-  std::snprintf(buf, sizeof buf, "%.*f", dec, v);
+-  return buf;
+-}
+ 
+ // Ticks and grid from the visible range: a major step with room for its numbers, and the next finer
+ // step fading in as the view zooms (steps divide each other, so nothing ever jumps; see viz::tickLevels).
+diff --git a/rm/raymanim.hpp b/rm/raymanim.hpp
+index c771d45..aac47df 100644
+--- a/rm/raymanim.hpp
++++ b/rm/raymanim.hpp
+@@ -99,15 +99,27 @@ Vector2 arcPoint(Vector2 a, Vector2 b, float bulge, float t);
+ void dashed(Vector2 a, Vector2 b, float thick, Color c, float dash = 9, float gap = 7);
+ void roundedBox(Rectangle r, float radius, float thick, Color strokeC, Color fillC);
+ Vector2 rectEdgePoint(Rectangle r, Vector2 toward); // where a ray from the centre exits r
++double niceStep(double range, int targetTicks);
+ float niceStep(float range, int targetTicks);
++void niceRange(double &lo, double &hi, bool includeZero);
+ void niceRange(float &lo, float &hi, bool includeZero);
+ 
+ // ---------------------------------------------------------------- coordinate systems
++// a tick of a number line: its value, its number, and how far it has faded in (the finer of two levels)
++struct Tick {
++  double v = 0;
++  float alpha = 1, labelAlpha = 1;
++  std::string text;
++};
++// in doubles: a 4.5-billion-year timeline (not a float) with a window of ten thousand years in it
+ struct NumberLine {
+-  float min = 0, max = 10, step = 1;
++  double min = 0, max = 10;
+   Vector2 a{140, 360}, b{1140, 360};
+-  Vector2 toScreen(float v) const;
+-  float fromScreen(Vector2 p) const;
++  Vector2 toScreen(double v) const;
++  double fromScreen(Vector2 p) const;
++  // the ticks of the visible range: a major step with room for its numbers (minPx apart), and the next finer
++  // step fading in as the view zooms (the steps divide each other, so nothing ever jumps: viz::tickLevels)
++  std::vector<Tick> ticks(float minPx = 90) const;
+   void draw(Color c, float alpha = 1, bool labels = true) const;
+ };
+ 
+diff --git a/scripts/geology.dan b/scripts/geology.dan
+new file mode 100644
+index 0000000..c466b58
+--- /dev/null
++++ b/scripts/geology.dan
+@@ -0,0 +1,15 @@
++# The camera on a timeline: four and a half billion years, then the sliver with people in it.
++# The line's range never changes (axiom 2); the window does, and comes back.
++title "Earth's history, then the last ten thousand years"
++schema timeline
++mark a event year=-4500000000 label="Earth forms"
++mark b event year=-3800000000 label="first life"
++mark c event year=-66000000 label="dinosaurs end"
++mark d event year=-10000 label="farming"
++mark e event year=0 label="now"
++Say: "The whole of Earth's history on one line: farming and now sit on top of each other."
++Say: "Zoom |in|in to the sliver with people in it."
++@in camera fit=d,e
++Say: "From the first farms to today, the line is all ours."
++Say: "And |back|back out, to see how thin that sliver is."
++@back camera reset
+diff --git a/tests/golden/layout-new.json b/tests/golden/layout-new.json
+index e416321..268d179 100644
+--- a/tests/golden/layout-new.json
++++ b/tests/golden/layout-new.json
+@@ -149,6 +149,12 @@
+   "final": 100,
+   "maxOverlaps": 0
+  },
++ "scripts/geology.dan": {
++  "mean": 97.7,
++  "worst": 96,
++  "final": 96,
++  "maxOverlaps": 0
++ },
+  "scripts/grid.dan": {
+   "mean": 99.6,
+   "worst": 92.8,
+diff --git a/tests/golden/layout-old.json b/tests/golden/layout-old.json
+index cdf67e0..b916bbf 100644
+--- a/tests/golden/layout-old.json
++++ b/tests/golden/layout-old.json
+@@ -149,6 +149,12 @@
+   "final": 100,
+   "maxOverlaps": 0
+  },
++ "scripts/geology.dan": {
++  "mean": 97.7,
++  "worst": 96,
++  "final": 96,
++  "maxOverlaps": 0
++ },
+  "scripts/grid.dan": {
+   "mean": 99.6,
+   "worst": 92.8,
+diff --git a/tests/test_engine.cpp b/tests/test_engine.cpp
+index 8e8c0eb..e72c20d 100644
+--- a/tests/test_engine.cpp
++++ b/tests/test_engine.cpp
+@@ -476,3 +476,66 @@ TEST_CASE("a formula part pointed at with indicate f[part] is a named part: no t
+   for (auto &w : bare.lintMessages()) if (w.find("textcolor{sq}") != std::string::npos) bareLint = true;
+   CHECK(bareLint);
+ }
++
++// ---- the camera on one-dimensional schemas: a window on the line; the schema's range is the world and never moves
++TEST_CASE("camera on a number line: fit opens the window on the things named, the rest leaves the view, the range stays") {
++  Engine e(instant());
++  played(e, "schema numberline prop=n range=[0,1000000]\nmark a dot count n=0 label=\"zero\"\nmark b dot count n=1 label=\"one\"\n"
++            "mark c dot count n=1000000 label=\"a million\"\nSay: \"Look |in|in.\"\n@in camera fit=a,b\n");
++  bool refused = false;
++  for (auto &w : e.lintMessages()) if (w.rfind("camera:", 0) == 0) refused = true;
++  CHECK(!refused);
++  place::Picture p = e.picture();
++  const place::Ink *a = body(p, "a"), *b = body(p, "b");
++  REQUIRE(a);
++  REQUIRE(b);
++  CHECK(b->box.x - a->box.x > 300);  // one unit now spans most of the line
++  CHECK(body(p, "c") == nullptr);    // a million is outside the window: not drawn, not in the checker
++  std::string rb = e.readback(false);
++  CHECK(rb.find("range=[0, 1000000]") != std::string::npos); // the schema's range is untouched (axiom 2)
++  CHECK(rb.find("camera fit=[a, b]") != std::string::npos);   // the window reads back (axiom 6)
++}
++
++TEST_CASE("camera on a timeline: zoom on a thing separates what sat on one dot; reset returns to the whole line") {
++  const std::string head = "schema timeline\nmark a event year=-4500000000 label=\"Earth forms\"\nmark c event year=-66000000 label=\"dinosaurs end\"\n"
++                           "mark d event year=-10000 label=\"farming\"\nmark e event year=0 label=\"now\"\n";
++  Engine e(instant());
++  played(e, head + "camera zoom=100000 on=d\n");
++  place::Picture p = e.picture();
++  const place::Ink *d = body(p, "d"), *now = body(p, "e");
++  REQUIRE(d);
++  REQUIRE(now);
++  CHECK(now->box.x - d->box.x > 150); // ten thousand years over about a fifth of the line
++  CHECK(body(p, "a") == nullptr);     // Earth's formation is far outside the window
++  Engine back(instant());
++  played(back, head + "camera zoom=100000 on=d\ncamera reset\n");
++  place::Picture q = back.picture();
++  REQUIRE(body(q, "a"));
++  REQUIRE(body(q, "d"));
++  REQUIRE(body(q, "e"));
++  CHECK(std::fabs(body(q, "e")->box.x - body(q, "d")->box.x) < 1); // on one dot again: the world never changed
++  CHECK(back.readback(false).find("camera") == std::string::npos);
++}
++
++TEST_CASE("camera follow on a number line: the window goes after a thing that moves") {
++  Engine e(instant());
++  played(e, "schema numberline prop=n range=[0,100]\nmark z dot n=0\nmark p dot n=10\ncamera zoom=4 on=p\ncamera follow=p\nmorph p.n 10 -> 90\n");
++  place::Picture pic = e.picture();
++  REQUIRE(body(pic, "p"));
++  CHECK(body(pic, "z") == nullptr); // the window went with p; zero is far behind
++}
++
++TEST_CASE("a number line keeps its range exactly: a 4.5-billion-year timeline is not -4499999744") {
++  rm::NumberLine nl;
++  nl.min = -4500000000.0;
++  nl.max = 500000000.0;
++  CHECK(nl.min == -4500000000.0); // a float field would hold -4499999744
++  CHECK(nl.toScreen(0).x == doctest::Approx(nl.a.x + (nl.b.x - nl.a.x) * 0.9).epsilon(1e-9));
++  bool zero = false, exact = true; // ticks are multiples of their step, so the one at year 0 reads "0" (it read 256)
++  for (const rm::Tick &t : nl.ticks()) {
++    if (t.v == 0 && t.text == "0") zero = true;
++    if (std::fmod(t.v, 1e8) != 0) exact = false;
++  }
++  CHECK(zero);
++  CHECK(exact);
++}
+
+# git diff --stat
+ README.md                    |  4 ++-
+ chat/prompt.md               |  2 +-
+ chat/toolbox.md              | 19 ++++++++++-
+ docs/HANDOFF.md              |  7 ++--
+ docs/history.md              | 31 +++++++++++++++++
+ markup/camera.cpp            | 67 ++++++++++++++++++++++++++-----------
+ markup/engine.hpp            | 20 ++++++++---
+ markup/layout.cpp            | 73 ++++++++++++++++++++++------------------
+ markup/render.cpp            |  9 +++--
+ rm/raymanim.cpp              | 80 ++++++++++++++++++++++++++++----------------
+ rm/raymanim.hpp              | 18 ++++++++--
+ scripts/geology.dan          | 15 +++++++++
+ tests/golden/layout-new.json |  6 ++++
+ tests/golden/layout-old.json |  6 ++++
+ tests/test_engine.cpp        | 63 ++++++++++++++++++++++++++++++++++
+ 15 files changed, 319 insertions(+), 101 deletions(-)
+# git status --short
+ M README.md
+ M chat/prompt.md
+ M chat/toolbox.md
+ M docs/HANDOFF.md
+ M docs/history.md
+ M markup/camera.cpp
+ M markup/engine.hpp
+ M markup/layout.cpp
+ M markup/render.cpp
+ M rm/raymanim.cpp
+ M rm/raymanim.hpp
+ A scripts/geology.dan
+ M tests/golden/layout-new.json
+ M tests/golden/layout-old.json
+ M tests/test_engine.cpp
+?? tools/tex/node_modules

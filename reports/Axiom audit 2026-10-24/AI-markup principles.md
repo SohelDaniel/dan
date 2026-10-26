@@ -1,0 +1,23 @@
+# Design Principles for an AI-Written Markup Language (the user's research write-up, October 2026; grades: Direct / Indirect / Precedent)
+
+1. Forward-only (Direct). Nothing the model writes early may depend on anything it writes later. No length/count prefixes, no column alignment, no "define the reference at the bottom." Evidence: Bachmann & Nagarajan ICML 2024 (next-token training fails on lookahead tasks; 1% per-token error compounds to 86% by token 200); Tam et al. EMNLP 2024 (JSON mode emitted `answer` before `reason`, accuracy collapsed).
+
+2. Structure at line starts, never in whitespace (Indirect). The first few characters of a line decide what it is. Indentation depth, trailing spaces and blank-line counts carry no meaning. Evidence: YAML parse failures 32-34% (LLaMA-3-8B), 86.7% (Claude 3 Haiku) in Tam et al.; Wen et al. 2024 indentation errors; TokDrift ACL 2026 (whitespace changes tokenization and behaviour); Zhang et al. 2024 (BPE merges runs of spaces).
+
+3. No matching at a distance (Direct). Nothing should have to balance across many tokens: no anonymous nested brackets, no counted fences. Blocks end when the next block starts, or close with a named closer. Evidence: Hahn TACL 2020, Yao et al. ACL 2021 (bracket depth D needs D+1 layers), Delétang et al. ICLR 2023; unbalanced delimiters a top SyntaxError cause (Wen et al.); SchemaBench raw JSON parser errors 8% GPT-4o, 23-36% small models.
+
+4. The parser counts, the model doesn't (Direct for the limitation). No required numbering, unique IDs, or references that must stay consistent. The renderer assigns numbers. Evidence: Yehudai et al. 2024 (transformers count exactly only when embedding dim >= vocabulary); Zhang et al. (counting swings 80 points with tokenization); McCoy et al. PNAS 2024 (counts biased toward common numbers).
+
+5. Near-zero escaping (Direct, the strongest). Pick delimiters that never occur in prose. Resolve ambiguity in favour of literal text. Every escape rule is a failure mode. Evidence: SchemaBench escaping sub-task: GPT-4o 37.1% vs 84.5% on complex schemas; small models 11-17%; typical failure is the wrong number of backslashes. Aider: every model wrote worse code inside JSON strings (Sonnet 60.5 -> 54.1).
+
+6. Fail soft (Direct premise, Precedent rule). One mistake breaks one line, never the document. Unrecognised markup renders as plain text. The parser never rejects. Evidence: GPT-4o 13% schema-invalid, 8% unparseable JSON; Wen et al.'s tolerant post-processor repaired 99.7% of syntax errors (+7.5 Pass@1); CommonMark: "any sequence of characters is a valid CommonMark document".
+
+7. One way per thing, one meaning per marker (Precedent + Indirect, the weakest). No synonyms (`*`/`_`, `-`/`*`/`+`) and no context-dependent symbols. Evidence: CommonMark's rationale on divergent implementations; Sclar et al. ICLR 2024 (up to 76 points of spread from formatting alone); He et al. 2024 (40% swings). Caveat: no study measures synonymous OUTPUT syntax directly.
+
+8. Stay near the training distribution (Direct). Borrow the shapes the model already emits fluently; invent only where they break. Expect adherence to novel rules to decay over long outputs. Evidence: McCoy et al. (accuracy tracks output probability: cipher 51% vs 13%); Razeghi et al. EMNLP 2022; Cassano et al. (low-resource languages score far below Python until synthetic data closes the gap: a novel markup is a low-resource language); a 2026 agent-formats study (unfamiliar TOON format caused overhead); LongProc 2025 (open models falter at 2K output tokens, GPT-4o degrades at 8K).
+
+9. Cheap tokens, narrowed (Direct for ASCII and boilerplate). Use ASCII markers and avoid boilerplate. Do not assume any syntax family is cheapest; measure with the target tokenizer. Evidence: Petrov et al. NeurIPS 2023 (up to 15x token cost by script; exotic markers are expensive); Pan et al. 2025 (formatting-only characters consume budget; stripping keeps performance); format-vs-format cost is model- and data-dependent (Markdown pipe tables were the MOST expensive in one study).
+
+What did not survive: "Markdown is cheaper than JSON" (not supported); "models drift back to Markdown a few hundred lines in" (decay measured, direction inferred); principle 7 kept with weak evidence; "the spec should fit in one paragraph; count parse errors" is a heuristic, still the right test.
+
+Sources: arXiv 2403.06963, 2408.02442, 2309.13638, Hahn 2020 (TACL), 2105.11115, 2207.02098, 2409.00676, 2502.18878, 2501.10868, 2407.15160, 2410.19730, aider.chat 2024-08-14, 2510.14972, spec.commonmark.org, 2310.11324, 2411.10541, 2202.07206, 2308.09895, 2501.05414, 2305.15425, 2508.13666, 2602.05447.

@@ -1,0 +1,16 @@
+# Reproducers re-run by the orchestrator (verify/ holds the copies and frames)
+
+- A2 r1 (expression-driven bar): CONFIRMED. r1_1.png: bar a (value 3) fills the stage at 1 s; r1_9.png: same value, a sliver at 9 s next to b=36. The prescan sees literals only; the shared scale moved. Axiom 2.
+- A2 r3c (param-driven dot, no ranges): CONFIRMED. `--check` 100/100 with only a binding lint; `--layout-report` worst 84 "dot 'q' runs 322px off the screen". --check lays out the end state only, so it cannot see motion leaving the plot.
+- A1 scene-with (mark on the same beat as `scene`): CONFIRMED. readback after play: title "Two", mark b only; `a` was created during the 0.7 s fade and wiped by clearStage; decodable: yes, no lint. A real delete.
+- A1 remark-expr (re-mark NUM -> expression): CONFIRMED. re_2.1.png: 0.07 s after the lines, P is at (4,4) (jump), Q is at (1,2) still easing. engine.cpp:957-960 setProp for a type change. Axioms 1 ("no jump cuts") and 4.
+- A3 a8_colorclash (`color=blue` beside a category in palette slot 0): CONFIRMED. clash_end.png: A (input) and tax (color=blue) are the same blue; no lint, layout 100. Axiom 3.
+- A3 b4_scenes (category colour across a `scene`): CONFIRMED. clash_end.png / sc_3.5.png: `input` blue in scene one, orange in scene two (slots reset per scene and go by first appearance). Axiom 3 across scenes.
+- A7 retired word as magnitude: CONFIRMED. `mark a bar region=2 score=5`: lint says "region= is ignored", yet region_end.png shows a's bar labelled 2 (region became the magnitude, score was not drawn), and a and b stand on separate baselines at the same height (two properties, two scales). Axiom 2 and the position rule.
+- A7 annotation on a link: CONFIRMED. `mark e enclose of=w label="the link"` on a graph link: enc_end.png shows no box and no label; `--check` decodable, 0 lints, 100. Same class as finding 1 (meaning without ink).
+- A5 early cue (cue line between sentence 1 and 2, meant for 2): CONFIRMED. verbose: "@go never cued: runs at the end of its sentence" at 4.80 s; hook |go| of sentence 2 at 7.02 s. --check: no lint. Refutes session note 4's "convention only"; corrected in session-notes.
+- A6 append.sh failures (space-downhill/saddle): CONFIRMED as an artefact. diff whole vs streamed: one extra `# lint: space: … camera never moves` comment in the streamed readback; model lines identical.
+- A6 what reaches Claude: CONFIRMED by reading chat/server.mjs 221-239: readback() drops every `#` line (derived, overlapping, since); check() forwards only indented lines and `parse:` lines, so "decodable: NO" itself is not forwarded.
+- A4 `morph f.fn -> {x^3} 3s`: CONFIRMED. fn_1.5.png: at 1.5 s the curve and its label are absent from the plot; --check 100, no lint. The expression target is interpolated as a number (NaN) for the whole morph. Axiom 4; hit a real Fourier lesson (20261020-184851).
+- A8 "kind given twice": CONFIRMED. `mark A rect area x=2 y=2 …` (area is also a kind word) → parse error, the whole line and the thing are lost; real corpus: all 3 parse failures are this pattern.
+- A8 prose collisions: PARTLY. `[sic]` and `|x|` in a Say are eaten from the voice but DO lint (say:/hook:/indicate:); `{1,2,3}` is silent. Visible-soft for two of three.

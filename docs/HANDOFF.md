@@ -6,7 +6,7 @@ what is open. The dated story of how it got here (what was tried, measured, kept
 **Keep this file current.** Each session ends by updating it (see `CLAUDE.md`): change the map where the code
 changed, add gotchas, move finished items out of "Open", and add a dated entry to `docs/history.md`.
 
-Last updated: 2026-10-24 (the axiom audit and its fixes: scales, riders, cues, function morphs, re-marks, one data ink, path-as-link, slips and the draw: lint).
+Last updated: 2026-10-26 (end of the audit session: fixes merged, images/PDFs and video in the chat, the rest of the audit in `reports/Axiom audit 2026-10-24/`).
 
 ## 1. What it is
 
@@ -163,6 +163,11 @@ code, no stubs left behind.
 - **3D:** labels, the placer and the checker all go through `Space::project`; never compute a 3D screen position
   any other way. The fit has a 0.96 margin; an exact fit fails tests on rounding.
 - `ANTHROPIC_API_KEY` in the environment makes `claude -p` bill the API; the server warns.
+- **Subagents cost the user's weekly limit.** Eleven max-effort agents at once used up the Fable credits mid-run
+  (2026-10-24) and the user had to stop the second wave. Launch few at a time, make them write notes to disk early,
+  and say what a fan-out will cost before starting one.
+- **Patches made in worktrees are against the commit they started from.** After other merges, `git apply --3way`;
+  appended tests conflict at the end of `tests/test_engine.cpp`: keep both blocks and check the closing brace.
 - **A cue line belongs after its sentence.** Written before the sentence that says it, it is held for its word (and
   linted `hook:`); fireHook never reaches forward to a later sentence's line.
 - **`draw:` lints are axiom warnings** (`--check` exit 1): a curve, field or world shape under free/graph/numberline/
@@ -198,16 +203,25 @@ Done and measured (details in `docs/history.md`):
 - 3D (`schema space`): chosen right for 34/36 questions; on spatial questions picture 2.88 to 3.46, teaching
   3.12 to 3.58.
 
+- The axiom audit (2026-10-24): scales see computed values, riders on curves, cues on their word, function morphs
+  blend, re-marks ease, one data ink, path-as-link, slips spoil one word, the `draw:` lint. `reports/Axiom audit
+  2026-10-24/README.md` is the map of the audit and of what is still unmerged.
+- The chat takes images and PDFs (paste, drop, 📎) and saves a lesson as a video (`Save video`, `~/Movies/Tutor`).
+- Playground: `tutor write` (an editor beside the stage). The markup is called Dan; files are `.dan`.
+
 The newest working session's notes are the last entry of `docs/history.md`.
 
 ## 9. Open
 
 Next candidates, roughly by value:
-- **The axiom audit (2026-10-24)**: `docs/history.md` 8m lists what was fixed and what is left. Ready, tested patches not
-  yet merged: D2 the cut (`0s` + afterimage), D3 colour stability (`palette` line in the readback), D6 `focus a,b hold`,
-  D7 trails across turns, D10 `morph f.tex += "…"`, D11 the camera on timelines/number lines, D8 a 3-line gloss of
-  `mark` (rename rejected). Notes and patches: the session scratchpad's `dec-D*` folders (copy them into `reports/` if
-  they should outlive it).
+- **Finish the axiom audit.** Seven tested patches are ready but not merged: D2 the cut, D3 colour stability,
+  D6 `focus a,b hold`, D7 trails across turns, D8 a gloss of `mark`, D10 `morph f.tex += "…"`, D11 the camera on
+  timelines. Each is in `reports/Axiom audit 2026-10-24/decisions/` with its engineer's notes; the README there has
+  the table (verdict, what it does, which files conflict). They were made against commit 6038197: apply with
+  `git apply --3way`, resolve (keep both sides of appended tests; drop HANDOFF/history hunks), rebuild, run every
+  regression, look at frames, commit one at a time. The user agreed to the plan but has not seen each design: show
+  them what each changes in the markup before merging the ones that change the language (D2, D6, D10, D11).
+  Then the audit's tier 2-4 fixes (`merged findings.md` §3).
 - **3D view too small when formulas stack above it.** Give a space view more room, or put formulas beside it.
 - **Tangent planes are drawn as big clipped sheets.** A local patch at the point would read better.
 - `flux` and `gradsurf` still stay flat though they need 3D.
@@ -219,6 +233,12 @@ Next candidates, roughly by value:
   user's clicks.
 - **Pacing, next:** the share of gaps >= 2 s (14-16%) is above the 4-10% bar set from 3Blue1Brown; watch real
   lessons before tuning "one step in six". The judge can't see time: a pacing criterion needs the timeline.
-- **`make append` fails on `space-saddle` and `space-downhill`** (streamed != whole in chunks of 2/3/5).
+- **`make append` reports 4 DIFFERS on `space-saddle`/`space-downhill`**: an artefact, not a decodability break. The
+  streamed readback carries one stale `# lint: space: … camera never moves` comment; the model lines are identical.
+  Fix: re-derive that lint on append like the hook lints, or compare model lines only in `tests/append.sh`.
+- **Housekeeping:** `.claude/worktrees/` holds ~27 agent worktrees from the audit (untracked; every useful patch is in
+  `reports/`). Remove them with `git worktree list` + `git worktree remove --force <path>` and `git branch -D` the
+  `worktree-agent-*` branches, after checking nothing else is wanted. One throwaway chat, `chat/sessions/
+  20261024-194917`, came from testing attachments (the user's data: ask before deleting).
 - Small: no camera pan for long arrays or timelines; contour labels and field legends aren't in the checker;
   `scripts/*.readback` files are generated junk.

@@ -1,0 +1,704 @@
+diff --git a/README.md b/README.md
+index 09160e0..b38be84 100644
+--- a/README.md
++++ b/README.md
+@@ -66,6 +66,7 @@ mark  <id> [kind] [category] key=value ...          a thing and its properties
+ link  <id> [kind] <a> -> <b> key=value ...          a relation: arrow (cause, maps-to), line (connected), similar, equals
+ group <id> part-of=[a,b,...] label="..."            a relation: part-of
+ morph <id>.<prop> [from] -> <to> [1.5s] [ease=..]   a change; the only way anything moves
++morph <id>.tex += "<row>" [1.2s]                    a derivation step: one more row under the formula
+ focus <id> | none                                   what the voice is about (everything else dims, for one sentence)
+ Say: "text with |hook| markers"                     the voice
+ ```
+@@ -289,7 +290,7 @@ mark tag tex tex="E = v^2" x=4 y=30 size=30
+ - **`\val{expr}`** shows a value now, with the same expressions as `{…}`: `\val{price}`, `\val{alice.balance - bob.balance}`. It updates live while the value morphs.
+ - **`\textcolor{id}{…}`** paints a term in the color of the thing `id` and keeps that term lit while `focus id` dims the rest, so the formula and the picture point at the same thing. Plain color names work too (`\textcolor{orange}{x}`). Don't use `\color`: it is a switch that colors everything after it.
+ - **Changing a formula** (`morph f.tex -> "…" 1.5s`, or re-marking with a new `tex=`) moves the symbols the two formulas share to their new places and fades the rest; what the change brings in is lit for a moment. Build an equation up step by step this way instead of making new marks.
+-- **A derivation is one formula that grows.** Write the steps as `\begin{aligned} 2x + 3 &= 11 \\ 2x &= 8 \end{aligned}` (the `&` lines the `=` signs up) and morph it to add each line; annotate the move on the part it changes (`enclose of=eq[three] label="take it away"`). Separate formulas side by side read as one run-on line.
++- **A derivation is one formula that grows.** Start it as `\begin{aligned} 2x + 3 &= 11 \end{aligned}` (`&` lines the `=` signs up) and add each step as a row: `morph eq.tex += "2x &= 8" 1.2s`. Only the new row is written; it goes under the rows there, which stay put, and lights up. A plain formula becomes an aligned block on its first `+=`. To change a row already there, morph the whole formula with `->`. Annotate the move on the part it changes (`enclose of=eq[three] label="take it away"`). Separate formulas side by side read as one run-on line.
+ - A formula is ink (foreground color) unless it has a category, `color=` or `of=`. It doesn't use up a color.
+ - `--check` typesets every formula and reports TeX errors and `\textcolor` names that are neither a thing nor a color.
+ 
+diff --git a/chat/prompt.md b/chat/prompt.md
+index 1d9b363..0ab0b18 100644
+--- a/chat/prompt.md
++++ b/chat/prompt.md
+@@ -119,7 +119,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
+ - `hide` dims what's done: it keeps its place, so nothing jumps. When the stage is full or the topic moves on, start a new `scene`.
+ - **The camera points too.** Zoom in on the detail the sentence is about (`@in camera zoom=8 on=p`), at most one move per sentence, then `camera reset` to give the context back. Only on `axes` and `plane`.
+ - After a numeric example, morph the formula to its general form (3² + 4² = 5² → a² + b² = c²).
+-- A derivation or a worked solution is **one** formula that grows: `\begin{aligned} … &= … \\ … &= … \end{aligned}`, one morph per step (the new line lights up), and an annotation on the part each move changes. Never several separate formulas for the steps.
++- A derivation or a worked solution is **one** formula that grows: start it as `\begin{aligned} … &= … \end{aligned}`, then one row per step with `morph f.tex += "… &= …" 1.2s` (the new row lights up; the rows before it are never re-typed, so they can't change by accident), and an annotation on the part each move changes. Never several separate formulas for the steps.
+ 
+ **Pacing a derivation** (the beat after a step; how 3Blue1Brown lets algebra land)
+ - **One step per sentence.** Say what the step does, the formula morphs on that word, and the step has landed before the next sentence starts. Never two or three changes to the formula inside one sentence. The engine holds a changed formula still for a second before the next sentence; you add the beats below.
+diff --git a/chat/toolbox.md b/chat/toolbox.md
+index dace992..25941a6 100644
+--- a/chat/toolbox.md
++++ b/chat/toolbox.md
+@@ -267,7 +267,7 @@ Say: "One in ten is |sick|sick."
+ ### A formula as the summary of what they saw
+ Use after the picture: each symbol in the colour of its thing; a derivation is one formula that grows.
+ Tools: `tex` with `\textcolor{id}{…}`; `morph f.tex -> "…"` (shared symbols glide, new ones light up);
+-`\begin{aligned}` lines for steps; `\val{}` for live values.
++`morph f.tex += "…"` for one more `\begin{aligned}` row; `\val{}` for live values.
+ ```
+ mark v param value=3
+ mark f tex tex="d = \textcolor{v}{v}\,t = \val{v*2}"
+@@ -276,18 +276,19 @@ Say: "Distance is speed times |time|time."
+ ```
+ 
+ ### A derivation that grows, with a beat after the step that matters
+-Use for algebra: one step per sentence, each a morph of the one formula; after the step the next step builds on
+-(the subgoal), a digest sentence that reads the result off the stage in other words, pointing, then silence.
+-Tools: `morph f.tex` per step; `[f]` and `f[part]` to point while reading it back; `wait 2s` (a subgoal),
+-`wait 3s` (the crux, with a question or a re-framing instead of a digest). Not after routine steps.
++Use for algebra: one step per sentence, each one more row of the one formula; after the step the next step builds
++on (the subgoal), a digest sentence that reads the result off the stage in other words, pointing, then silence.
++Tools: `morph f.tex += "row"` per step (the new row only, never the formula again); `[f]` and `f[part]` to point
++while reading it back; `wait 2s` (a subgoal), `wait 3s` (the crux, with a question or a re-framing instead of a
++digest). Not after routine steps.
+ ```
+ mark f tex tex="\begin{aligned} x^2 + 6x + 2 &= 0 \end{aligned}"
+ Say: "Move the two to the other |side|side."
+-@side morph f.tex -> "\begin{aligned} x^2 + 6x + 2 &= 0 \\ x^2 + 6x &= -2 \end{aligned}" 1.2s
++@side morph f.tex += "x^2 + 6x &= -2" 1.2s
+ Say: "Take half of the six and square it, and add that nine to |both|both sides."
+-@both morph f.tex -> "\begin{aligned} x^2 + 6x + 2 &= 0 \\ x^2 + 6x &= -2 \\ x^2 + 6x + 9 &= 7 \end{aligned}" 1.2s
++@both morph f.tex += "x^2 + 6x + 9 &= 7" 1.2s
+ Say: "Now the left side is a perfect |sq|square."
+-@sq morph f.tex -> "\begin{aligned} x^2 + 6x + 2 &= 0 \\ x^2 + 6x &= -2 \\ x^2 + 6x + 9 &= 7 \\ \textcolor{sq}{(x+3)^2} &= 7 \end{aligned}" 1.2s
++@sq morph f.tex += "\textcolor{sq}{(x+3)^2} &= 7" 1.2s
+ Say: "So what we |have|have now: x plus three, all squared, is seven. One thing squared, nothing else on the left."
+ @have mark b enclose of=f[sq] label="one square"
+ wait 2s
+diff --git a/markup/engine.cpp b/markup/engine.cpp
+index 02c746c..ed72099 100644
+--- a/markup/engine.cpp
++++ b/markup/engine.cpp
+@@ -253,13 +253,16 @@ void Engine::analyze(bool fresh) {
+     if (ln.verb == Verb::GROUP) for (auto &m : ln.members) need(m, "group");
+   });
+ 
+-  // ---- formulas: typeset every literal one now (warms the cache; headless check reports TeX errors)
++  // ---- formulas: typeset every literal one now (warms the cache; headless check reports TeX errors). A row
++  // added with += is typeset as the formula it makes, so each formula is followed through the script
++  std::map<std::string, std::string> texOf;
+   eachLine(script_, [&](const Line &ln) {
+     const Value *v = nullptr;
+     if (ln.verb == Verb::MARK) v = findProp(ln.props, "tex");
+     if (ln.verb == Verb::MORPH && ln.prop == "tex") v = &ln.to;
+     if (!v || v->type != Value::STR) return;
+-    std::string src = v->str;
++    std::string src = ln.append ? texWithRow(texOf[ln.id], v->str) : v->str;
++    texOf[ln.id] = src;
+     for (size_t p; (p = src.find("\\val{")) != std::string::npos;) {
+       size_t q = src.find('}', p);
+       src.replace(p, q == std::string::npos ? std::string::npos : q - p + 1, "0");
+@@ -326,6 +329,7 @@ void Engine::reset() {
+   flowMemo_.clear();
+   bandH_ = -1;
+   bandNeed_ = 0;
++  loneBlocks_ = 0;
+   zoom_ = zoomT_ = 1;
+   zoomFresh_ = true;
+   zoomSettle_ = 0.6f;
+@@ -674,6 +678,7 @@ void Engine::clearStage() {
+   flowMemo_.clear();
+   bandH_ = -1;
+   bandNeed_ = 0;
++  loneBlocks_ = 0;
+   zoom_ = zoomT_ = 1;
+   zoomFresh_ = true;
+   zoomSettle_ = 0.6f;
+@@ -1029,19 +1034,27 @@ void Engine::doMorph(const Line &ln) {
+   std::string target = ln.id + "." + ln.prop;
+   float dur = opt_.instant ? 0 : std::max(0.f, ln.dur);
+ 
+-  if (ln.to.type == Value::STR || ln.to.type == Value::LIST) {
++  Value to = ln.to;
++  if (ln.append) { // += : the row goes under the formula it has now; from there on it is a change of the whole formula
++    std::string now = cur && cur->type == Value::STR ? cur->str : "", where = "append: line " + std::to_string(ln.lineNo) + ": ";
++    if (now.empty()) warn(where + "'" + ln.id + "' has no formula to add a row to; the row starts one");
++    else if (wholeFormula(now, ln.to.str)) warn(where + "+= takes the new row only, not the whole formula; this one replaced it");
++    to = Value::string(texWithRow(now, ln.to.str));
++  }
++
++  if (to.type == Value::STR || to.type == Value::LIST) {
+     std::string old = cur ? (cur->type == Value::STR ? cur->str : cur->markup()) : "";
+-    bool list = ln.to.type == Value::LIST;
++    bool list = to.type == Value::LIST;
+     if (ln.hasFrom && cur && (list ? ln.from.markup() != old : ln.from.markup() != Value::string(old).markup() && ln.from.str != old))
+       warn("identity: line " + std::to_string(ln.lineNo) + " morphs " + target + " from '" + ln.from.str +
+            "' but it is '" + old + "'; morphing from the real value");
+-    setProp(o->props, ln.prop, ln.to);
++    setProp(o->props, ln.prop, to);
+     o->strBlend[ln.prop] = {old, dur > 0 ? 0.f : 1.f};
+-    if (Mark *om = mark(ln.id); om && !list && ln.prop == catProp(*om)) colorForKey("cat:" + ln.to.str); // a category's new value only
++    if (Mark *om = mark(ln.id); om && !list && ln.prop == catProp(*om)) colorForKey("cat:" + to.str); // a category's new value only
+     Active a;
+     a.kind = Active::STR; a.id = ln.id; a.prop = ln.prop; a.dur = dur;
+     a.ease = rateByName(ln.ease);
+-    a.log = "morph " + target + " " + Value::string(old).markup() + " -> " + ln.to.markup();
++    a.log = "morph " + target + " " + Value::string(old).markup() + " -> " + to.markup();
+     actives_.push_back(a);
+     caption(ln.prop == "tex" ? "change of formula -> shared symbols move to their new places, the rest fade (" + target + ")"
+                              : "change of category -> color morphs, label cross-fades (" + target + ")");
+@@ -1060,11 +1073,11 @@ void Engine::doMorph(const Line &ln) {
+   if (!cur) setProp(o->props, ln.prop, Value::number(start));
+   Active a;
+   a.kind = Active::NUM; a.id = ln.id; a.prop = ln.prop;
+-  a.from = start; a.to = num(ln.to); a.finalVal = ln.to;
++  a.from = start; a.to = num(to); a.finalVal = to;
+   a.dur = dur;
+   a.ease = rateByName(ln.ease);
+   recordActive(a, before);
+-  a.log = "morph " + target + " " + fmtNum(a.from) + " -> " + ln.to.markup();
++  a.log = "morph " + target + " " + fmtNum(a.from) + " -> " + to.markup();
+   actives_.push_back(a);
+ 
+   std::string ch = "its value";
+diff --git a/markup/engine.hpp b/markup/engine.hpp
+index 2c4fa76..b1fc576 100644
+--- a/markup/engine.hpp
++++ b/markup/engine.hpp
+@@ -86,6 +86,9 @@ struct Mark : Obj {
+   std::string view;          // the named view it belongs to ("" with a single schema)
+   std::string texPrev;       // formulas: what it was before its last change, and when that change settled
+   float texSettledAt = -1e9f; //   (what the change brought in stays lit for a moment)
++  TexPtr texSeen;            //   a derivation the band holds (holdFormula): the layout it was last placed by, how far
++  float texShift = 0;        //   its centre sits beside its slot's to keep its rows where they were, and whether it is
++  bool texHeld = false;      //   held this frame (drawing then starts the old glyphs where they were)
+   Vector2 pos{0, 0}, tpos{0, 0};
+   bool placed = false;    // has had a first layout (so it doesn't fly in from 0,0)
+   bool anchorBottom = false; // pos is bottom-centre (free layout) instead of centre
+@@ -391,6 +394,7 @@ private:
+   std::vector<std::string> boxNameLines(const Mark &m);
+   std::vector<std::pair<std::string, std::string>> boxRows(const Mark &m);
+   Rectangle bodyBounds(const Mark &m);
++  void holdFormula(Mark &m, Rectangle stage); // a derivation in the band keeps its rows where they were as it changes
+   Rectangle fullBounds(const Mark &m);   // incl. name labels
+   Rectangle groupBounds(const Group &g, int depth = 0, bool arcs = true); // arcs: around its return links too
+   double pathAt(const Mark &path, double x, int depth = 0);
+@@ -653,6 +657,8 @@ private:
+   bool hasZ_ = false;
+   float bandH_ = -1;                // the block band's height, eased (-1: not laid out yet)
+   bool blockRows_ = false;         // this scene's blocks flow in rows (once chosen, kept: no mid-scene reshuffle)
++  float loneTop_ = 0;              // a lone stack's top, and how many blocks it had: it is centred when one arrives and
++  size_t loneBlocks_ = 0;          //   keeps its top while they grow (layoutBand)
+   std::map<std::string, float> crossedSince_; // label key -> when a line started crossing it
+   float stickyFor(const std::string &key); // pointer label id -> side it took (0 below, 1 right, 2 above, 3 left)
+   bool camPoint(const std::string &id, const Props &req, double &x, double &y);
+diff --git a/markup/layout.cpp b/markup/layout.cpp
+index d833d0a..9ae8e46 100644
+--- a/markup/layout.cpp
++++ b/markup/layout.cpp
+@@ -625,10 +625,16 @@ Rectangle Engine::layoutBand(const std::string &s, bool alone, float dt) {
+     }
+     blocks.clear(); // placed
+   }
+-  float y = alone ? S.y + std::max(4.f, (S.height - total) / 2) : S.y + 4;
++  // a lone stack is centred when a block arrives; while its blocks only grow (a derivation's new row, a note under
++  // it) it keeps its top and grows down, sliding up only as far as the stage needs
++  if (!alone || blocks.size() != loneBlocks_) loneTop_ = S.y + std::max(4.f, (S.height - total) / 2);
++  loneBlocks_ = alone ? blocks.size() : 0;
++  loneTop_ = std::max(S.y + 4, std::min(loneTop_, S.y + S.height - total + 6));
++  float y = alone ? loneTop_ : S.y + 4;
+   for (Mark *m : blocks) {
+     float h = bodyBounds(*m).height, above = roomAbove(*m);
+     m->tpos = {S.x + S.width / 2, y + above + h / 2};
++    holdFormula(*m, S);
+     m->positioned = true;
+     y += above + h + annotationRoom(*m) + 14;
+   }
+@@ -647,6 +653,31 @@ Rectangle Engine::layoutBand(const std::string &s, bool alone, float dt) {
+   return stage;
+ }
+ 
++// A derivation in the band (a formula that is one block of rows) keeps the rows it had where they were as it changes:
++// its centre is moved by what the new typesetting moved the glyphs it kept (the band keeps its top), so a wider row
++// extends it sideways around them and the = column stands still. The offset lasts while it is held, stays on the
++// stage (eased back when a row would leave it) and goes when a change keeps no glyph. Any other formula is centred.
++void Engine::holdFormula(Mark &m, Rectangle S) {
++  const Value *tx = findProp(m.props, "tex");
++  TexPtr now = texNow(m);
++  if (!tx || tx->type != Value::STR || rowBlock(tx->str).empty() || !now || !now->ok) return;
++  if (!m.texSeen) m.texShift = 0; // a hold starts afresh
++  else if (m.texSeen != now && m.placed) {
++    int pairs = 0;
++    Vector2 d = tex::drift(*m.texSeen, *now, &pairs);
++    float px = texSize(m) / 1000;
++    Vector2 jump{((now->w - m.texSeen->w) / 2 - d.x) * px, ((now->h - m.texSeen->h) / 2 - d.y) * px};
++    if (!pairs) m.texShift = 0;
++    else { m.pos += jump; m.texShift += jump.x; } // drawTex starts the old formula where it was: nothing drawn moves
++  }
++  m.texSeen = now;
++  m.texHeld = true;
++  float half = bodyBounds(m).width / 2, lo = S.x + 8 + half, hi = S.x + S.width - 8 - half;
++  float x = hi > lo ? std::clamp(m.tpos.x + m.texShift, lo, hi) : m.tpos.x;
++  m.texShift = x - m.tpos.x;
++  m.tpos.x = x;
++}
++
+ // a plot is on stage: the scene's, or one view's
+ bool Engine::plotOnStage() const {
+   if (views_.empty()) return isAxes(schemaNow()) || isSpace(schemaNow());
+@@ -763,7 +794,11 @@ void Engine::layoutPointers() {
+ 
+ void Engine::layout(float dt) {
+   lastDt_ = dt;
+-  for (auto &[id, m] : marks_) { m.positioned = false; m.anchorBottom = false; m.direct = false; m.culled = false; }
++  for (auto &[id, m] : marks_) {
++    m.positioned = false; m.anchorBottom = false; m.direct = false; m.culled = false;
++    if (!m.texHeld) m.texSeen = nullptr; // a hold lasts while the band holds it each frame (holdFormula)
++    m.texHeld = false;
++  }
+   computeRanges(dt);
+   for (auto &[vid, c] : dataCtx_) if (vid != curData_) { DataScope ds(*this, vid); computeRanges(dt); } // each data view's own
+   std::string s = schemaNow();
+diff --git a/markup/render.cpp b/markup/render.cpp
+index 195d8c3..b0ed394 100644
+--- a/markup/render.cpp
++++ b/markup/render.cpp
+@@ -154,6 +154,11 @@ void Engine::drawTex(const Mark &m) {
+   for (size_t i = 0; i < old->glyphs.size(); i++) fromIx[old->glyphs[i].key].push_back(i);
+   for (size_t i = 0; i < now->glyphs.size(); i++) toIx[now->glyphs[i].key].push_back(i);
+   Vector2 o0 = originOf(*old), o1 = originOf(*now);
++  if (m.texHeld) { // the band holds the kept glyphs still: the old formula starts where they are
++    int pairs = 0;
++    Vector2 d = tex::drift(*old, *now, &pairs);
++    if (pairs) o0 = o1 + d * px;
++  }
+   for (auto &[key, from] : fromIx) {
+     const auto &to = toIx[key];
+     for (size_t j = 0; j < from.size(); j++) {
+diff --git a/markup/script.cpp b/markup/script.cpp
+index fa6318b..b0c02b8 100644
+--- a/markup/script.cpp
++++ b/markup/script.cpp
+@@ -344,8 +344,23 @@ static bool readGroup(Reading &r) {
+   return true;
+ }
+ 
++// a += glued to its neighbours (`f.tex+=`, `+="row"`, `f.tex+="row"`) is still the += (the parser counts, not the model)
++static Toks ungluedAppend(const Toks &toks) {
++  Toks out(toks.begin(), toks.begin() + std::min<size_t>(toks.size(), 1));
++  for (size_t i = 1; i < toks.size(); i++) {
++    const std::string &t = toks[i];
++    size_t p = i == 1 ? t.find("+=") : t.rfind("+=", 0);
++    if (p == std::string::npos || t == "+=") { out.push_back(t); continue; }
++    if (p > 0) out.push_back(t.substr(0, p));
++    out.push_back("+=");
++    if (p + 2 < t.size()) out.push_back(t.substr(p + 2));
++  }
++  return out;
++}
++
+ static bool readMorph(Reading &r) {
+-  auto &[toks, verb, raw, ln, err] = r;
++  auto &[given, verb, raw, ln, err] = r;
++  const Toks toks = ungluedAppend(given);
+   ln.verb = Verb::MORPH;
+   if (toks.size() < 3) return r.fail("morph needs id.prop and a target value");
+   size_t dot = toks[1].find('.');
+@@ -357,6 +372,7 @@ static bool readMorph(Reading &r) {
+     std::string k, v;
+     float d;
+     if (isArrowTok(toks[i])) continue;
++    if (toks[i] == "+=") { ln.append = true; continue; }
+     if (isDuration(toks[i], d)) { ln.dur = d; continue; }
+     if (splitKV(toks[i], k, v) && toks[i].front() != '{' && toks[i].front() != '"') {
+       if (k == "ease") ln.ease = v;
+@@ -367,6 +383,13 @@ static bool readMorph(Reading &r) {
+     vals.push_back(toks[i]);
+   }
+   std::string verr;
++  if (ln.append) { // morph f.tex += "row" [1.2s]: the row is the target; the engine adds it to the formula it has by then
++    if (ln.prop != "tex") return r.fail("+= adds a row to a formula (morph f.tex += \"…\"); " + ln.id + "." + ln.prop + " is not one");
++    if (vals.size() != 1) return r.fail("morph … += takes just the new row");
++    ln.to = Value::parse(vals[0], &verr);
++    if (ln.to.type != Value::STR) ln.to = Value::string(ln.to.markup()); // a bare number is a row too
++    return verr.empty() || r.fail(verr);
++  }
+   if (vals.size() == 2) {
+     ln.from = Value::parse(vals[0], &verr);
+     ln.to = Value::parse(vals[1], &verr);
+@@ -379,6 +402,55 @@ static bool readMorph(Reading &r) {
+   return verr.empty() || r.fail(verr);
+ }
+ 
++// the first `c` of a formula outside braces and environments (`=`: the one `aligned` lines up), or npos
++static size_t topLevel(const std::string &t, char c) {
++  int depth = 0;
++  for (size_t i = 0; i < t.size(); i++) {
++    if (t.compare(i, 7, "\\begin{") == 0) depth++;
++    if (t.compare(i, 5, "\\end{") == 0) depth--;
++    if (t[i] == '\\') { i++; continue; } // \{ \} \& are symbols, not structure
++    if (t[i] == '{') depth++;
++    else if (t[i] == '}') depth--;
++    else if (t[i] == c && depth == 0) return i;
++  }
++  return std::string::npos;
++}
++
++std::string rowBlock(const std::string &texIn) {
++  std::string tex = trim(texIn);
++  size_t open = tex.find('}');
++  if (!startsWith(tex, "\\begin{") || open == std::string::npos) return "";
++  std::string env = tex.substr(7, open - 7), begin = "\\begin{" + env + "}", end = "\\end{" + env + "}";
++  int depth = 0; // the first \begin's own \end must close the formula (two matrices side by side are not one block)
++  for (size_t i = 0; i < tex.size(); i++) {
++    if (tex.compare(i, begin.size(), begin) == 0) depth++;
++    else if (tex.compare(i, end.size(), end) == 0 && --depth == 0) return i + end.size() == tex.size() ? env : "";
++  }
++  return "";
++}
++
++bool wholeFormula(const std::string &tex, const std::string &row) {
++  std::string env = rowBlock(tex);
++  return rowBlock(row) == (env.empty() ? "aligned" : env);
++}
++
++std::string texWithRow(const std::string &texIn, const std::string &rowIn) {
++  std::string tex = trim(texIn), row = trim(rowIn), env = rowBlock(tex);
++  while (startsWith(row, "\\\\")) row = trim(row.substr(2)); // the row break is the engine's to write
++  while (row.size() >= 2 && row.compare(row.size() - 2, 2, "\\\\") == 0) row = trim(row.substr(0, row.size() - 2));
++  if (row.empty()) return tex;
++  if (wholeFormula(tex, row)) return row;
++  if (tex.empty()) return "\\begin{aligned} " + row + " \\end{aligned}"; // nothing yet: the row starts a derivation
++  if (!env.empty()) { // a block of rows: one more row in it
++    size_t end = tex.size() - env.size() - 6;
++    return trim(tex.substr(0, end)) + " \\\\ " + row + " " + tex.substr(end);
++  }
++  // a plain formula: it and the row become an aligned block; its = is the one lined up unless it has an & already
++  size_t eq = topLevel(tex, '&') == std::string::npos ? topLevel(tex, '=') : std::string::npos;
++  if (eq != std::string::npos) tex = trim(tex.substr(0, eq)) + " &" + tex.substr(eq);
++  return "\\begin{aligned} " + tex + " \\\\ " + row + " \\end{aligned}";
++}
++
+ static bool readFocus(Reading &r) {
+   Line &ln = r.ln;
+   ln.verb = Verb::FOCUS;
+diff --git a/markup/script.hpp b/markup/script.hpp
+index 2f51b3d..3ffb8b1 100644
+--- a/markup/script.hpp
++++ b/markup/script.hpp
+@@ -71,6 +71,7 @@ struct Line {
+   std::string prop;
+   Value from, to;
+   bool hasFrom = false;
++  bool append = false;          // morph f.tex += "…": `to` is a row added under the formula it has by then
+   float dur = 1.0f;
+   float stagger = 0;            // indicate/send over a span: one cell after another, this many seconds apart
+   std::string ease = "smooth";
+@@ -102,5 +103,13 @@ private:
+ bool isMarkKind(const std::string &k);
+ bool isLinkKind(const std::string &k);
+ std::vector<std::string> tokenize(const std::string &line, std::string &err);
++// what a formula becomes when a row is added under it (`morph f.tex += "row"`): one more row in a block of rows
++// (`\begin{aligned} … \end{aligned}`, a matrix); a plain formula becomes an aligned block with its first = aligned,
++// and an empty one starts one. A stray `\\` around the row is dropped; the whole block written again is taken whole.
++std::string texWithRow(const std::string &tex, const std::string &row);
++// the environment a formula is one block of (`aligned` for `\begin{aligned} … \end{aligned}`), or "": a derivation
++std::string rowBlock(const std::string &tex);
++// a "row" that is the formula's own kind of block (its `\begin{aligned} … \end{aligned}` again): the whole formula
++bool wholeFormula(const std::string &tex, const std::string &row);
+ 
+ } // namespace mk
+diff --git a/markup/tex.cpp b/markup/tex.cpp
+index 0afa5f6..00275d3 100644
+--- a/markup/tex.cpp
++++ b/markup/tex.cpp
+@@ -228,6 +228,24 @@ TexPtr request(const std::string &src) { return Service::get().request(src); }
+ TexPtr typeset(const std::string &src) { return Service::get().typeset(src); }
+ bool available() { return Service::get().available(); }
+ 
++Vector2 drift(const TexLayout &from, const TexLayout &to, int *pairs) {
++  std::map<std::string, std::vector<Vector2>> was;
++  for (auto &g : from.glyphs) was[g.key].push_back(g.at);
++  std::map<std::string, size_t> seen;
++  Vector2 sum{0, 0};
++  int n = 0;
++  for (auto &g : to.glyphs) {
++    auto it = was.find(g.key);
++    size_t k = seen[g.key]++;
++    if (it == was.end() || k >= it->second.size()) continue;
++    sum.x += g.at.x - it->second[k].x;
++    sum.y += g.at.y - it->second[k].y;
++    n++;
++  }
++  if (pairs) *pairs = n;
++  return n ? Vector2{sum.x / n, sum.y / n} : Vector2{0, 0};
++}
++
+ // ================================================================ rasterizer
+ // Nonzero winding, 5 sub-scanlines per pixel, exact horizontal coverage per span.
+ static Image rasterize(const TexShape &sh, float s, Vector2 &offset) {
+diff --git a/markup/tex.hpp b/markup/tex.hpp
+index 3a2db38..6c96fb0 100644
+--- a/markup/tex.hpp
++++ b/markup/tex.hpp
+@@ -44,6 +44,10 @@ TexPtr typeset(const std::string &src);
+ bool available();
+ // Draws one glyph with its top-left origin at `origin` (pixels), `pxPerUnit` = font px / 1000.
+ void drawGlyph(const TexLayout &L, const TexGlyph &g, Vector2 origin, float pxPerUnit, Color c);
++// How far the glyphs two layouts share move from one to the other (units, the mean over the pairs: the k-th
++// glyph of a character pairs with the k-th), and how many pairs there are. A change keeps them still by moving
++// the formula the other way.
++Vector2 drift(const TexLayout &from, const TexLayout &to, int *pairs = nullptr);
+ } // namespace tex
+ 
+ } // namespace mk
+diff --git a/tests/test_engine.cpp b/tests/test_engine.cpp
+index 8e8c0eb..f76751d 100644
+--- a/tests/test_engine.cpp
++++ b/tests/test_engine.cpp
+@@ -476,3 +476,163 @@ TEST_CASE("a formula part pointed at with indicate f[part] is a named part: no t
+   for (auto &w : bare.lintMessages()) if (w.find("textcolor{sq}") != std::string::npos) bareLint = true;
+   CHECK(bareLint);
+ }
++
++static const char *kDerivation[] = { // the toolbox derivation: the whole formula per step, and the rows added
++    "mark f tex tex=\"\\begin{aligned} x^2 + 6x + 2 &= 0 \\end{aligned}\"\n"
++    "Say: \"Move the two to the other |side|side.\"\n"
++    "@side morph f.tex -> \"\\begin{aligned} x^2 + 6x + 2 &= 0 \\\\ x^2 + 6x &= -2 \\end{aligned}\" 1.2s\n"
++    "Say: \"Add nine to |both|both sides.\"\n"
++    "@both morph f.tex -> \"\\begin{aligned} x^2 + 6x + 2 &= 0 \\\\ x^2 + 6x &= -2 \\\\ x^2 + 6x + 9 &= 7 \\end{aligned}\" 1.2s\n"
++    "Say: \"Now the left side is a perfect |sq|square.\"\n"
++    "@sq morph f.tex -> \"\\begin{aligned} x^2 + 6x + 2 &= 0 \\\\ x^2 + 6x &= -2 \\\\ x^2 + 6x + 9 &= 7 \\\\ \\textcolor{sq}{(x+3)^2} &= 7 \\end{aligned}\" 1.2s\n"
++    "@sq mark b enclose of=f[sq] label=\"one square\"\n",
++    "mark f tex tex=\"\\begin{aligned} x^2 + 6x + 2 &= 0 \\end{aligned}\"\n"
++    "Say: \"Move the two to the other |side|side.\"\n"
++    "@side morph f.tex += \"x^2 + 6x &= -2\" 1.2s\n"
++    "Say: \"Add nine to |both|both sides.\"\n"
++    "@both morph f.tex += \"x^2 + 6x + 9 &= 7\" 1.2s\n"
++    "Say: \"Now the left side is a perfect |sq|square.\"\n"
++    "@sq morph f.tex += \"\\textcolor{sq}{(x+3)^2} &= 7\" 1.2s\n"
++    "@sq mark b enclose of=f[sq] label=\"one square\"\n"};
++
++TEST_CASE("a derivation written with += reads back as the same scene as the whole-formula form, with no lint") {
++  Engine whole(instant()), rows(instant());
++  played(whole, kDerivation[0]);
++  played(rows, kDerivation[1]);
++  CHECK(rows.readback(false) == whole.readback(false));
++  CHECK(rows.readback(false).find("\\\\ x^2 + 6x &= -2 \\\\") != std::string::npos);
++  for (auto &w : rows.lintMessages()) CHECK_MESSAGE(w.find("layout:") == 0, w);
++  // streamed as the chat streams it, a step at a time
++  Engine live(instant());
++  std::string text = kDerivation[1];
++  size_t cut = text.find("Say: \"Add");
++  REQUIRE(live.loadText(text.substr(0, cut)));
++  REQUIRE(live.appendText(text.substr(cut)));
++  live.runToEnd();
++  CHECK(live.readback(false) == whole.readback(false));
++}
++
++TEST_CASE("+= makes a plain formula an aligned block with its = aligned; no formula, or a whole block given: it says so") {
++  Engine plain(instant());
++  played(plain, "mark f tex tex=\"2x + 3 = 11\"\nmorph f.tex += \"2x &= 8\"\n");
++  CHECK(plain.readback(false).find("tex=\"\\begin{aligned} 2x + 3 &= 11 \\\\ 2x &= 8 \\end{aligned}\"") != std::string::npos);
++  Engine none(instant());
++  played(none, "mark b box label=\"b\"\nmorph b.tex += \"x &= 4\"\n");
++  bool said = false;
++  for (auto &w : none.lintMessages()) {
++    if (w.find("append:") == 0 && w.find("no formula") != std::string::npos) said = true;
++    CHECK_MESSAGE(w.find("tex:") != 0, w); // the row starts a block, so it typesets
++  }
++  CHECK(said);
++  CHECK(none.readback(false).find("tex=\"\\begin{aligned} x &= 4 \\end{aligned}\"") != std::string::npos);
++  Engine block(instant());
++  played(block, "mark f tex tex=\"\\begin{aligned} a &= b \\end{aligned}\"\nmorph f.tex += \"\\begin{aligned} a &= b \\\\ c &= d \\end{aligned}\"\n");
++  bool whole = false;
++  for (auto &w : block.lintMessages()) if (w.find("append:") == 0 && w.find("whole") != std::string::npos) whole = true;
++  CHECK(whole);
++  CHECK(block.readback(false).find("tex=\"\\begin{aligned} a &= b \\\\ c &= d \\end{aligned}\"") != std::string::npos);
++}
++
++// a live (timed) scene of steps 2.5 s apart (1 s morphs, 1.5 s rests), as the checker sees it once each step has
++// settled (layout coordinates). Its formulas are typeset ahead, as the stage has them by the time a step plays.
++static std::vector<place::Picture> settledSteps(const std::string &text, size_t steps, const std::vector<std::string> &formulas) {
++  for (auto &v : formulas) tex::typeset(v);
++  EngineOptions o; // live timing, no window
++  o.quiet = true;
++  o.voice = false;
++  Engine e(o);
++  REQUIRE(e.loadText(text));
++  std::vector<place::Picture> out;
++  for (size_t k = 0; k < steps; k++) {
++    while (e.time() < 1.4f + 2.5f * (float)k) e.update(1.f / 60);
++    out.push_back(e.picture());
++  }
++  return out;
++}
++
++// a derivation that grows by `rows`, after `before` (a plot, ...), each step written as a row (+=) or as the whole
++// formula (->): the formula's box, where its first = sign is, and the stage, once each step has settled
++struct DerivationSample { Rectangle box, stage; float eqX; };
++static std::vector<DerivationSample> derivation(const std::string &first, const std::vector<std::string> &rows, bool append,
++                                                const std::string &before = "") {
++  std::string text = before + "mark eq tex tex=\"" + first + "\"\nwait 1.5s\n";
++  std::vector<std::string> versions{first};
++  for (auto &r : rows) {
++    versions.push_back(texWithRow(versions.back(), r));
++    text += (append ? "morph eq.tex += \"" + r : "morph eq.tex -> \"" + versions.back()) + "\" 1s\nwait 1.5s\n";
++  }
++  std::vector<DerivationSample> out;
++  auto shots = settledSteps(text, versions.size(), versions);
++  for (size_t k = 0; k < shots.size(); k++) {
++    const place::Ink *f = body(shots[k], "eq");
++    REQUIRE(f);
++    const place::Rect &S = shots[k].stage;
++    DerivationSample s{{f->box.x, f->box.y, f->box.w, f->box.h}, {S.x, S.y, S.w, S.h}, 0};
++    TexPtr L = tex::typeset(versions[k]);
++    for (auto &g : L->glyphs)
++      if (g.key == "3D") { s.eqX = f->box.x + g.at.x * f->box.w / L->w; break; } // the first = sign
++    out.push_back(s);
++  }
++  return out;
++}
++
++TEST_CASE("a derivation's rows stay where they are as rows are added: the block grows down and out around them") {
++  // a free stage: the first row sits at the centre and the next ones go under it, the = column still, until the
++  // block would leave the stage; then it slides up by just what is needed (not: re-centred on each step). Written
++  // with += or as the whole formula, it is the same glide.
++  std::string first = "\\begin{aligned} x^2 + 6x + 2 &= 0 \\end{aligned}";
++  std::vector<std::string> rows{"x^2 + 6x &= -2", "x^2 + 6x + 9 &= 7", "(x+3)^2 &= 7", "x + 3 &= 3"};
++  auto b = derivation(first, rows, true), whole = derivation(first, rows, false);
++  for (size_t k = 1; k < b.size(); k++) {
++    float top = std::min(b[0].box.y, b[k].stage.y + b[k].stage.height - 8 - b[k].box.height);
++    CHECK_MESSAGE(std::abs(whole[k].box.y - top) < 1.5f, "step " << k << ": top " << whole[0].box.y << " -> " << whole[k].box.y << ", room down to " << top);
++    CHECK_MESSAGE(std::abs(whole[k].eqX - whole[0].eqX) < 1.5f, "step " << k << ": = at " << whole[0].eqX << " -> " << whole[k].eqX);
++    CHECK(b[k].box.height > b[k - 1].box.height);
++    CHECK(std::abs(b[k].box.x - whole[k].box.x) + std::abs(b[k].box.y - whole[k].box.y) < 0.5f); // += plays as ->
++  }
++  CHECK(std::abs(b[2].box.y - b[0].box.y) < 0.1f);                                       // three rows fit: nothing moved
++  CHECK(b[4].box.y < b[0].box.y - 5);                                                     // five don't: it slid up,
++  CHECK(b[4].box.y > b[0].box.y - (b[4].box.height - b[0].box.height) / 2 + 2);          // but less than re-centring would
++  // a wider left-hand side arriving: the = column stays, the block extends to the left
++  auto w = derivation("\\begin{aligned} 2x &= 8 \\end{aligned}", {"x^2 + 10x + 25 &= 33"}, false);
++  CHECK(std::abs(w[1].eqX - w[0].eqX) < 1.5f);
++  CHECK(std::abs(w[1].box.y - w[0].box.y) < 1.5f);
++  CHECK(w[1].box.x < w[0].box.x - 60);
++  // the same in the band over a plot (its top was already kept there; its = column was not)
++  auto p = derivation("\\begin{aligned} 2x &= 8 \\end{aligned}", {"x^2 + 10x + 25 &= 33"}, false,
++                      "schema axes x=[0,6] y=[0,12]\nmark c path fn={2*x}\n");
++  CHECK(std::abs(p[1].eqX - p[0].eqX) < 1.5f);
++  CHECK(std::abs(p[1].box.y - p[0].box.y) < 1.5f);
++}
++
++TEST_CASE("a lone stack keeps its top while its blocks grow: a block above a derivation stays, a note hangs below") {
++  std::vector<std::string> v{"\\begin{aligned} x^2 + 6x + 2 &= 0 \\end{aligned}"};
++  std::string text = "mark g tex tex=\"ax^2 + bx + c = 0\"\nmark eq tex tex=\"" + v[0] + "\"\nwait 1.5s\n";
++  v.push_back(texWithRow(v.back(), "\\textcolor{sq}{x^2 + 6x} &= -2"));
++  text += "morph eq.tex -> \"" + v.back() + "\" 1s\nwait 1.5s\n";
++  text += "mark b enclose of=eq[sq] label=\"the same\"\nwait 1.5s\n"; // a note under its new row, at 4 s
++  v.push_back("ax^2 + bx + c = 0");
++  auto shots = settledSteps(text, 3, v);
++  const place::Ink *g0 = body(shots[0], "g"), *f0 = body(shots[0], "eq");
++  REQUIRE(g0);
++  REQUIRE(f0);
++  for (size_t k = 1; k < shots.size(); k++) {
++    const place::Ink *g = body(shots[k], "g"), *f = body(shots[k], "eq");
++    REQUIRE(g);
++    REQUIRE(f);
++    CHECK_MESSAGE(std::abs(g->box.y - g0->box.y) < 1.5f, "step " << k << ": the block above " << g0->box.y << " -> " << g->box.y);
++    CHECK_MESSAGE(std::abs(f->box.y - f0->box.y) < 1.5f, "step " << k << ": the derivation's top " << f0->box.y << " -> " << f->box.y);
++  }
++}
++
++TEST_CASE("only a derivation keeps its place: a one-line formula that grows stays centred") {
++  std::vector<std::string> v{"\\frac{1}{2} + \\frac{1}{3}", "\\frac{1}{2} + \\frac{1}{3} = \\frac{3}{6} + \\frac{2}{6}",
++                             "\\frac{1}{2} + \\frac{1}{3} = \\frac{3}{6} + \\frac{2}{6} = \\frac{5}{6}"};
++  auto shots = settledSteps("mark f tex tex=\"" + v[0] + "\"\nwait 1.5s\nmorph f.tex -> \"" + v[1] + "\" 1s\nwait 1.5s\nmorph f.tex -> \"" +
++                            v[2] + "\" 1s\nwait 1.5s\n", 3, v);
++  for (auto &p : shots) {
++    const place::Ink *f = body(p, "f");
++    REQUIRE(f);
++    CHECK(std::abs(f->box.x + f->box.w / 2 - (p.stage.x + p.stage.w / 2)) < 1.5f);
++  }
++}
+diff --git a/tests/test_script.cpp b/tests/test_script.cpp
+index 18c4ad6..89966c3 100644
+--- a/tests/test_script.cpp
++++ b/tests/test_script.cpp
+@@ -95,3 +95,68 @@ TEST_CASE("a list reads back whole: blank items and items with commas are quoted
+   REQUIRE(again.parse("mark t array items=" + v->markup() + "\n"));
+   CHECK(findProp(again.steps[0].main.props, "items")->list == v->list);
+ }
++
++TEST_CASE("+= adds a row: a morph of the formula whose target is the new row only") {
++  Script s;
++  REQUIRE(s.parse("morph f.tex += \"x^2 + 6x &= -2\" 1.2s\n"));
++  const Line &ln = s.steps[0].main;
++  CHECK(ln.verb == Verb::MORPH);
++  CHECK(ln.id == "f");
++  CHECK(ln.prop == "tex");
++  CHECK(ln.append);
++  CHECK(!ln.hasFrom);
++  CHECK(ln.to.str == "x^2 + 6x &= -2");
++  CHECK(ln.dur == doctest::Approx(1.2f));
++  Script n; // a bare number is a row too (the parser counts, the model doesn't)
++  REQUIRE(n.parse("morph f.tex += 4\n"));
++  CHECK(n.steps[0].main.to.str == "4");
++}
++
++TEST_CASE("+= is for formulas: on another property, or with a from, the line is refused and says so") {
++  Script s;
++  CHECK(!s.parse("morph p.x += 3\n"));
++  REQUIRE(!s.errors.empty());
++  CHECK(s.errors[0].find("tex") != std::string::npos);
++  Script f;
++  CHECK(!f.parse("morph f.tex \"a &= b\" += \"c &= d\"\n"));
++}
++
++TEST_CASE("+= written without spaces is still +=, not a property named tex+=") {
++  for (const char *line : {"morph f.tex+= \"2x &= 8\"\n", "morph f.tex +=\"2x &= 8\"\n", "morph f.tex+=\"2x &= 8\" 1s\n"}) {
++    Script s;
++    REQUIRE_MESSAGE(s.parse(line), line);
++    CHECK(s.steps[0].main.append);
++    CHECK(s.steps[0].main.prop == "tex");
++    CHECK(s.steps[0].main.to.str == "2x &= 8");
++  }
++  Script x;
++  CHECK(!x.parse("morph p.x+=3\n")); // not a formula: refused, not a silent property
++}
++
++TEST_CASE("texWithRow: the row goes inside the block; a plain formula becomes an aligned one, its = aligned") {
++  CHECK(texWithRow("\\begin{aligned} 2x + 3 &= 11 \\end{aligned}", "2x &= 8") == "\\begin{aligned} 2x + 3 &= 11 \\\\ 2x &= 8 \\end{aligned}");
++  CHECK(texWithRow("\\begin{aligned} a &= b \\end{aligned} ", " c &= d ") == "\\begin{aligned} a &= b \\\\ c &= d \\end{aligned}");
++  CHECK(texWithRow("\\begin{pmatrix} 1 & 2 \\end{pmatrix}", "3 & 4") == "\\begin{pmatrix} 1 & 2 \\\\ 3 & 4 \\end{pmatrix}");
++  CHECK(texWithRow("2x + 3 = 11", "2x &= 8") == "\\begin{aligned} 2x + 3 &= 11 \\\\ 2x &= 8 \\end{aligned}");
++  CHECK(texWithRow("\\text{a=b}\; p = q", "&= r") == "\\begin{aligned} \\text{a=b}\; p &= q \\\\ &= r \\end{aligned}"); // a = inside braces is not the one
++  CHECK(texWithRow("E_k", "mv^2") == "\\begin{aligned} E_k \\\\ mv^2 \\end{aligned}"); // no = to align: rows as they are
++  CHECK(texWithRow("a &= b", "c &= d") == "\\begin{aligned} a &= b \\\\ c &= d \\end{aligned}"); // already has its &
++  // a matrix at its end does not make a formula a block of rows, and the matrix's & is not the formula's
++  CHECK(texWithRow("A = \\begin{pmatrix} 1 & 2 \\end{pmatrix}", "&= B") == "\\begin{aligned} A &= \\begin{pmatrix} 1 & 2 \\end{pmatrix} \\\\ &= B \\end{aligned}");
++  // a row may start with a matrix; only the formula's own block again is the whole formula (taken whole)
++  CHECK(texWithRow("\\begin{aligned} a &= b \\end{aligned}", "\\begin{pmatrix} 1 \\end{pmatrix} &= v") == "\\begin{aligned} a &= b \\\\ \\begin{pmatrix} 1 \\end{pmatrix} &= v \\end{aligned}");
++  CHECK(texWithRow("x = 1", "\\begin{aligned} x &= 1 \\\\ y &= 2 \\end{aligned}") == "\\begin{aligned} x &= 1 \\\\ y &= 2 \\end{aligned}");
++  CHECK(texWithRow("\\begin{aligned} a &= b \\end{aligned}", "\\\\ c &= d \\\\") == "\\begin{aligned} a &= b \\\\ c &= d \\end{aligned}"); // stray breaks
++  CHECK(texWithRow("\\begin{aligned} a &= b \\end{aligned}", " \\\\ ") == "\\begin{aligned} a &= b \\end{aligned}");                   // nothing to add
++  CHECK(texWithRow("", "x &= 4") == "\\begin{aligned} x &= 4 \\end{aligned}");                                                        // nothing yet
++}
++
++TEST_CASE("rowBlock: a formula that is one block of rows, a derivation") {
++  CHECK(rowBlock(" \\begin{aligned} a &= b \\\\ c &= d \\end{aligned} ") == "aligned");
++  CHECK(rowBlock("\\begin{array}{rl} a &= b \\end{array}") == "array");
++  CHECK(rowBlock("x = \\begin{cases} 1 \\end{cases}") == "");
++  CHECK(rowBlock("\\begin{pmatrix} 1 \\end{pmatrix} = v") == "");
++  CHECK(rowBlock("\\begin{aligned}") == "");
++  CHECK(rowBlock("\\begin{pmatrix} x \\end{pmatrix} \\begin{pmatrix} w \\end{pmatrix}") == ""); // a product of two
++  CHECK(rowBlock("\\begin{aligned} \\begin{aligned} a \\end{aligned} &= b \\end{aligned}") == "aligned");
++}
+diff --git a/tools/write.html b/tools/write.html
+index 0eb9f24..ffb2b53 100644
+--- a/tools/write.html
++++ b/tools/write.html
+@@ -82,6 +82,7 @@
+ link id arrow a -> b k=v       a relation: arrow | line | similar | equals
+ group id part-of=[a,b]         part-of (a lane in a graph)
+ morph id.prop [from] -> to [1.2s] [ease=linear]
++morph f.tex += "row" [1.2s]    a derivation step: one more row under the formula
+ focus id | none                the voice's subject, for one sentence
+ Say: "… |cue| … [id]word … {expr} …"
+ @cue line        with line     indicate id | a[k] | a[0:3]

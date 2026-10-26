@@ -533,3 +533,20 @@ Measured: golden unchanged except one legacy-placer transient (re-baselined, cue
 space-* comment differences; 1 of 35 real lessons gains a note (a line that used to be lost now draws).
 Left: the patches listed in HANDOFF §9; the audit's tier-2..4 list (colour clashes, readback carrying scales and
 views, \val{} jiggle, focus clearing on idle, label hysteresis, checker false alarms).
+
+## 8n. 2026-10-24 to 10-26: the rest of the audit session, attachments, video
+
+After the fixes in 8m the user asked for two features, then closed the session.
+- **Images and PDFs in the chat** (065d0de): paste, drag-and-drop or 📎 in the browser; photos scaled to 1600 px;
+  kept in the chat's `attachments/` and sent to Claude as image/document blocks (claude -p stream-json accepts
+  `document` blocks with a base64 PDF; checked first). Tested end to end on a headless server: Claude named a word
+  inside an attached PDF and described an attached plot.
+- **Save video** (16ecfcb): a header button records the whole lesson (all turns) as an mp4 with the narration into
+  `~/Movies/Tutor`. `--record` now renders in a hidden window, unpaced, without the key hints, progress bar or
+  dictionary caption. A 35 s lesson renders in 6 s (voice from the disk cache), h264 + aac.
+- **The audit's material** was copied from the session scratchpad into `reports/Axiom audit 2026-10-24/` (merged
+  findings, session notes, the eight audits, the principles, the enforcement map, and the seven unmerged decision
+  patches with their engineers' notes and a status table). Process notes and the usage-limit lesson are in its README.
+Earlier in the same session (8j-8l): pacing after algebra steps, the language named Dan (`.dan`), `tutor write`,
+and a personal HTML guide to the architecture on the user's Desktop (`~/Desktop/dan-guide.html`, not in the repo).
+Left: see HANDOFF §9 "Finish the axiom audit".

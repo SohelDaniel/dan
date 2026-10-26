@@ -1,0 +1,769 @@
+diff --git a/README.md b/README.md
+index 09160e0..86384cb 100644
+--- a/README.md
++++ b/README.md
+@@ -66,7 +66,8 @@ mark  <id> [kind] [category] key=value ...          a thing and its properties
+ link  <id> [kind] <a> -> <b> key=value ...          a relation: arrow (cause, maps-to), line (connected), similar, equals
+ group <id> part-of=[a,b,...] label="..."            a relation: part-of
+ morph <id>.<prop> [from] -> <to> [1.5s] [ease=..]   a change; the only way anything moves
+-focus <id> | none                                   what the voice is about (everything else dims, for one sentence)
++focus <id>[,<id>…] [hold] | none                    what the voice is about: everything else dims, for one sentence;
++                                                    hold keeps it until focus none (four sentences at most)
+ Say: "text with |hook| markers"                     the voice
+ ```
+ 
+@@ -355,7 +356,7 @@ If no schema is given, one is inferred. Paths, regions or `x=` give `axes`. `t=`
+ | equals / similar | dashed link marked `=` / `≈` | `drawLink` |
+ | name, value | short text | labels; the voice carries sentences |
+ | change | motion | `Active` morphs; categories cross-fade color |
+-| voice subject | focus | everything else eases to 20% |
++| voice subject | focus | everything else eases to 20% (the other cells of a focused array to 30%) |
+ 
+ ## Axioms, enforced
+ 
+@@ -363,7 +364,7 @@ If no schema is given, one is inferred. Paths, regions or `x=` give `axes`. `t=`
+ 2. **Structure.** Bars share a zero baseline. Scales are per property and never jump mid-script, because the whole script is pre-scanned.
+ 3. **Zero.** Unrelated things never share a color. Two things share ink only when the script relates them (`of=`, `on=`/`in=`/`over=`, `at=`, a name and its thing, data placed on one plot), because touching reads as a relation. Everything else is kept apart by construction where it can be (the band of formulas never reaches into a plot; a note's name never sits on another part of a formula), pulled apart in graph layouts, and otherwise reported by the checker, which sees every view's plot, ticks and title too. Where position is data (axes, number line), an overlap is reported as a lint, because coinciding reads as "equal".
+ 4. **Continuity.** Every change is a morph with easing. New marks grow in, links draw themselves, and focus fades.
+-5. **Bounded focus.** `focus` lights one thing (or a group and its parts) and dims the rest, for one sentence: the one it is cued in, or the next one if it stands between sentences. Then everything is at full strength again.
++5. **Bounded focus.** `focus` lights one thing (or several, `focus a,b`; or a group and its parts) and dims the rest, for one sentence: the one it is cued in, or the next one if it stands between sentences. Then everything is at full strength again. `focus x hold` keeps it lit through the sentences that discuss it, until `focus none`; the engine ends a hold at a new scene, an interrupt, the end of the turn, and at a fifth sentence (with a lint), so no dim outlives the voice.
+ 6. **Decodability.** `--readback` prints the final scene in the same vocabulary, plus derived facts (max, mean, order), overlaps, recent changes and lint. `--check` re-parses that readback and confirms it rebuilds the same scene.
+ 
+ Readback looks like this:
+diff --git a/chat/prompt.md b/chat/prompt.md
+index 1d9b363..a7659ce 100644
+--- a/chat/prompt.md
++++ b/chat/prompt.md
+@@ -107,7 +107,7 @@ Words and picture tell one story. When a sentence makes one of these claims, the
+ - One idea per sentence. Short, plain, spoken language.
+ 
+ **Mayer's principles**
+-- Signal: cue the change on the exact word (`|go|`), and point at what you are talking about (`[id]word`, `focus`). To point at a *part* (these three terms, this cell, this step), annotate it: `brace`, `enclose`, `underline`, `cross`/`check` with `of=`; a formula part is `f[id]` for the glyphs in `\textcolor{id}{…}`.
++- Signal: cue the change on the exact word (`|go|`), and point at what you are talking about (`[id]word`; `focus x` for the sentence about x, `focus a,b` for two things at once, `focus x hold` while a few sentences stay on x, closed with `focus none`). To point at a *part* (these three terms, this cell, this step), annotate it: `brace`, `enclose`, `underline`, `cross`/`check` with `of=`; a formula part is `f[id]` for the glyphs in `\textcolor{id}{…}`.
+ - Keep words and pictures together: a visual appears as it is spoken.
+ - No redundant text: never put your sentences on stage. Labels, numbers, formulas.
+ - A `card` only for a takeaway the stage doesn't already show, at most one per answer. Ending on a takeaway means *saying* it, not adding a card.
+diff --git a/chat/server.mjs b/chat/server.mjs
+index 63b33fd..96cc90d 100644
+--- a/chat/server.mjs
++++ b/chat/server.mjs
+@@ -423,6 +423,7 @@ function runTurn(text, source, model = defaultModel) {
+     if (partial) { fullLine(partial); partial = ''; }
+     if (mode === 'scene') ready = ready.then(endScene);
+     await ready; // every line, after the python it waits for
++    stageSend('#!turn-end'); // the stage ends a held focus once it has played the last line
+     if (error) { msg.error = error; broadcast({ t: 'error', v: error }); }
+     times.done = S.turnAt();
+     msg.cut = S.cut;
+diff --git a/chat/toolbox.md b/chat/toolbox.md
+index dace992..e0ab3d2 100644
+--- a/chat/toolbox.md
++++ b/chat/toolbox.md
+@@ -12,6 +12,25 @@ mark a array items=[4,9,2] label="scores"
+ Say: "The [a]scores are in, and the best one is {a[1]}."
+ ```
+ 
++### Hold one subject while several sentences discuss it
++Use when a paragraph stays on one thing, or two (a pair of voices, a subject and its predicate), and the rest should
++stay in the background the whole time. `focus x` alone dims the rest for one sentence only.
++Tools: `focus a,b` lights several things without a group (no enclosure, no re-layout); `focus … hold` keeps them lit
++through the sentences that follow; `focus none` ends it where the subject changes. The engine ends a hold at a fifth
++sentence, a new scene, an interrupt or the end of the turn, so a dim never goes stale.
++```
++mark sop box voice label="soprano"
++mark alt box voice label="alto"
++mark ten box voice label="tenor"
++mark bas box voice label="bass"
++Say: "Listen to the |outer|outer pair, soprano and bass: they move in contrary motion."
++@outer focus sop,bas hold
++Say: "When the soprano rises, the bass falls, so the frame opens."
++Say: "And when the soprano falls, the bass rises: the frame closes again."
++focus none
++Say: "The inner voices fill the space between them."
++```
++
+ ### Mark out a part
+ Use when a sentence is about a piece of something: some cells, one term of a formula, a group of things.
+ Tools: `enclose`, `brace`, `underline` with `of=` (a thing, a cell span `a[1:3]`, a formula part `f[id]`); `hide` it when
+diff --git a/docs/HANDOFF.md b/docs/HANDOFF.md
+index 746f2ce..19df272 100644
+--- a/docs/HANDOFF.md
++++ b/docs/HANDOFF.md
+@@ -79,7 +79,8 @@ code and listed in `README.md` ("Axioms, enforced").
+ 3. **Zero.** Nothing in the picture without a meaning: unrelated things never share a colour, and two things share
+    ink only when the script relates them (`of=`, `on=/in=/over=`, `at=`, a name and its thing, data on one plot).
+ 4. **Continuity.** Every change is an eased morph; things grow in, links draw, focus fades.
+-5. **Bounded focus.** `focus` lights one thing for one sentence, then everything returns.
++5. **Bounded focus.** `focus` lights one thing (or a few: `focus a,b`) for one sentence, then everything returns;
++   `focus x hold` keeps it until `focus none`, four sentences at most, never past the turn.
+ 6. **Decodability.** `--readback` prints the scene in the same vocabulary; `--check` re-parses it to the same scene.
+ 
+ And the rule that follows from them: **position comes from structure.** Placement words (`region`, `below`,
+diff --git a/main.cpp b/main.cpp
+index 64a20af..d8c7a98 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -110,6 +110,7 @@ int main(int argc, char **argv) {
+     opt.quiet = true;
+     mk::Engine eng(opt);
+     eng.load(path);
++    eng.endTurn(); // a file is a whole turn
+     auto esc = [](const std::string &s) {
+       std::string o;
+       for (char c : s) { if (c == '"' || c == '\\') o += '\\'; if ((unsigned char)c >= 0x20) o += c; }
+@@ -175,6 +176,7 @@ int main(int argc, char **argv) {
+       }
+       flush();
+     }
++    eng.endTurn(); // the file, and the chunks after it, were the whole turn
+     std::string rb = eng.readback(true);
+     if (readbackOnly) std::printf("%s", rb.c_str());
+     if (check) {
+@@ -223,6 +225,7 @@ int main(int argc, char **argv) {
+     opt.quiet = true;
+     mk::Engine eng(opt);
+     eng.load(path);
++    eng.endTurn();
+     RenderTexture2D rt = LoadRenderTexture(rm::W, rm::H);
+     std::vector<std::string> times;
+     for (size_t s = 0, e; s <= at.size(); s = e + 1) {
+@@ -283,6 +286,7 @@ int main(int argc, char **argv) {
+ 
+   mk::Engine eng(opt);
+   eng.load(path);
++  eng.endTurn(); // what was loaded is complete; live, the server declares each turn's end
+   long modTime = GetFileModTime(path.c_str());
+   float reloadCheck = 0, endTimer = 0;
+   rm::Recorder rec;
+@@ -356,11 +360,14 @@ int main(int argc, char **argv) {
+         if (l.rfind("#!load ", 0) == 0) {
+           path = l.substr(7);
+           eng.load(path);
++          eng.endTurn();
+           SetWindowTitle(("tutor — " + path).c_str());
+         } else if (l.rfind("#!voice ", 0) == 0) { // a Say line ahead of its beat: start its audio now
+           eng.prefetchVoice(l.substr(8));
+         } else if (l == "#!interrupt") {
+           eng.interrupt();
++        } else if (l == "#!turn-end") { // the turn's last beat is in: a focus ends once it has been played
++          eng.endTurn();
+         } else if (l == "#!pause") { // the learner asked about this moment: hold it
+           if (!eng.paused()) eng.togglePause();
+         } else if (l.rfind("#!capture ", 0) == 0) {
+@@ -444,6 +451,7 @@ int main(int argc, char **argv) {
+         modTime = t;
+         std::printf("reloading %s\n", path.c_str());
+         eng.load(path);
++        eng.endTurn();
+       }
+     }
+ 
+diff --git a/markup/area.cpp b/markup/area.cpp
+index 23593be..8ed82f5 100644
+--- a/markup/area.cpp
++++ b/markup/area.cpp
+@@ -96,10 +96,11 @@ void Engine::drawArea(const Mark &m, float a) {
+   auto fill = [&](Rectangle r, const std::string &cn, bool lit) {
+     Color c = col::muted;
+     bool tinted = colorByName(cn, c);
+-    DrawRectangleRec(r, fade(c, a * (tinted ? 0.55f : 0.14f) * (lit ? 1 : 0.35f)));
+-    DrawRectangleLinesEx(r, 2, fade(tinted ? c : col::muted, a * (lit ? 1 : 0.4f)));
++    float dim = lit ? 0 : m.cellDim; // focus pop[1]: the other parts dim, eased (axiom 4)
++    DrawRectangleRec(r, fade(c, a * (tinted ? 0.55f : 0.14f) * (1 - 0.65f * dim)));
++    DrawRectangleLinesEx(r, 2, fade(tinted ? c : col::muted, a * (1 - 0.6f * dim)));
+   };
+-  std::string fb = !focus_.empty() && baseId(focus_) == m.id ? focus_ : ""; // focus pop[1]: that part stays lit
++  std::string fb = m.cellFocus.empty() ? "" : m.cellFocus[0]; // focus pop[1]: that part stays lit
+   auto lit = [&](int i, int j) {
+     if (fb.empty() || fb.find('[') == std::string::npos) return true;
+     int fi = std::atoi(fb.c_str() + fb.find('[') + 1), fj = -1;
+diff --git a/markup/engine.cpp b/markup/engine.cpp
+index 02c746c..2b27b99 100644
+--- a/markup/engine.cpp
++++ b/markup/engine.cpp
+@@ -93,6 +93,7 @@ bool Engine::appendText(const std::string &text) {
+   }
+   hookFired_.resize(script_.steps.size(), false);
+   readbackPrinted_ = false; // report the scene again once this part has played
++  turnDone_ = false;        // more of the turn is coming (the server says when it has all arrived)
+   idleSent_ = false;
+   queueVoice(from, false);
+   // a hooked line that arrives after its sentence already reached the hook runs now, late but not lost
+@@ -241,7 +242,7 @@ void Engine::analyze(bool fresh) {
+         warn(std::string(what) + ": line " + std::to_string(ln.lineNo) + " refers to '" + id + "', which is never marked");
+     };
+     if (ln.verb == Verb::MORPH) need(ln.id, "morph");
+-    if (ln.verb == Verb::FOCUS) need(ln.id, "focus");
++    if (ln.verb == Verb::FOCUS) for (auto &f : ln.members) need(f, "focus");
+     if (ln.verb == Verb::MARK)
+       for (const char *k : {"region", "below", "above", "left-of", "right-of", "near", "align", "pos"})
+         if (findProp(ln.props, k))
+@@ -303,7 +304,7 @@ void Engine::reset() {
+   marks_.clear(); links_.clear(); groups_.clear(); order_.clear();
+   actives_.clear();
+   say_ = SayRun{};
+-  focus_.clear();
++  unfocus();
+   schema_ = "auto";
+   schemaProps_.clear();
+   views_.clear();
+@@ -397,11 +398,60 @@ void Engine::interrupt() {
+   }
+   tickActives(0);
+   while (!finished()) update(0);
++  unfocus(); // nothing more is said: the focus ends with the voice (axiom 5)
+   opt_.instant = was;
+   for (auto &id : order_) if (Obj *o = find(id)) o->appear = 1;
+   readbackPrinted_ = false;
+ }
+ 
++// ---- focus: what the voice is about (axiom 5)
++void Engine::unfocus() {
++  focus_.clear();
++  focusHeld_ = false;
++  focusSaid_ = 0;
++}
++
++bool Engine::focused(const std::string &ref) const { return std::find(focus_.begin(), focus_.end(), ref) != focus_.end(); }
++
++std::string Engine::focusRef(const std::string &id) const {
++  for (auto &f : focus_) if (baseId(f) == id) return f;
++  return "";
++}
++
++std::string Engine::focusText() const {
++  std::string s;
++  for (auto &f : focus_) s += (s.empty() ? "" : ",") + f;
++  return s;
++}
++
++// under focus a[3] (a[1:3], M[1][:]) the lit cells stay at 1 and the others ease to 0.3: nearer than an unrelated
++// thing's 0.2, they are parts of the lit thing
++float Engine::cellLit(const Mark &m, int k) {
++  for (auto &f : m.cellFocus) for (int c : cellsOf(m, f)) if (c == k) return 1;
++  return 1 - 0.7f * m.cellDim;
++}
++
++float Engine::litOf(const std::string &ref) {
++  int k;
++  std::string id = baseId(ref, &k);
++  Obj *o = find(id);
++  if (!o) return 1;
++  Mark *m = mark(id);
++  return k < 0 || !m ? o->lit : o->lit * cellLit(*m, k);
++}
++
++void Engine::endTurn() {
++  turnDone_ = true;
++  if (finished()) closeTurn();
++}
++
++void Engine::closeTurn() {
++  if (focus_.empty()) return;
++  if (focusSaid_ == 0)
++    warn("focus: '" + focusText() + "' is set after the last sentence, so no sentence is about it: it ended with the turn");
++  unfocus();
++}
++
+ void Engine::warn(const std::string &msg) {
+   if (lint_.insert(msg).second && !opt_.shadow) std::fprintf(stderr, "lint: %s\n", msg.c_str());
+ }
+@@ -660,7 +710,7 @@ void Engine::clearStage() {
+   links_.clear();
+   groups_.clear();
+   order_.clear();
+-  focus_.clear();
++  unfocus();
+   actives_.erase(std::remove_if(actives_.begin(), actives_.end(),
+                                 [](const Active &a) { return a.kind == Active::NUM || a.kind == Active::STR; }),
+                  actives_.end());
+@@ -774,10 +824,13 @@ void Engine::execLine(const Line &ln) {
+   case Verb::GROUP: doGroup(ln); break;
+   case Verb::MORPH: doMorph(ln); break;
+   case Verb::FOCUS:
+-    focus_ = ln.id == "none" ? "" : ln.id;
+-    if (!focus_.empty() && !find(baseId(focus_))) warn("focus: '" + focus_ + "' does not exist yet");
++    unfocus();
++    focus_ = ln.members;
++    focusHeld_ = ln.hold;
++    for (auto &f : focus_) if (!find(baseId(f))) warn("focus: '" + f + "' does not exist yet");
+     caption(focus_.empty() ? "focus none -> everything at full strength"
+-                           : "the voice is about " + focus_ + " -> focus: it stays lit, the rest dims (axiom 5)");
++                           : "the voice is about " + focusText() + " -> focus: it stays lit, the rest dims" +
++                                 (focusHeld_ ? ", held until focus none" : "") + " (axiom 5)");
+     break;
+   case Verb::INDICATE: { // a target that isn't on stage yet gets up to 2 s to appear (lines arrive in beats)
+     auto targets = staggerTargets(ln.id, ln.stagger);
+@@ -1078,6 +1131,11 @@ void Engine::doMorph(const Line &ln) {
+ }
+ 
+ void Engine::startSay(const Line &ln) {
++  if (focusHeld_ && focusSaid_ >= kHoldMax) { // the author states the hold; the engine keeps its bound (axiom 5)
++    warn("focus: the hold on '" + focusText() + "' ran past " + std::to_string(kHoldMax) +
++         " sentences and ended on its own; put focus none where the subject changes");
++    unfocus();
++  }
+   if (opt_.instant) sayFacts_ = stageFacts(); // for the binding check at the end of the sentence
+   say_ = SayRun{};
+   say_.active = true;
+@@ -1198,7 +1256,10 @@ void Engine::closeSentence() {
+       execStep(i);
+     }
+   if (opt_.instant && sayStep_ < script_.steps.size() && script_.steps[sayStep_].main.verb == Verb::SAY) checkBinding(sayStep_, next);
+-  focus_.clear(); // focus is what the voice is about: it ends with its sentence (axiom 5)
++  // focus is what the voice is about: it ends with its sentence (axiom 5); held, it goes on (startSay keeps the bound)
++  if (focus_.empty()) return;
++  focusSaid_++;
++  if (!focusHeld_) unfocus();
+ }
+ 
+ void Engine::tickSay(float dt) {
+@@ -1437,24 +1498,26 @@ void Engine::update(float dt) {
+   if (headline_ < 1 && (opt_.instant || !stageEmpty())) headline_ = opt_.instant ? 1 : std::min(1.f, headline_ + dt / 0.6f);
+ 
+   // entrance + focus easing
++  auto inGroup = [&](const std::string &gid, const std::string &id) { // a member, or a member's member
++    std::function<bool(const Group &, int)> walk = [&](const Group &gr, int d) {
++      if (d > 8) return false;
++      for (auto &m : gr.members) {
++        if (m == id) return true;
++        if (auto sub = groups_.find(m); sub != groups_.end() && walk(sub->second, d + 1)) return true;
++      }
++      return false;
++    };
++    auto g = groups_.find(gid);
++    return g != groups_.end() && walk(g->second, 0);
++  };
+   auto lit = [&](const Obj &o) -> float {
+     if (focus_.empty()) return 1;
+-    if (o.id == focus_ || o.id == baseId(focus_)) return 1; // a[3]: the array stays lit, it dims its other cells
+-    auto g = groups_.find(focus_);
+-    if (g != groups_.end()) {
+-      std::function<bool(const Group &, int)> contains = [&](const Group &gr, int d) {
+-        if (d > 8) return false;
+-        for (auto &m : gr.members) {
+-          if (m == o.id) return true;
+-          auto sub = groups_.find(m);
+-          if (sub != groups_.end() && contains(sub->second, d + 1)) return true;
+-        }
+-        return false;
+-      };
+-      if (contains(g->second, 0)) return 1;
++    float v = 0.2f;
++    for (auto &f : focus_) {
++      if (o.id == f || o.id == baseId(f) || inGroup(f, o.id)) return 1; // a[3]: the array stays lit, it dims its other cells
++      if (auto ofv = findProp(o.props, "of"); ofv && ofv->str == f) v = 0.7f; // its own notes stay nearer than the rest
+     }
+-    if (auto ofv = findProp(o.props, "of"); ofv && ofv->str == focus_) return 0.7f;
+-    return 0.2f;
++    return v;
+   };
+   // an entrance takes 1 s (3Blue1Brown's fades run 1 to 2 s; docs/3b1b-habits.md)
+   float appearRate = opt_.instant ? 1e9f : 1.f / 1.0f;
+@@ -1464,8 +1527,15 @@ void Engine::update(float dt) {
+     if (o->enterIn > 0 && !opt_.instant) { o->enterIn -= dt; continue; }
+     o->appear = std::min(1.f, o->appear + dt * appearRate);
+     o->lit = opt_.instant ? lit(*o) : smoothApproach(o->lit, lit(*o), dt, 7);
++    // focus a[3]: the thing's other cells dim like everything else, eased in and out (axiom 4)
++    std::vector<std::string> cells;
++    for (auto &f : focus_) if (baseId(f) == id && f.find('[') != std::string::npos) cells.push_back(f);
++    if (!cells.empty()) o->cellFocus = cells;
++    float dimTo = cells.empty() ? 0.f : 1.f;
++    o->cellDim = opt_.instant ? dimTo : smoothApproach(o->cellDim, dimTo, dt, 7);
+   }
+   if (!opt_.shadow) layout(opt_.instant ? 1.f : dt);
++  if (turnDone_ && finished()) closeTurn(); // the turn is over: a focus ends with the voice (axiom 5)
+ 
+   if (finished() && !idleSent_ && !opt_.instant) {
+     idleSent_ = true;
+@@ -1595,7 +1665,7 @@ std::string Engine::readback(bool comments) {
+       o << "\n";
+     }
+   }
+-  if (!focus_.empty()) o << "focus " << focus_ << "\n";
++  if (!focus_.empty()) o << "focus " << focusText() << (focusHeld_ ? " hold" : "") << "\n";
+   if (cam_.on && !cam_.spec.empty()) o << cam_.spec << "\n";
+   for (auto &l : spc_.spec) o << l << "\n"; // a space's camera: the lines that turned it, in order
+   if (!comments) return o.str();
+diff --git a/markup/engine.hpp b/markup/engine.hpp
+index 2c4fa76..56c02b7 100644
+--- a/markup/engine.hpp
++++ b/markup/engine.hpp
+@@ -73,6 +73,8 @@ struct Obj {
+   float appear = 0;   // 0..1 entrance (Create-style)
+   float enterIn = 0;  // seconds until its entrance starts (things arriving together enter one after another)
+   float lit = 1;      // focus brightness, eased
++  float cellDim = 0;  // focus a[3]: how far the thing's other cells are dimmed, eased (axiom 4)
++  std::vector<std::string> cellFocus; // the cell refs the focus lit (a[3], M[1][:]), kept while the dim eases out
+   float pulse = 0;    // indicate: 0..1..0
+   std::string pulseRef; // what the pulse points at (the thing, or one cell: a[3])
+   // a category (string) property mid-morph: prop -> (old text, progress 0..1)
+@@ -212,6 +214,10 @@ public:
+ 
+   std::string readback(bool withComments = true);
+   Color colorFor(const std::string &id) { Mark *m = mark(id); return m ? colorOf(*m) : BLANK; } // for tests
++  float litOf(const std::string &ref);     // a thing's focus brightness now, or a cell's (a[3]); 1 is full (for tests)
++  // the turn's last line has arrived (the chat's server says so after the last beat; a file ends with it): once the
++  // stage has played it, a focus ends with the voice: a hold, or one set up for a sentence that never came (axiom 5)
++  void endTurn();
+   // layout: everything drawn, as the placement checker sees it; and its verdict (placement.cpp)
+   place::Picture picture();
+   // a mark's outside text, positioned (placement.cpp). legacy: the fixed offsets, ignoring the placer
+@@ -453,7 +459,19 @@ private:
+   std::vector<std::string> order_; // all ids in declaration order
+   std::vector<Active> actives_;
+   SayRun say_;
+-  std::string focus_;
++  // what the voice is about (axiom 5): things, cells (a[3]), groups or links. It ends with its sentence; held, it
++  // ends with `focus none`, a scene, an interrupt, the turn, or after kHoldMax sentences
++  std::vector<std::string> focus_;
++  bool focusHeld_ = false;
++  int focusSaid_ = 0;                 // sentences the focus has been through
++  static constexpr int kHoldMax = 4;
++  bool turnDone_ = false;             // the turn's last line has arrived: a focus ends once the stage has played it
++  void unfocus();
++  void closeTurn();
++  bool focused(const std::string &ref) const;        // this id or cell is a focus target
++  std::string focusRef(const std::string &id) const; // the focus target naming this thing or one of its cells, "" if none
++  std::string focusText() const;                     // the targets as written: a,b
++  float cellLit(const Mark &m, int k);               // a cell's brightness under focus a[3]: lit cells 1, the rest dims, eased
+   std::string schema_ = "auto", autoSchema_ = "free", title_;
+   float headline_ = 1; // 0: a new scene's name, large in the centre of an empty stage; 1: in the corner
+   bool stageEmpty();
+diff --git a/markup/placement.cpp b/markup/placement.cpp
+index 3ac5e45..3d50ac1 100644
+--- a/markup/placement.cpp
++++ b/markup/placement.cpp
+@@ -140,7 +140,7 @@ place::Picture Engine::picture() {
+         ink.owner = t == idx.end() ? -1 : t->second;
+         ink.what = "pointer '" + id + "'";
+       }
+-      if (!focus_.empty() && baseId(focus_) == id) ink.priority = 2;
++      if (!focusRef(id).empty()) ink.priority = 2;
+       idx[id] = p.add(ink);
+ 
+     }
+@@ -1028,7 +1028,7 @@ void Engine::markLabelRequests(LabelPass &lp) {
+       place::LabelReq r;
+       r.anchor = R(box);
+       r.size = {box.width, box.height};
+-      r.priority = !focus_.empty() && baseId(focus_) == id ? 3 : 2;
++      r.priority = focusRef(id).empty() ? 2 : 3;
+       labelSpots(*m, k, stroke, box, r);
+       if (auto it = lp.obstacle.find(id); it != lp.obstacle.end()) r.owner = it->second;
+       if (auto s = labelSlots_.find(id); s != labelSlots_.end() && i < s->second.size()) r.prevSide = s->second[i].side;
+diff --git a/markup/render.cpp b/markup/render.cpp
+index 195d8c3..c5aecb8 100644
+--- a/markup/render.cpp
++++ b/markup/render.cpp
+@@ -108,7 +108,7 @@ void Engine::drawTex(const Mark &m) {
+     if (!g.color.empty()) {
+       if (Mark *ref = mark(g.color)) {
+         c = colorOf(*ref);
+-        if (!focus_.empty() && focus_ == g.color) lit = 1;
++        if (focused(g.color)) lit = 1;
+       } else if (auto lk = links_.find(g.color); lk != links_.end()) { // a link: its color=, or the link ink
+         c = col::fg;
+         if (auto cv = findProp(lk->second.props, "color"); cv && cv->type == Value::STR) colorByName(cv->str, c);
+@@ -347,10 +347,7 @@ void Engine::drawBlock(const Mark &m) {
+   if (k == "array") {
+     const Value *iv = findProp(m.props, "items");
+     if (!iv || iv->type != Value::LIST) return;
+-    std::set<int> lit; // focus a[3], a[1:3], M[1][:]: those cells stay lit, the rest dim
+-    if (!focus_.empty() && baseId(focus_) == m.id && focus_.find('[') != std::string::npos)
+-      for (int k : cellsOf(m, focus_)) lit.insert(k);
+-    auto dimmed = [&](size_t i) { return lit.empty() || lit.count((int)i) ? 1.f : 0.3f; };
++    auto dimmed = [&](size_t i) { return cellLit(m, (int)i); }; // focus a[3], a[1:3], M[1][:]: the other cells dim, eased
+     bool showIndex = showsIndexRow(m);
+     // mid-morph (a swap, a shift): each value travels from its old cell on a little arc
+     std::vector<int> from(iv->list.size(), -1);
+diff --git a/markup/script.cpp b/markup/script.cpp
+index fa6318b..13c605d 100644
+--- a/markup/script.cpp
++++ b/markup/script.cpp
+@@ -379,13 +379,22 @@ static bool readMorph(Reading &r) {
+   return verr.empty() || r.fail(verr);
+ }
+ 
++// focus a | focus a,b (or [a,b], as of=[a,b]) | focus a hold | focus none: the targets go to members, the first is the id
+ static bool readFocus(Reading &r) {
+   Line &ln = r.ln;
+   ln.verb = Verb::FOCUS;
+-  ln.id = r.toks.size() > 1 ? r.toks[1] : "none";
+-  size_t dot = ln.id.find('.');
+-  if (dot != std::string::npos) { ln.prop = ln.id.substr(dot + 1); ln.id = ln.id.substr(0, dot); }
+-  if (ln.id == "all" || ln.id == "nothing") ln.id = "none";
++  for (size_t i = 1; i < r.toks.size(); i++) {
++    std::string t = r.toks[i];
++    if (lower(t) == "hold") { ln.hold = true; continue; }
++    if (t.size() > 1 && t.front() == '[' && t.back() == ']') t = t.substr(1, t.size() - 2); // a list; a cell is a[3]
++    std::string cur;
++    for (char c : t + ",")
++      if (c == ',') { if (!cur.empty()) ln.members.push_back(cur); cur.clear(); }
++      else if (!std::isspace((unsigned char)c)) cur += c;
++  }
++  if (ln.members.size() == 1 && (ln.members[0] == "none" || ln.members[0] == "all" || ln.members[0] == "nothing")) ln.members.clear();
++  if (ln.members.empty()) ln.hold = false;
++  ln.id = ln.members.empty() ? "none" : ln.members[0];
+   return true;
+ }
+ 
+diff --git a/markup/script.hpp b/markup/script.hpp
+index 2f51b3d..cf5ebc4 100644
+--- a/markup/script.hpp
++++ b/markup/script.hpp
+@@ -4,7 +4,7 @@
+ //   link  <id> [kind] <a> -> <b> key=value ...        relation (connected, cause, maps-to)
+ //   group <id> part-of=[a,b,...] key=value ...         relation (part-of)
+ //   morph <id>.<prop> [from] -> <to> [1.5s] [ease=…]   change
+-//   focus <id> | none                                  the path (bounded focus)
++//   focus <id>[,<id>…] [hold] | none                   what the voice is about (bounded focus)
+ //   Say: "text with |hook| markers"                    the voice
+ //   with <line>     runs alongside the previous line
+ //   @name <line>    deferred until the voice reaches |name|
+@@ -65,8 +65,9 @@ struct Line {
+   // link
+   std::string a, b;
+   bool directed = true;
+-  // group
++  // group: its parts; focus: its targets (focus a,b)
+   std::vector<std::string> members;
++  bool hold = false;            // focus … hold: it outlives its sentence, until focus none
+   // morph
+   std::string prop;
+   Value from, to;
+diff --git a/tests/test_engine.cpp b/tests/test_engine.cpp
+index 8e8c0eb..379af74 100644
+--- a/tests/test_engine.cpp
++++ b/tests/test_engine.cpp
+@@ -14,6 +14,7 @@ static Engine &played(Engine &e, const std::string &text) {
+   (void)fonts;
+   REQUIRE(e.loadText(text));
+   e.runToEnd();
++  e.endTurn(); // a whole script is a whole turn, as --readback and --check play it
+   for (int i = 0; i < 5; i++) e.update(1.f / 60);
+   return e;
+ }
+@@ -476,3 +477,161 @@ TEST_CASE("a formula part pointed at with indicate f[part] is a named part: no t
+   for (auto &w : bare.lintMessages()) if (w.find("textcolor{sq}") != std::string::npos) bareLint = true;
+   CHECK(bareLint);
+ }
++
++// ---- focus (axiom 5): one subject for one sentence; several at once; a held subject, bounded; and its edges
++static EngineOptions liveOpts() { // a live engine without a window or a voice: a focus is timing
++  EngineOptions o;
++  o.quiet = true;
++  o.voice = false;
++  return o;
++}
++static int sentencesStarted(const Engine &e) {
++  int n = 0;
++  for (auto &ev : e.timeline) if (ev.substr(ev.find(' ') + 1, 3) == "say") n++;
++  return n;
++}
++// step at 60 fps until the n-th sentence has started, then `into` seconds more
++static void stepInto(Engine &e, int n, float into) {
++  for (int i = 0; i < 60 * 120 && sentencesStarted(e) < n && !e.finished(); i++) e.update(1.f / 60);
++  REQUIRE(sentencesStarted(e) >= n);
++  for (int i = 0; i < (int)(into * 60); i++) e.update(1.f / 60);
++}
++static bool lintSaying(const Engine &e, const char *prefix, const char *word) {
++  for (auto &l : e.lintMessages()) if (l.rfind(prefix, 0) == 0 && l.find(word) != std::string::npos) return true;
++  return false;
++}
++static const std::string kChorale = "mark sop box voice label=\"soprano\"\nmark alt box voice label=\"alto\"\n"
++                                    "mark ten box voice label=\"tenor\"\nmark bas box voice label=\"bass\"\n"
++                                    "Say: \"A chorale has four voices.\"\n"
++                                    "Say: \"Listen to the |two|outer pair, soprano and bass: they move in contrary motion.\"\n";
++static const std::string kChoraleRest = "Say: \"When the soprano rises, the bass falls, so the outer frame opens.\"\n"
++                                        "Say: \"And when the soprano falls, the bass rises: the frame closes again.\"\n"
++                                        "focus none\n"
++                                        "Say: \"And now all four voices come back together for the cadence.\"\n";
++
++TEST_CASE("focus a,b lights both without a group; the rest dims; everything returns after the sentence") {
++  Engine e(liveOpts());
++  REQUIRE(e.loadText(kChorale + "@two focus sop,bas\n" + kChoraleRest));
++  stepInto(e, 2, 2.5f); // |two| is a second into sentence 2; the dim (7/s) has settled 1.5 s later
++  CHECK(e.litOf("sop") > 0.99f);
++  CHECK(e.litOf("bas") > 0.99f);
++  CHECK(e.litOf("alt") < 0.25f);
++  CHECK(e.litOf("ten") < 0.25f);
++  CHECK(e.readback(false).find("focus sop,bas\n") != std::string::npos);
++  stepInto(e, 3, 1.0f); // no hold: the next sentence has everything back
++  CHECK(e.litOf("alt") > 0.95f);
++  CHECK(e.litOf("ten") > 0.95f);
++  CHECK(e.readback(false).find("focus") == std::string::npos);
++}
++
++TEST_CASE("focus … hold keeps the subject through the sentences about it, until focus none; no lint when closed in time") {
++  Engine e(liveOpts());
++  REQUIRE(e.loadText(kChorale + "@two focus sop,bas hold\n" + kChoraleRest));
++  stepInto(e, 3, 1.0f);
++  CHECK(e.litOf("sop") > 0.99f);
++  CHECK(e.litOf("bas") > 0.99f);
++  CHECK(e.litOf("alt") < 0.25f);
++  CHECK(e.litOf("ten") < 0.25f);
++  CHECK(e.readback(false).find("focus sop,bas hold\n") != std::string::npos);
++  stepInto(e, 4, 1.0f);
++  CHECK(e.litOf("alt") < 0.25f);
++  stepInto(e, 5, 1.0f); // focus none stands before sentence 5
++  CHECK(e.litOf("alt") > 0.95f);
++  CHECK(e.litOf("ten") > 0.95f);
++  CHECK(e.readback(false).find("focus") == std::string::npos);
++  CHECK(!lintSaying(e, "focus:", "hold"));
++}
++
++TEST_CASE("a hold is bounded: after four sentences the engine ends it and says so") {
++  Engine e(liveOpts());
++  std::string s = "mark a box label=\"a\"\nmark b box label=\"b\"\nfocus a hold\n";
++  for (int i = 0; i < 6; i++) s += "Say: \"This sentence is about the first box, and only about it.\"\n";
++  REQUIRE(e.loadText(s));
++  stepInto(e, 4, 1.0f);
++  CHECK(e.litOf("b") < 0.25f); // the fourth sentence is still held
++  stepInto(e, 5, 1.0f);
++  CHECK(e.litOf("b") > 0.95f); // the fifth is not
++  CHECK(e.readback(false).find("focus") == std::string::npos);
++  CHECK(lintSaying(e, "focus:", "hold"));
++}
++
++TEST_CASE("a hold ends with a scene") {
++  Engine e(liveOpts());
++  REQUIRE(e.loadText("mark a box label=\"a\"\nmark b box label=\"b\"\nfocus a hold\nSay: \"The first box is what this is about.\"\n"
++                     "scene \"Next\"\nmark z box label=\"z\"\nmark y box label=\"y\"\nSay: \"A new scene starts clean.\"\n"));
++  stepInto(e, 1, 1.0f);
++  CHECK(e.litOf("b") < 0.25f);
++  stepInto(e, 2, 1.0f);
++  CHECK(e.litOf("y") > 0.99f);
++  CHECK(e.readback(false).find("focus") == std::string::npos);
++}
++
++TEST_CASE("a hold ends with an interrupt: nothing more is said, so nothing is the subject") {
++  Engine e(liveOpts());
++  REQUIRE(e.loadText("mark a box label=\"a\"\nmark b box label=\"b\"\n"
++                     "Say: \"This |f|first box is what this is about, for a while.\"\n@f focus a hold\nSay: \"And still.\"\n"));
++  stepInto(e, 1, 1.5f);
++  CHECK(e.litOf("b") < 0.25f);
++  CHECK(e.readback(false).find("focus a hold\n") != std::string::npos);
++  e.interrupt();
++  CHECK(e.readback(false).find("focus") == std::string::npos);
++  for (int i = 0; i < 60; i++) e.update(1.f / 60);
++  CHECK(e.litOf("b") > 0.95f);
++}
++
++TEST_CASE("a focus set up after the last sentence ends with the turn, eased, and is reported; streamed, it waits for the turn's end") {
++  const std::string f3 = "mark a bar value=3 label=\"a\"\nmark b bar value=5 label=\"b\"\nmark c bar value=2 label=\"c\"\n";
++  const std::string beat = "Say: \"Three bars sit here.\"\nfocus b\n";
++  Engine e(liveOpts()); // a file: the whole turn
++  REQUIRE(e.loadText(f3 + beat));
++  e.endTurn();
++  for (int i = 0; i < 60 * 30 && !e.finished(); i++) e.update(1.f / 60);
++  for (int i = 0; i < 90; i++) e.update(1.f / 60);
++  CHECK(e.litOf("a") > 0.95f);
++  CHECK(e.readback(false).find("focus") == std::string::npos);
++  CHECK(lintSaying(e, "focus:", "turn"));
++  Engine s(liveOpts()); // the chat: beats appended, the turn's end declared after the last one
++  REQUIRE(s.loadText(f3));
++  REQUIRE(s.appendText(beat));
++  for (int i = 0; i < 60 * 30 && !s.finished(); i++) s.update(1.f / 60);
++  for (int i = 0; i < 90; i++) s.update(1.f / 60);
++  CHECK(s.litOf("a") < 0.25f); // the turn is open: the focus waits for the sentence it is set up for
++  s.endTurn();
++  for (int i = 0; i < 90; i++) s.update(1.f / 60);
++  CHECK(s.litOf("a") > 0.95f);
++  Engine r(instant()); // what --readback prints: the state the next turn builds on
++  played(r, f3 + beat);
++  CHECK(r.readback(false).find("focus") == std::string::npos);
++}
++
++TEST_CASE("focus a[3]: the array stays lit, its other cells dim like everything else, eased in and out") {
++  Engine e(liveOpts());
++  REQUIRE(e.loadText("mark a array items=[2,5,8,12,16,23] label=\"sorted\"\nmark t box label=\"other\"\nfocus a[3]\n"
++                     "Say: \"Look at the middle cell, the rest of the array and the box wait.\"\nSay: \"And now everything is back.\"\n"));
++  e.update(1.f / 60); // the focus is on; one frame later the other cells have barely started to dim
++  CHECK(e.litOf("a") > 0.99f);
++  CHECK(e.litOf("a[3]") > 0.99f);
++  CHECK(e.litOf("a[0]") > 0.8f);
++  CHECK(e.litOf("a[0]") < 1.0f);
++  for (int i = 0; i < 60; i++) e.update(1.f / 60);
++  CHECK(e.litOf("a[0]") < 0.35f);
++  CHECK(e.litOf("a[3]") > 0.99f);
++  CHECK(e.litOf("t") < 0.25f);
++  stepInto(e, 2, 1.0f);
++  CHECK(e.litOf("a[0]") > 0.95f);
++}
++
++TEST_CASE("a held focus reads back as written and re-parses to the same scene; a target never marked is reported") {
++  Engine e(instant());
++  REQUIRE(e.loadText("mark a box label=\"a\"\nmark b box label=\"b\"\nmark c box label=\"c\"\nfocus a,b hold\nSay: \"These here.\"\n"));
++  e.runToEnd(); // the turn is still open: the chat's state mid-turn
++  std::string rb = e.readback(false);
++  CHECK(rb.find("focus a,b hold\n") != std::string::npos);
++  Engine again(instant());
++  REQUIRE(again.loadText(rb));
++  again.runToEnd();
++  CHECK(again.readback(false) == rb);
++  Engine bad(instant());
++  played(bad, "mark a box label=\"a\"\nfocus a,zz hold\nSay: \"These here.\"\n");
++  CHECK(lintSaying(bad, "focus:", "'zz', which is never marked"));
++}
+diff --git a/tests/test_script.cpp b/tests/test_script.cpp
+index 18c4ad6..4286b91 100644
+--- a/tests/test_script.cpp
++++ b/tests/test_script.cpp
+@@ -95,3 +95,21 @@ TEST_CASE("a list reads back whole: blank items and items with commas are quoted
+   REQUIRE(again.parse("mark t array items=" + v->markup() + "\n"));
+   CHECK(findProp(again.steps[0].main.props, "items")->list == v->list);
+ }
++
++TEST_CASE("focus takes several things (a,b or [a,b]) and a hold; none clears") {
++  Script s;
++  REQUIRE(s.parse("focus sop,bas hold\nfocus [sop, bas]\nfocus a[3]\nfocus none\nwith focus a hold\n"));
++  REQUIRE(s.steps.size() == 4); // the with line joins the step before it
++  CHECK(s.steps[0].main.members == std::vector<std::string>{"sop", "bas"});
++  CHECK(s.steps[0].main.hold);
++  CHECK(s.steps[0].main.id == "sop");
++  CHECK(s.steps[1].main.members == std::vector<std::string>{"sop", "bas"});
++  CHECK(!s.steps[1].main.hold);
++  CHECK(s.steps[2].main.members == std::vector<std::string>{"a[3]"});
++  CHECK(s.steps[3].main.members.empty());
++  CHECK(s.steps[3].main.id == "none");
++  CHECK(!s.steps[3].main.hold);
++  REQUIRE(s.steps[3].withs.size() == 1);
++  CHECK(s.steps[3].withs[0].hold);
++  CHECK(s.steps[3].withs[0].members == std::vector<std::string>{"a"});
++}
+
+# --- git diff --stat
+ README.md             |   7 ++-
+ chat/prompt.md        |   2 +-
+ chat/server.mjs       |   1 +
+ chat/toolbox.md       |  19 ++++++
+ docs/HANDOFF.md       |   3 +-
+ main.cpp              |   8 +++
+ markup/area.cpp       |   7 ++-
+ markup/engine.cpp     | 116 ++++++++++++++++++++++++++++--------
+ markup/engine.hpp     |  20 ++++++-
+ markup/placement.cpp  |   4 +-
+ markup/render.cpp     |   7 +--
+ markup/script.cpp     |  17 ++++--
+ markup/script.hpp     |   5 +-
+ tests/test_engine.cpp | 159 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ tests/test_script.cpp |  18 ++++++
+ 15 files changed, 348 insertions(+), 45 deletions(-)
+# --- git status --short (tools/tex/node_modules is the MathJax symlink the brief asks for; not part of the change)
+ M README.md
+ M chat/prompt.md
+ M chat/server.mjs
+ M chat/toolbox.md
+ M docs/HANDOFF.md
+ M main.cpp
+ M markup/area.cpp
+ M markup/engine.cpp
+ M markup/engine.hpp
+ M markup/placement.cpp
+ M markup/render.cpp
+ M markup/script.cpp
+ M markup/script.hpp
+ M tests/test_engine.cpp
+ M tests/test_script.cpp
+?? tools/tex/node_modules
