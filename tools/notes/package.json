@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "marked": "^12.0.2",
+    "mermaid": "^10.9.8",
+    "puppeteer-core": "^22.15.0"
+  }
+}
