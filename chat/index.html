@@ -142,9 +142,9 @@
   <form id="f">
     <div class="files" id="files"></div>
     <div class="row">
-      <button type="button" id="attach" title="Attach images or PDFs (or paste / drop them here)">📎</button>
-      <input type="file" id="pick" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf" multiple hidden>
-      <textarea id="in" rows="1" placeholder="Ask anything… paste or drop an image or PDF (or type straight onto the stage window)" autofocus></textarea>
+      <button type="button" id="attach" title="Attach images, PDFs or text files: markdown, JSON, code (or paste / drop them here)">📎</button>
+      <input type="file" id="pick" multiple hidden>
+      <textarea id="in" rows="1" placeholder="Ask anything… paste or drop an image, PDF or file (or type straight onto the stage window)" autofocus></textarea>
       <button id="send">Send</button>
     </div>
     <div class="hint" id="hint">The stage answers by speaking and drawing. Typing while it talks interrupts it. Paused (space)? Type ? on the stage to ask about that moment.</div>
@@ -180,7 +180,7 @@ function add(cls, html) {
   return d;
 }
 function userMsg(text, source, files) {
-  const att = (files || []).map((f) => `<span class="att">${f.type === 'application/pdf' ? '📄' : '🖼'} ${esc(f.name)}</span>`).join('');
+  const att = (files || []).map((f) => `<span class="att">${f.type.startsWith('image/') ? '🖼' : '📄'} ${esc(f.name)}</span>`).join('');
   add('me', `<div class="bubble">${esc(text)}${att}</div>` + (source === 'stage' ? '<div class="src">typed on the stage</div>' : ''));
 }
 
@@ -338,9 +338,11 @@ es.onmessage = (msg) => {
 
 const post = (u, b) => fetch(u, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b || {}) })
   .then((r) => r.json());
-// ---- attachments: images and PDFs, pasted, dropped or picked; they go with the next message
+// ---- attachments: images, PDFs and text files, pasted, dropped or picked; they go with the next message
 let pending = []; // { name, type, data (base64), url (a preview) }
 const ACCEPT = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf'];
+// anything else is sent as a text file (markdown, JSON, CSV, code); the server refuses what is not text
+const asText = (f) => !ACCEPT.includes(f.type) && !/^(image|audio|video)\//.test(f.type);
 const readB64 = (blob) => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = no; r.readAsDataURL(blob); });
 // a photo straight off a phone is too big to send: scale it so its long side is at most 1600 px (what Claude sees anyway)
 async function shrink(file) {
@@ -354,10 +356,10 @@ async function shrink(file) {
 }
 async function addFiles(list) {
   for (let f of list) {
-    if (!ACCEPT.includes(f.type)) { alert(`${f.name || 'That file'}: only images (PNG, JPEG, GIF, WebP) and PDFs can be attached.`); continue; }
+    if (!ACCEPT.includes(f.type) && !asText(f)) { alert(`${f.name || 'That file'}: images (PNG, JPEG, GIF, WebP), PDFs and text files can be attached.`); continue; }
     f = await shrink(f);
     if (f.size > 30e6) { alert(`${f.name}: too big (over 30 MB).`); continue; }
-    pending.push({ name: f.name || (f.type === 'application/pdf' ? 'document.pdf' : 'pasted image.png'), type: f.type, data: await readB64(f),
+    pending.push({ name: f.name || (f.type === 'application/pdf' ? 'document.pdf' : 'pasted image.png'), type: asText(f) ? 'text/plain' : f.type, data: await readB64(f),
       url: f.type.startsWith('image/') ? URL.createObjectURL(f) : '' });
   }
   showFiles();

@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { systemFromArgs } from './system-prompt.mjs';
 import { runPython, substitute, blockHeader } from './compute.mjs';
 import { createExplainer } from './explain.mjs';
+import { kindOf, looksLikeText, blocksFor, label } from './ingest.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -305,32 +306,31 @@ function heardSoFar() {
   return parts.join(' ');
 }
 
-// Files the learner attached (pasted, dropped or picked in the browser): images and PDFs. Each is kept in the chat's
-// attachments/ folder and goes to Claude with the message, as the stage frame does: an image block or a document.
+// Files the learner attached (pasted, dropped or picked in the browser): images, PDFs, and anything that reads as text
+// (markdown, JSON, CSV, code). Each is kept in the chat's attachments/ folder and goes to Claude with the message, as
+// the stage frame does: an image block, a document, or the file's text.
 const ATTACH_TYPES = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif', 'image/webp': '.webp', 'application/pdf': '.pdf' };
 function saveAttachments(files) {
   const out = [];
   for (const f of Array.isArray(files) ? files : []) {
-    const ext = ATTACH_TYPES[f?.type];
-    if (!ext || typeof f.data !== 'string') continue;
+    if (typeof f?.data !== 'string') continue;
+    const bytes = Buffer.from(f.data, 'base64');
+    const ext = ATTACH_TYPES[f.type] || '';
+    if (!ext && !looksLikeText(bytes)) continue;
     const dir = path.join(S.dir, 'attachments');
     fs.mkdirSync(dir, { recursive: true });
     const name = `${Date.now()}-${out.length}-${path.basename(String(f.name || 'file')).replace(/[^\w.-]+/g, '_').slice(0, 60)}`;
     const where = path.join(dir, name.endsWith(ext) ? name : name + ext);
-    fs.writeFileSync(where, Buffer.from(f.data, 'base64'));
-    out.push({ name: String(f.name || path.basename(where)), type: f.type, path: where });
+    fs.writeFileSync(where, bytes);
+    out.push({ name: String(f.name || path.basename(where)), type: ext ? f.type : 'text/plain', path: where });
   }
   return out;
 }
-const attachmentBlock = (a) => ({
-  type: a.type === 'application/pdf' ? 'document' : 'image',
-  source: { type: 'base64', media_type: a.type, data: fs.readFileSync(a.path).toString('base64') },
-});
 
 function submit(text, source, files) {
   text = String(text || '').trim();
   const attached = saveAttachments(files);
-  if (!text && attached.length) text = attached.some((a) => a.type === 'application/pdf') ? 'Explain this.' : 'Explain what this shows.';
+  if (!text && attached.length) text = attached.some((a) => kindOf(a.name, a.type) !== 'image') ? 'Explain this.' : 'Explain what this shows.';
   if (!text) return;
   broadcast({ t: 'user', text, source, files: attached.map((a) => ({ name: a.name, type: a.type })) });
   stageSend(`#!state thinking ${text.replace(/\n/g, ' ')}`);
@@ -369,7 +369,7 @@ function contextFor(text, attached = []) {
   if (/\b(show me (what|everything)|what (you|u) can do|display|tour|demo|showcase|longer|bigger|more (aesthetic|beautiful|visual|detail)|full (display|show))\b/i.test(text))
     parts.push('<request_note>The learner explicitly asked for more: a showcase, longer, bigger or more beautiful. Give exactly that, at showcase scale (several full scenes), not the default length.</request_note>');
   if (S.frame) parts.push('<last_frame> (attached image): the stage as the learner saw it at the end of your last turn. If it is crowded, cut off or hard to read, keep that in mind as you build on it.');
-  if (attached.length) parts.push(`<attachments> (attached before the stage frame): ${attached.map((a) => `${a.name} (${a.type === 'application/pdf' ? 'PDF' : 'image'})`).join(', ')}. The learner sent these with the question: read them, teach from them, and show on the stage what they are about (draw it; never paste their text on stage).</attachments>`);
+  if (attached.length) parts.push(`<attachments> (attached before the stage frame): ${attached.map((a) => `${a.name} (${label(a)})`).join(', ')}. The learner sent these with the question: read them, teach from them, and show on the stage what they are about (draw it; never paste their text on stage).</attachments>`);
   parts.push(`<stage>\n${read('state.dan').trim() || '(empty)'}\n</stage>`);
   return parts.join('\n') + `\n\nLearner: ${text}`;
 }
@@ -504,7 +504,7 @@ function runTurn(text, source, model = defaultModel, attached = []) {
     }
   };
   const content = [{ type: 'text', text: contextFor(text, attached) }];
-  for (const a of attached) try { content.push(attachmentBlock(a)); } catch {}
+  for (const a of attached) try { content.push(...blocksFor(a)); } catch {}
   if (S.frame) { // what the learner last saw, as an image
     try { content.push({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: fs.readFileSync(S.frame).toString('base64') } }); } catch {}
     S.frame = null;
