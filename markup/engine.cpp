@@ -1123,7 +1123,10 @@ void Engine::execLine(const Line &ln) {
     break;
   }
   case Verb::PAUSE:
-    if (!opt_.instant) waitingPause_ = true;
+    if (!opt_.instant) {
+      waitingPause_ = true;
+      emit("waiting " + std::to_string(currentPart())); // a lecture's check: the learner answers before it goes on
+    }
     break;
   case Verb::SCHEMA:
     // an unnamed schema and named ones in one scene: the unnamed one is a view too ("main"), so each keeps
@@ -1172,6 +1175,7 @@ void Engine::execLine(const Line &ln) {
     a.dur = opt_.instant ? 0 : 0.7f;
     actives_.push_back(a);
     caption("new scene -> the stage clears; ids start fresh");
+    if (!opt_.instant) emit("part " + std::to_string(currentPart()));
     break;
   }
   }
@@ -1727,6 +1731,71 @@ void Engine::skip() {
 
 void Engine::resume() { waitingPause_ = false; }
 
+// ================================================================ seeking (a prepared lecture: parts and sentences)
+// The stage as it stands just before `step`: everything before it runs again, instantly (as interrupt() finishes a
+// beat), so the picture is the one the script built, with its history (axioms 1 and 6). Then it plays on.
+void Engine::seekStep(size_t step) {
+  step = std::min(step, script_.steps.size());
+  reset();
+  bool was = opt_.instant;
+  opt_.instant = true;
+  stopAt_ = step;
+  for (int guard = 0; guard < 100000 && (cursor_ < step || blocking()); guard++) {
+    waitingPause_ = false;
+    update(0);
+  }
+  stopAt_ = SIZE_MAX;
+  opt_.instant = was;
+  say_.lingering = 0;
+  for (auto &id : order_) if (Obj *o = find(id)) o->appear = 1;
+  readbackPrinted_ = false;
+}
+
+size_t Engine::stepAtLine(int lineNo) const {
+  for (size_t i = 0; i < script_.steps.size(); i++)
+    if (script_.steps[i].main.lineNo >= lineNo) return i;
+  return script_.steps.size();
+}
+
+std::vector<size_t> Engine::partSteps() const {
+  std::vector<size_t> out;
+  for (size_t i = 0; i < script_.steps.size(); i++)
+    if (script_.steps[i].main.verb == Verb::SCENE) out.push_back(i);
+  return out;
+}
+
+int Engine::currentPart() const {
+  int n = 0;
+  for (size_t s : partSteps()) if (s < cursor_) n++;
+  return n;
+}
+
+std::string Engine::partTitle(int n) const {
+  auto parts = partSteps();
+  return n >= 1 && n <= (int)parts.size() ? script_.steps[parts[n - 1]].main.id : "";
+}
+
+void Engine::seekPart(int n) {
+  auto parts = partSteps();
+  if (parts.empty()) { seekStep(0); return; }
+  seekStep(parts[std::clamp(n, 1, (int)parts.size()) - 1]);
+}
+
+void Engine::backSentence() {
+  auto isSay = [&](size_t i) { return i < script_.steps.size() && script_.steps[i].main.verb == Verb::SAY; };
+  size_t to = sayStep_; // the sentence playing, or the last one played: from its start
+  if (!isSay(to) || (say_.active && say_.t <= 2)) { // it has just begun: the one before
+    size_t prev = 0;
+    for (size_t i = 0; i < sayStep_; i++) if (isSay(i)) prev = i;
+    to = prev;
+  }
+  seekStep(to);
+}
+
+std::string Engine::sayingNow() {
+  return say_.active && sayStep_ < script_.steps.size() ? spokenText(script_.steps[sayStep_].main) : "";
+}
+
 void Engine::togglePause() {
   paused_ = !paused_;
   if (tts_) tts_->setPaused(paused_);
@@ -1745,7 +1814,7 @@ void Engine::update(float dt) {
   if (paused_) return;
   clock_ += dt;
   frameDt_ = dt;
-  while (!blocking() && cursor_ < script_.steps.size()) {
+  while (!blocking() && cursor_ < script_.steps.size() && cursor_ < stopAt_) {
     const Step &next = script_.steps[cursor_];
     if (next.hook.empty() && next.main.verb == Verb::SAY && restDue_ && !opt_.instant) {
       // a formula changed in the last sentence: it rests, still, before the next sentence starts
@@ -2174,6 +2243,18 @@ std::vector<std::pair<float, std::string>> Engine::audioLog() const {
     if (!u->wavPath.empty()) out.push_back({t, u->wavPath});
   }
   return out;
+}
+
+// A line is ready when its voice is in the disk cache (written after it is done), so a lecture warmed with
+// --prepare-voice plays at once, and offline.
+void Engine::voiceProgress(int &total, int &ready, int &failed) {
+  total = ready = failed = 0;
+  for (auto &[uid, u] : lineUtt_) {
+    std::lock_guard<std::mutex> l(u->mu);
+    total++;
+    if (u->failed) failed++;
+    else if (u->cached || !u->wavPath.empty()) ready++;
+  }
 }
 
 void Engine::stopVoice() {

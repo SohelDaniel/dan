@@ -34,7 +34,18 @@ The full guide is `docs/guide.html`.
 - Finished lines are cached in `.tutor_cache/` (pcm + word timings + wav), so re-runs are instant and free.
 - Without a key, or with `--mute`, timing is estimated from word length.
 
-Keys: `space` pause, `→` skip the current animation, `R` restart, `D` toggle the dictionary caption, `S` screenshot.
+Keys: `space` pause, `→` skip the current animation, `←` back a sentence, `shift ←/→` the part before / after (parts
+are `scene` lines), `R` restart, `D` toggle the dictionary caption, `S` screenshot.
+
+**Lectures.** `tutor lecture new notes.pdf data.json …` (or *Lectures* in the browser) prepares a long lecture from
+files: Claude plans it in parts of a few minutes (an outline and a bible of notation and running examples, which
+you can read and edit), then builds each part: writes it, fixes what `--check` says, has a separate reviewer look at
+frames, and rewrites below 4/5. The parts are joined into `chat/lectures/<id>/lecture.dan`, the voice is fetched
+ahead (`--prepare-voice`), and notes to print are written (`tools/notes/notes-pdf.mjs`: markdown with LaTeX and
+mermaid, to PDF). `tutor lecture play` plays it live: type a question, or answer a part's closing question, and an
+aside is played on the same stage from the moment you stopped; then the lecture's own picture comes back as it was
+and goes on from that sentence (the aside's things go with it, as at a `scene` line, not deleted within one).
+`tutor lecture help` lists the steps.
 
 ## Layout
 

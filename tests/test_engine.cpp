@@ -844,3 +844,67 @@ TEST_CASE("a curve or a shape on a schema that can't draw it is an axiom warning
   CHECK(rb.find("mark A rect area") != std::string::npos);   // the second kind word is the category; the line survives
   CHECK(has(d.lintMessages(), "'5s' is a duration"));
 }
+
+// ---- seeking in a prepared lecture: parts are scene lines, sentences are Say lines
+static const char *kLecture =
+    "title \"Two parts\"\n"
+    "scene \"Part 1: counts\"\n"
+    "schema numberline\n"
+    "mark a dot v=2 label=\"a\"\n"
+    "Say: \"First a sits at two.\"\n"
+    "mark a v=5\n"
+    "Say: \"Then it moves along the line, step by step, all the way up to five, three steps in all.\"\n"
+    "scene \"Part 2: names\"\n"
+    "schema graph\n"
+    "mark x box label=\"x\"\n"
+    "mark y box label=\"y\"\n"
+    "Say: \"Now two boxes.\"\n"
+    "link xy arrow x -> y\n"
+    "Say: \"And x leads to y.\"\n";
+
+TEST_CASE("seeking to a part gives the stage the script built there, and playing on ends where playing through ends") {
+  Engine whole(instant());
+  played(whole, kLecture);
+  Engine e(instant());
+  initFonts();
+  REQUIRE(e.loadText(kLecture));
+  REQUIRE(e.partSteps().size() == 2);
+  CHECK(e.partTitle(2) == "Part 2: names");
+  e.seekPart(2);
+  CHECK(e.currentPart() == 1); // just before part 2's scene line: part 1's last picture, about to fade
+  Engine first(instant());
+  played(first, std::string(kLecture).substr(0, std::string(kLecture).find("scene \"Part 2")));
+  CHECK(e.readback(false) == first.readback(false));
+  e.runToEnd();
+  CHECK(e.currentPart() == 2);
+  CHECK(e.readback(false) == whole.readback(false));
+  e.seekPart(1); // and back again
+  e.runToEnd();
+  CHECK(e.readback(false) == whole.readback(false));
+}
+
+TEST_CASE("back a sentence: restart the one playing, or go to the one before when it has just begun") {
+  initFonts();
+  EngineOptions o = instant();
+  o.instant = false; // timed playback, estimated voice
+  Engine e(o);
+  REQUIRE(e.loadText(kLecture));
+  auto playUntil = [&](const std::string &said, float into) {
+    for (int i = 0; i < 20000; i++) {
+      e.update(1.f / 30);
+      if (e.waiting()) e.resume();
+      if (e.sayingNow().find(said) != std::string::npos && e.sayingFor() >= into) return true;
+    }
+    return false;
+  };
+  REQUIRE(playUntil("Then it moves", 2.5f));
+  e.backSentence(); // 2.5 s in: the same sentence from its start (the move to five came before it)
+  e.update(1.f / 30);
+  CHECK(e.sayingNow().find("Then it moves") != std::string::npos);
+  CHECK(e.sayingFor() < 0.5f);
+  CHECK(e.readback(false).find("v=5") != std::string::npos);
+  e.backSentence(); // just begun: the sentence before, with a back at two
+  e.update(1.f / 30);
+  CHECK(e.sayingNow().find("First a sits") != std::string::npos);
+  CHECK(e.readback(false).find("v=2") != std::string::npos);
+}

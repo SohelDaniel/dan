@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tutor Lectures</title>
+<style>
+  :root {
+    --bg: #f7f6f3; --panel: #ffffff; --ink: #1f1e1c; --muted: #6f6c66; --faint: #b9b5ad; --line: #e4e1db;
+    --me: #2f5bd3; --ok: #2e7d4f; --warn: #b26a00; --err: #b3261e; --code: #f0eee9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161615; --panel: #1f1f1d; --ink: #ecebe7; --muted: #9a978f; --faint: #5d5b56; --line: #33322f;
+      --me: #4b74e6; --code: #2a2926; --ok: #5cbf86; --warn: #e2a33b; --err: #ef6b62; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 20px; margin: 0 0 4px; } h1 a { color: var(--muted); font-size: 14px; font-weight: normal; margin-left: 10px; }
+  .sub { color: var(--muted); font-size: 13.5px; margin-bottom: 18px; }
+  button, select, input, textarea { font: inherit; color: var(--ink); }
+  button { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 5px 12px; cursor: pointer; }
+  button.go { background: var(--me); color: #fff; border-color: var(--me); }
+  button:disabled { opacity: .45; cursor: default; }
+  select, input[type=number], input[type=text] { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  #drop { border: 2px dashed var(--faint); border-radius: 12px; padding: 22px; text-align: center; color: var(--muted); cursor: pointer; }
+  #drop.over { border-color: var(--me); color: var(--ink); }
+  .files { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+  .file { background: var(--code); border-radius: 6px; padding: 2px 8px; font-size: 13px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  .row input[type=text] { flex: 1; min-width: 200px; }
+  .lec h2 { font-size: 17px; margin: 0; }
+  .meta { color: var(--muted); font-size: 13px; margin: 2px 0 10px; }
+  .status { font-size: 12px; border-radius: 10px; padding: 1px 8px; background: var(--code); margin-left: 6px; vertical-align: 2px; }
+  .status.running { background: var(--me); color: #fff; }
+  .note { background: var(--code); border-radius: 8px; padding: 8px 10px; font-size: 13.5px; margin: 8px 0; }
+  ol.parts { padding-left: 22px; margin: 8px 0; }
+  ol.parts li { margin: 8px 0; }
+  .pt { font-weight: 600; } .pm { color: var(--muted); font-size: 13px; }
+  .pd { font-size: 13.5px; color: var(--muted); }
+  .built { color: var(--ok); font-size: 13px; } .weak { color: var(--warn); }
+  pre.log { background: var(--code); border-radius: 8px; padding: 8px 10px; font-size: 12px; max-height: 220px; overflow: auto; white-space: pre-wrap; margin: 8px 0 0; }
+  textarea.json { width: 100%; height: 360px; font: 12px/1.4 Menlo, monospace; background: var(--code); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .err { color: var(--err); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Lectures <a href="/">← chat</a></h1>
+  <div class="sub">Give it your material: it plans a lecture in short parts, builds each part on the stage (written, checked, looked at, fixed),
+    and writes notes to print. Building takes a while; it runs in the background and survives closing this page.</div>
+
+  <div class="card">
+    <div id="drop">Drop PDFs, markdown, JSON, code or images here, or click to choose</div>
+    <input type="file" id="pick" multiple hidden>
+    <div class="files" id="files"></div>
+    <div class="row">
+      <input type="text" id="ask" placeholder="Anything to aim it at? (who it's for, what to focus on, what to skip)">
+    </div>
+    <div class="row">
+      <label>length <input type="number" id="minutes" min="5" max="300" placeholder="auto" style="width:80px"> min</label>
+      <select id="model"><option value="opus">Opus · best</option><option value="fable">Fable · newest</option><option value="sonnet">Sonnet · faster</option></select>
+      <select id="effort"><option value="high">thinks: long</option><option value="xhigh">thinks: longer</option><option value="medium">thinks: medium</option></select>
+      <button class="go" id="plan" disabled>Plan the lecture</button>
+      <span class="err" id="newErr"></span>
+    </div>
+  </div>
+
+  <div id="list"></div>
+</div>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const post = (u, b) => fetch(u, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+const readB64 = (blob) => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = no; r.readAsDataURL(blob); });
+
+// ---- a new lecture
+let pending = [];
+function showFiles() {
+  $('#files').innerHTML = pending.map((f, i) => `<span class="file">${esc(f.name)} <a href="#" data-i="${i}">✕</a></span>`).join('');
+  $('#plan').disabled = !pending.length;
+}
+async function addFiles(list) {
+  for (const f of list) {
+    if (f.size > 60e6) { alert(`${f.name}: too big (over 60 MB)`); continue; }
+    pending.push({ name: f.name, data: await readB64(f) });
+  }
+  showFiles();
+}
+$('#files').onclick = (e) => { if (e.target.dataset.i) { e.preventDefault(); pending.splice(+e.target.dataset.i, 1); showFiles(); } };
+$('#drop').onclick = () => $('#pick').click();
+$('#pick').onchange = (e) => { addFiles([...e.target.files]); e.target.value = ''; };
+for (const ev of ['dragover', 'dragenter']) $('#drop').addEventListener(ev, (e) => { e.preventDefault(); $('#drop').classList.add('over'); });
+for (const ev of ['dragleave', 'drop']) $('#drop').addEventListener(ev, () => $('#drop').classList.remove('over'));
+$('#drop').addEventListener('drop', (e) => { e.preventDefault(); addFiles([...e.dataTransfer.files]); });
+$('#plan').onclick = async () => {
+  $('#plan').disabled = true; $('#newErr').textContent = '';
+  const r = await post('/api/lecture/new', { files: pending, ask: $('#ask').value, minutes: $('#minutes').value, model: $('#model').value, effort: $('#effort').value });
+  if (r.error) { $('#newErr').textContent = r.error; $('#plan').disabled = false; return; }
+  pending = []; showFiles(); $('#ask').value = ''; $('#minutes').value = '';
+  refresh();
+};
+
+// ---- the lectures
+const open = new Set(); // cards whose plan editor or log is open: not redrawn under the learner's hands
+function partLine(p, i, built) {
+  const b = built[i];
+  const done = b ? `<span class="built ${b.critic != null && b.critic < 4 ? 'weak' : ''}">✓ built, ~${(b.seconds / 60).toFixed(1)} min${b.critic != null ? `, reviewer ${b.critic}/5` : ''}</span>` : '';
+  return `<li><span class="pt">${esc(p.title)}</span> <span class="pm">${p.minutes} min${p.needs?.length ? ` · needs ${p.needs.join(', ')}` : ''}</span> ${done}
+    <div class="pd">${esc(p.goal)}</div>
+    <div class="pd">picture: ${esc(p.frame)}</div>
+    <div class="pd">check: ${esc(p.check?.question)} <i>→ ${esc(p.check?.answer)}</i></div>
+    ${b ? `<button data-act="rebuild" data-n="${i + 1}" style="margin-top:4px;font-size:12px">rebuild this part</button>` : ''}</li>`;
+}
+function card(l) {
+  const o = l.outline, run = l.job.running;
+  const builtN = l.parts.filter(Boolean).length;
+  const total = o ? o.parts.reduce((n, p) => n + p.minutes, 0) : 0;
+  return `<div class="card lec" data-id="${esc(l.id)}">
+    <h2>${esc(o?.title || l.sources.map((s) => s.name).join(', '))}<span class="status ${run ? 'running' : ''}">${run ? 'working…' : esc(l.status)}</span></h2>
+    <div class="meta">${esc(l.sources.map((s) => s.name + (s.pages ? ` (${s.pages} p)` : '')).join(', '))} · ${o ? `${o.parts.length} parts, ${total} min planned` : `${l.target} min target`}
+      ${o ? ` · ${builtN}/${o.parts.length} built` : ''} · ${esc(l.model)}/${esc(l.effort)}</div>
+    ${l.error ? `<div class="err">${esc(l.error)}</div>` : ''}
+    ${o?.note ? `<div class="note">${esc(o.note)}</div>` : ''}
+    <div class="row">
+      ${l.played ? `<button class="go" data-act="play">▶ Play</button>` : ''}
+      ${o ? `<button data-act="build" ${run ? 'disabled' : ''}>${builtN ? (builtN < o.parts.length ? 'Build the rest' : 'Build again (missing parts)') : 'Build the lecture'}</button>` : ''}
+      ${o && builtN ? `<button data-act="notes" ${run ? 'disabled' : ''}>${l.notes ? 'Rewrite notes' : 'Write notes'}</button>` : ''}
+      ${l.notes ? `<a href="/api/lecture/file?id=${encodeURIComponent(l.id)}&f=notes.pdf" target="_blank"><button type="button">Notes (PDF)</button></a>
+        <a href="/api/lecture/file?id=${encodeURIComponent(l.id)}&f=notes.md" target="_blank"><button type="button">Notes (markdown)</button></a>` : ''}
+      <button data-act="plan" ${run ? 'disabled' : ''}>${o ? 'Plan again' : 'Plan'}</button>
+      ${run ? `<button data-act="stop">Stop</button>` : ''}
+    </div>
+    ${o ? `<details ${open.has(l.id + ':plan') ? 'open' : ''} data-key="plan"><summary>the plan: ${o.parts.length} parts</summary><ol class="parts">${o.parts.map((p, i) => partLine(p, i, l.parts)).join('')}</ol>
+      <details ${open.has(l.id + ':edit') ? 'open' : ''} data-key="edit"><summary>edit the plan (JSON)</summary>
+        <textarea class="json">${esc(JSON.stringify(o, null, 2))}</textarea>
+        <div class="row"><button data-act="save">Save the plan</button><span class="err" data-err></span></div></details></details>` : ''}
+    ${l.job.log.trim() ? `<details ${open.has(l.id + ':log') || run ? 'open' : ''} data-key="log"><summary>log</summary><pre class="log">${esc(l.job.log.trim())}</pre></details>` : ''}
+  </div>`;
+}
+let last = '';
+async function refresh() {
+  if (document.activeElement?.tagName === 'TEXTAREA') return; // editing the plan: don't redraw under it
+  const { lectures } = await fetch('/api/lectures').then((r) => r.json());
+  const html = lectures.length ? lectures.map(card).join('') : '<div class="sub">No lectures yet.</div>';
+  if (html !== last) { $('#list').innerHTML = html; last = html; for (const p of document.querySelectorAll('pre.log')) p.scrollTop = p.scrollHeight; }
+}
+$('#list').addEventListener('toggle', (e) => {
+  const d = e.target, id = d.closest('.lec')?.dataset.id;
+  if (id && d.dataset.key) d.open ? open.add(id + ':' + d.dataset.key) : open.delete(id + ':' + d.dataset.key);
+}, true);
+$('#list').onclick = async (e) => {
+  const act = e.target.dataset.act;
+  if (!act) return;
+  const lec = e.target.closest('.lec'), id = lec.dataset.id;
+  if (act === 'save') {
+    let outline;
+    try { outline = JSON.parse(lec.querySelector('textarea').value); } catch (err) { lec.querySelector('[data-err]').textContent = 'not valid JSON: ' + err.message; return; }
+    const r = await post('/api/lecture/outline', { id, outline });
+    lec.querySelector('[data-err]').textContent = r.error || 'saved';
+    last = ''; return;
+  }
+  if (act === 'plan' && !confirm('Plan again from the sources? The current plan is replaced (built parts stay until rebuilt).')) return;
+  if (act === 'rebuild' && !confirm(`Rebuild part ${e.target.dataset.n}?`)) return;
+  const r = await post('/api/lecture/' + (act === 'rebuild' ? 'build' : act), { id, parts: act === 'rebuild' ? [+e.target.dataset.n] : undefined });
+  if (r.error) alert(r.error);
+  last = ''; refresh();
+};
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>

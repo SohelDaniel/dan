@@ -550,3 +550,33 @@ After the fixes in 8m the user asked for two features, then closed the session.
 Earlier in the same session (8j-8l): pacing after algebra steps, the language named Dan (`.dan`), `tutor write`,
 and a personal HTML guide to the architecture on the user's Desktop (`~/Desktop/dan-guide.html`, not in the repo).
 Left: see HANDOFF §9 "Finish the axiom audit".
+
+## 8o. 2026-10-27: lecture mode
+
+The user asked for a second mode: give it files (PDF, JSON, markdown, anything) and it prepares a lecture of 30
+minutes or more, scaled to the material, split into parts, built step by step with as much time as it needs, played
+in the stage window (not an mp4) so they can pause and ask. Mid-session they added: notes to follow on paper
+(markdown with mermaid and proper LaTeX, questions), exported to PDF by a program.
+Decided with the user: a question is answered **on the stage** (an aside, then back to the moment), each part ends
+with a **short check**, building is **quality first**.
+- Research (`research_notes/Lecture mode/`): long generated lessons work as planner -> coder -> a critic that looks
+  at frames (Code2Video; TheoremExplainAgent's videos mostly had layout problems without one; PresentAgent);
+  segments of a few minutes (Mayer's segmenting; engagement falls past ~6 min, Guo et al. 2014), names first
+  (pretraining, median d = 0.75), a test between segments halves mind wandering (Szpunar et al. 2013).
+- Built: `chat/ingest.mjs` (the chat now takes text files too: they were dropped silently); `tools/notes/
+  notes-pdf.mjs` (Chrome prints; tested with a broken diagram reported, not dropped); `chat/lecture/` (plan, build
+  loop, package, notes, player, CLI, browser page); engine: `seekStep`/`seekPart`/`backSentence` (fast-forward by
+  the instant mode interrupt() uses, so the picture is the script's own), keys `←` and `shift ←/→`, a part caption,
+  `#!load F LINE`, `#!seek`, `step.txt` in captures, events `part`/`seek`/`waiting`, `--prepare-voice`.
+- Changed from the plan: no new `check` verb. A part ends with its question and the existing `pause`; the player
+  knows each check (question, answer, why) from the outline. The language did not change.
+- Measured on the Transformer paper (15 p, 20 min asked): the plan took 180 s (70K in, 18K out) and was good
+  (8 parts, a bible with exact toy numbers; it found the paper's own 41.8 vs 41.0 BLEU contradiction). Part 1:
+  lints 8 -> 2 -> 1 -> 0 in three fix rounds (~1 min each, resumed sessions); reviewer 3, 3, 3 over two rewrites
+  (each fixed some problems and made others); kept v4; 16 min, ~785K input (540K cached), ~90K output. Its
+  reviews were specific and mostly right (smeared send copies, faint roadmap, 0-based slots for "the third word").
+  Two were about our setup: the window's chrome in snapshots (the prompt now says to ignore it) and made-up
+  illustrative numbers (the part prompt now says to label them).
+- Regressions: make test (51 engine cases, 2 new), check 124 ok, golden all same, append the 4 known space-*
+  differences, toolbox/compute ok, tests/lecture.mjs 13 ok, tests/notes.mjs 6 ok.
+Left: the user decides on parts 2-8 after seeing part 1; asides and checks are untested with a person (HANDOFF §9).

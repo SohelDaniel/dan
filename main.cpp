@@ -18,6 +18,7 @@
 #include <objc/message.h>
 #include <objc/runtime.h>
 #endif
+#include <cctype>
 #include <cstdio>
 #include <fstream>
 #include <algorithm>
@@ -28,6 +29,7 @@
 #include <iostream>
 #include <mutex>
 #include <string>
+#include <chrono>
 #include <thread>
 
 // live: the stage keeps talking and drawing even when it is behind other windows. macOS would
@@ -48,7 +50,7 @@ static void keepAwake() {
 static int usage() {
   std::fprintf(stderr,
                "usage: tutor <script.dan> [--mute] [--voice-id Brian] [--speed 1.0] [--model inworld-tts-2]\n"
-               "             [--inworld-key KEY] [--record out.mp4] [--readback] [--check] [--font file.ttf]\n"
+               "             [--inworld-key KEY] [--record out.mp4] [--readback] [--check] [--prepare-voice] [--font file.ttf]\n"
                "voice: Inworld TTS; key from --inworld-key, $INWORLD_API_KEY or ./.inworld_key\n");
   return 2;
 }
@@ -69,7 +71,7 @@ int main(int argc, char **argv) {
   std::string path, record, font, key, snapshot, at = "end", layoutReport;
   int windowX = -1, windowY = -1; // --window-pos X,Y: where the window opens (a side explanation beside the lesson)
   bool mute = false;
-  bool readbackOnly = false, check = false, live = false;
+  bool readbackOnly = false, check = false, live = false, prepareVoice = false;
   mk::EngineOptions opt;
   if (const char *v = std::getenv("TUTOR_VOICE"); v && *v) opt.tts.voiceId = v; // --voice-id wins
   for (int i = 1; i < argc; i++) {
@@ -85,6 +87,7 @@ int main(int argc, char **argv) {
     else if (a == "--record" && i + 1 < argc) record = argv[++i];
     else if (a == "--readback") readbackOnly = true;
     else if (a == "--check") check = true;
+    else if (a == "--prepare-voice") prepareVoice = true;
     else if (a == "--stdin") live = true;
     else if (a == "--snapshot" && i + 1 < argc) snapshot = argv[++i];
     else if (a == "--at" && i + 1 < argc) at = argv[++i];
@@ -155,6 +158,24 @@ int main(int argc, char **argv) {
     std::fprintf(f, "],\"composition\":{\"fill\":%.2f,\"offset\":%.2f}}\n", last.fill, last.offset);
     if (f != stdout) std::fclose(f);
     return 0;
+  }
+
+  // ---------------------------------------------------------- the voice of every line into the disk cache, nothing played
+  if (prepareVoice) {
+    if (!opt.voice) { std::fprintf(stderr, "--prepare-voice: no voice (muted, or no Inworld key)\n"); return 1; }
+    SetTraceLogLevel(LOG_ERROR);
+    rm::initFontMetrics(font.empty() ? nullptr : font.c_str());
+    mk::Engine eng(opt);
+    if (!eng.load(path)) return 1;
+    int total = 0, ready = 0, failed = 0;
+    for (;;) {
+      eng.voiceProgress(total, ready, failed);
+      std::fprintf(stderr, "\rvoice: %d of %d lines ready%s", ready, total, failed ? (", " + std::to_string(failed) + " failed").c_str() : "");
+      if (ready + failed >= total) break;
+      std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    }
+    std::fprintf(stderr, "\n");
+    return failed ? 1 : 0;
   }
 
   // ---------------------------------------------------------- headless modes
@@ -310,6 +331,8 @@ int main(int argc, char **argv) {
   // live: the learner can type on the stage itself; the server shows thinking / listening states
   bool typing = false, pausedForTyping = false;
   std::string typed, uiState = "idle", echo;
+  int partNow = 0;   // the lecture part on stage, and how long since it started
+  float partT = 0;
   std::string captureDir; // #!capture <dir>: this frame and the stage as of now, written after it is drawn
   float uiT = 0;
   auto jsonStr = [](const std::string &s) {
@@ -357,10 +380,20 @@ int main(int argc, char **argv) {
       }
       for (auto &l : got) {
         if (l.rfind("#!", 0) == 0 && !chunk.empty()) { eng.appendText(chunk); chunk.clear(); }
-        if (l.rfind("#!load ", 0) == 0) {
+        if (l.rfind("#!load ", 0) == 0) { // "#!load F [LINE]": with LINE, everything before it is on stage already
           path = l.substr(7);
+          int from = 0;
+          size_t sp = path.rfind(' ');
+          if (sp != std::string::npos && sp + 1 < path.size() &&
+              std::all_of(path.begin() + (long)sp + 1, path.end(), [](unsigned char c) { return std::isdigit(c); })) {
+            from = std::atoi(path.c_str() + sp + 1);
+            path.resize(sp);
+          }
           eng.load(path);
+          if (from > 0) eng.seekStep(eng.stepAtLine(from));
           SetWindowTitle(("tutor — " + path).c_str());
+        } else if (l.rfind("#!seek ", 0) == 0) { // back into a lecture after a detour: from this step
+          eng.seekStep((size_t)std::atol(l.c_str() + 7));
         } else if (l.rfind("#!voice ", 0) == 0) { // a Say line ahead of its beat: start its audio now
           eng.prefetchVoice(l.substr(8));
         } else if (l == "#!interrupt") {
@@ -428,8 +461,19 @@ int main(int argc, char **argv) {
       if (eng.waiting()) eng.resume();
       else eng.togglePause();
     }
-    if (!typing && (IsKeyPressed(KEY_RIGHT) || (!live && IsKeyPressed(KEY_ENTER)))) eng.skip();
-    if (!live && (IsKeyPressed(KEY_R) || IsKeyPressed(KEY_LEFT))) eng.reset();
+    // a lecture in parts (scene lines): shift ←/→ the part before / after; ← back a sentence; → finish this one
+    bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+    if (!typing && shift && (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT)) && !eng.partSteps().empty()) {
+      int to = eng.currentPart() + (IsKeyPressed(KEY_LEFT) ? -1 : 1);
+      if (to <= (int)eng.partSteps().size()) {
+        eng.seekPart(to);
+        eng.emit("seek " + std::to_string(std::max(1, to)));
+      }
+    } else if (!typing && IsKeyPressed(KEY_LEFT)) {
+      eng.backSentence();
+      eng.emit("seek " + std::to_string(eng.currentPart()));
+    } else if (!typing && (IsKeyPressed(KEY_RIGHT) || (!live && IsKeyPressed(KEY_ENTER)))) eng.skip();
+    if (!live && IsKeyPressed(KEY_R)) eng.reset();
     if (!live && IsKeyPressed(KEY_D)) eng.setShowDictionary(!eng.showDictionary());
     if (!live && IsKeyPressed(KEY_S)) {
       std::string f = "tutor_shot_" + std::to_string(shot++) + ".png";
@@ -452,8 +496,15 @@ int main(int argc, char **argv) {
     }
 
     eng.update(dt);
+    if (int p = eng.currentPart(); p != partNow) { partNow = p; partT = 0; }
+    partT += dt;
     BeginDrawing();
     eng.draw();
+    if (partNow > 0 && eng.partSteps().size() > 1 && partT < 4 && !rec.active()) { // which part this is, as it starts
+      using namespace rm;
+      std::string label = "part " + std::to_string(partNow) + " of " + std::to_string(eng.partSteps().size()) + "  ·  shift ← → for the others";
+      text(label, {W - 24.f, 20}, 15, fade(col::muted, std::min(1.f, (4 - partT) / 0.8f)), 1, 0);
+    }
     if (live) {
       using namespace rm;
       if (typing) { // the prompt bar
@@ -490,6 +541,7 @@ int main(int argc, char **argv) {
       ExportImage(img, (captureDir + "/frame.png").c_str());
       UnloadImage(img);
       std::ofstream(captureDir + "/stage.txt") << eng.readback(false);
+      std::ofstream(captureDir + "/step.txt") << eng.resumeStep() << "\n";
       std::printf("@ev captured %s\n", captureDir.c_str());
       captureDir.clear();
     }

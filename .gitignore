@@ -31,5 +31,7 @@ tests/test_engine
 tools/mine/work/
 # saved lesson scenes: the learner's own
 chat/library/
+# lectures prepared from the learner's files
+chat/lectures/
 # tutor write: your own scratch files
 playground/

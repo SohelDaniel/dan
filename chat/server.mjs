@@ -27,6 +27,7 @@ import { systemFromArgs } from './system-prompt.mjs';
 import { runPython, substitute, blockHeader } from './compute.mjs';
 import { createExplainer } from './explain.mjs';
 import { kindOf, looksLikeText, blocksFor, label } from './ingest.mjs';
+import { lectureRoute } from './lecture/routes.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -578,6 +579,7 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === 'GET' && url.pathname === '/api/voices') return json(res, { voices: await voiceList() });
   if (req.method === 'GET' && url.pathname === '/api/memory') return json(res, { text: fs.readFileSync(MEMORY, 'utf8'), path: MEMORY });
+  if (await lectureRoute(req, res, url, body, json)) return;
   if (req.method !== 'POST') return json(res, { error: 'not found' }, 404);
   const b = await body(req);
 

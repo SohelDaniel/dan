@@ -6,7 +6,7 @@ what is open. The dated story of how it got here (what was tried, measured, kept
 **Keep this file current.** Each session ends by updating it (see `CLAUDE.md`): change the map where the code
 changed, add gotchas, move finished items out of "Open", and add a dated entry to `docs/history.md`.
 
-Last updated: 2026-10-26 (end of the audit session: fixes merged, images/PDFs and video in the chat, the rest of the audit in `reports/Axiom audit 2026-10-24/`).
+Last updated: 2026-10-27 (lecture mode: a long lecture prepared from files, part by part, with notes to print; part 1 of a test lecture built, the rest waits for the user's go).
 
 ## 1. What it is
 
@@ -26,13 +26,23 @@ tutor new             # a fresh chat
 tutor claude          # the tutor in the background + Claude Code in the repo (--dangerously-skip-permissions)
 tutor restart | stop | log
 tutor write [f.dan]   # a playground: an editor in the browser, the stage beside it; what you type plays as you type
+tutor lecture new F… [--minutes N] [--ask "…"]   # plan a lecture from files (PDF, md, JSON, code, images)
+tutor lecture build|notes|voice|play|show|list [ID] [--parts 3,5]   # also: Lectures in the browser (/lectures)
 ```
 
 - In the browser: model, thinking level, voice on/off, which voice (Inworld's 166 English voices) and speed.
 - **Save video** (browser header): the whole lesson as an mp4 with the narration, in `~/Movies/Tutor`, named after the
   chat. `tutor F --record out.mp4` renders in a hidden window as fast as it can (no key hints, no dictionary caption);
   the voice comes from the disk cache when the lesson was spoken before.
-- **Images and PDFs**: paste, drop, or 📎 in the browser. They are kept in the chat's `attachments/` folder and sent
+- **Lectures** (`chat/lecture/`, page `/lectures`): plan (one call: outline + bible) -> the learner reads/edits it ->
+  build each part (write, `--check` fixes <=3, a separate reviewer call on frames, rewrite below 4/5 <=2, keep the
+  best) -> `lecture.dan` + `index.json` -> `--prepare-voice` -> notes (`notes.md` -> `notes.pdf`). Everything in
+  `chat/lectures/<id>/` (the user's data, gitignored). Play: `tutor lecture play` runs `chat/lecture/player.mjs`:
+  typing asks, an answer after a part's closing question is checked; both become an aside on the same stage.
+  Keys: `←` back a sentence, `shift ←/→` parts. Unfinished lectures play as a preview of the parts built.
+- **Notes to print**: `node tools/notes/notes-pdf.mjs notes.md [out.pdf]`: LaTeX (MathJax) + mermaid, printed by
+  Chrome via puppeteer-core (`cd tools/notes && npm install` once).
+- **Images, PDFs and text files**: paste, drop, or 📎 in the browser. They are kept in the chat's `attachments/` folder and sent
   to Claude with the message as image / document blocks (photos scaled to 1600 px in the browser), with an
   `<attachments>` note in the context.
   The choices are remembered in `chat/settings.json` (gitignored); flags given to `tutor` win.
@@ -59,6 +69,8 @@ make golden     # layout score per script vs tests/golden/*.json (--save re-base
 make append     # streamed playback == whole playback
 node tests/toolbox.mjs   # every toolbox move in chat/toolbox.md still plays clean
 node tests/compute.mjs   # python blocks
+node tests/lecture.mjs   # lecture mode without Claude: outline checks, packaging, the joined lecture plays
+node tests/notes.mjs     # notes to PDF
 ```
 
 Measuring with Claude in the loop (`tools/eval/`):
@@ -113,6 +125,10 @@ engine stays the only author of pixels.
 | `chat/system-prompt.mjs` | builds the system prompt (shared with the eval): `chat/prompt.md` + README's language section + `chat/examples/` + `chat/toolbox.md` |
 | `chat/compute.mjs` | sandboxed python blocks (`sandbox-exec`), output written into scene lines |
 | `chat/explain.mjs` | pause and ask: `?...` answers about the paused frame in a second window |
+| `chat/ingest.mjs` | the learner's files: kind, Claude content blocks (text files as `<file>` text, PDFs as documents), PDF text by page, a lecture length from the size |
+| `chat/lecture/` | lecture mode: `store` (folders), `plan` (+`plan-prompt.md`), `build` (+`part-prompt.md`, `critic-prompt.md`), `package` (join, notes via `notes-prompt.md`), `player` (live play, asides), `routes` (browser API; jobs run as detached `cli.mjs` processes with `job.log`/`job.pid`), `cli` |
+| `chat/lectures.html` | the Lectures page: upload, plan, edit, build, play, notes |
+| `tools/notes/notes-pdf.mjs` | markdown notes -> PDF (math lifted past markdown, MathJax SVG, mermaid, A4) |
 | `chat/index.html` | the browser console |
 | `tools/write.mjs`, `tools/write.html` | `tutor write`: the Dan playground. Whole lines go to `tutor --stdin` as typed (appended at the end; an earlier edit reloads the unchanged prefix, `#!interrupt`s it and plays the rest); a panel shows `--check` lints, the score and the readback; examples and toolbox moves load into the editor. Files in `playground/` (gitignored) |
 | `README.md` | the language reference. **Between "## The language" and "## The dictionary" it is part of the prompt**: editing it changes what Claude writes |
@@ -177,6 +193,13 @@ code, no stubs left behind.
   widens a scale waits for a sentence start and lints `structure:`.
 - **Changing the engine's timing shifts the golden samples.** A 1 s rest moved every later sample; one 3D script
   then caught a transient overlap with the old placer. Re-baseline (`--save`) only when the shift is the intent.
+- **A lecture build runs `./tutor`** (check, snapshots, layout report): don't rebuild the engine while one runs (as
+  with evals). Build engine changes to a scratch binary meanwhile (`make -n tutor -B`, change `-o`).
+- **The lecture reviewer sees the window's chrome** (key hints, dictionary line) in `--snapshot` frames; the prompt
+  tells it to ignore them. In the first test it scored part 1 3/5 three times: rewrites fixed some problems and
+  made others, so the build keeps the best version, not the last.
+- **Live control lines for lectures**: `#!load F LINE` (what comes before LINE is already on stage), `#!seek STEP`;
+  `#!capture` also writes `step.txt` (where to come back); events `part N`, `seek N`, `waiting N` (a `pause` held).
 - Chats from before 2026-10-23 keep `.txt` files (`state.txt`, `turns/*.txt`); newer ones write `.dan`. The server
   and the audit tool read both.
 
@@ -208,12 +231,20 @@ Done and measured (details in `docs/history.md`):
   2026-10-24/README.md` is the map of the audit and of what is still unmerged.
 - The chat takes images and PDFs (paste, drop, 📎) and saves a lesson as a video (`Save video`, `~/Movies/Tutor`).
 - Playground: `tutor write` (an editor beside the stage). The markup is called Dan; files are `.dan`.
+- Lecture mode (2026-10-27): files -> planned, built, reviewed parts -> a lecture on the stage with asides, and
+  notes to print. One test lecture planned (the Transformer paper, 8 parts, 20 min), part 1 built (~16 min, ~0.8M
+  input / 90K output tokens, reviewer 3/5).
 
 The newest working session's notes are the last entry of `docs/history.md`.
 
 ## 9. Open
 
 Next candidates, roughly by value:
+- **Lecture mode, next** (the user wanted to see part 1 before the rest is built: `tutor lecture build attention`
+  builds parts 2-8, ~2 h). Then: try an aside and a check answer in the real window (built, not yet tried with a
+  person); measure what a part costs in `/usage`; the reviewer never reached 4/5 (look whether rewrites converge, or
+  stop at the first 3 with no hard problem); `send` copies stay drawn over their originals (seen in part 1 at 66 s:
+  an engine issue); a browser Play starts a second stage window beside the chat's.
 - **Finish the axiom audit.** Seven tested patches are ready but not merged: D2 the cut, D3 colour stability,
   D6 `focus a,b hold`, D7 trails across turns, D8 a gloss of `mark`, D10 `morph f.tex += "…"`, D11 the camera on
   timelines. Each is in `reports/Axiom audit 2026-10-24/decisions/` with its engineer's notes; the README there has

@@ -188,6 +188,7 @@ public:
   // start synthesising a Say line before its beat arrives (the server sends it as soon as it is written)
   // returns the context it asked with (the sentences before), which the line's beat will ask with too
   std::vector<std::string> prefetchVoice(const std::string &sayLine);
+  void voiceProgress(int &total, int &ready, int &failed); // every line's voice: on disk (ready) or failed
   std::vector<std::string> spokenLines();   // every Say as it will be spoken, {expr} read off the stage
   std::string pulsing(const std::string &id); // what of this thing pulses right now ("a[2]", "a"), "" if nothing
   // numbers and names said aloud: how many, how many on stage at their word, pointed by the script, pointed ahead
@@ -213,6 +214,17 @@ public:
   void setShowDictionary(bool b) { showDict_ = b; }
   bool showDictionary() const { return showDict_; }
   void resume();                            // releases a `pause` line
+  // seeking, for long prepared lectures: parts are `scene` lines, sentences are Say lines
+  void seekStep(size_t step);               // the stage as it is just before this step, then play on from there
+  std::vector<size_t> partSteps() const;    // the step of each `scene` line, in order
+  int currentPart() const;                  // 1-based: the last part started (0 before the first)
+  std::string partTitle(int n) const;       // its scene's name ("Part 2: why")
+  void seekPart(int n);                     // to the start of part n: the part before it fades out, as when played
+  void backSentence();                      // to the start of this sentence, or the one before in its first 2 s
+  std::string sayingNow();                  // the sentence being said ("" between sentences)
+  size_t resumeStep() const { return say_.active ? sayStep_ : cursor_; } // where to pick up after a detour: this sentence
+  size_t stepAtLine(int lineNo) const;      // the first step on or after a line of the script
+  float sayingFor() const { return say_.active ? say_.t : 0; } // seconds into it
 
   std::string readback(bool withComments = true);
   Color colorFor(const std::string &id) { Mark *m = mark(id); return m ? colorOf(*m) : BLANK; } // for tests
@@ -462,6 +474,7 @@ private:
   std::string path_;
   Script script_;
   size_t cursor_ = 0;
+  size_t stopAt_ = SIZE_MAX;               // seeking: steps run up to here and no further
   std::vector<bool> hookFired_;
   std::map<std::string, Mark> marks_;
   std::map<std::string, Link> links_;
