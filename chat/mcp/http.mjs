@@ -1,7 +1,7 @@
 // The same tools over HTTP, for claude.ai in the browser: Claude connects from Anthropic's servers, so the port
 // is shared on the internet by Tailscale Funnel (`tutor mcp web on`), and the only path that answers carries a
 // secret token (.tutor_cache/mcp-token, made once). Streamable HTTP, stateless: one transport per request.
-//   node chat/mcp/http.mjs [--port 4748]
+//   node chat/mcp/http.mjs [--port 4749]
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -13,7 +13,7 @@ import { makeServer } from './server.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TOKEN_FILE = path.join(ROOT, '.tutor_cache', 'mcp-token');
 const argv = process.argv.slice(2);
-const port = Number(argv[argv.indexOf('--port') + 1]) || 4748;
+const port = Number(argv[argv.indexOf('--port') + 1]) || 4749;
 
 export function token() {
   if (!fs.existsSync(TOKEN_FILE)) {

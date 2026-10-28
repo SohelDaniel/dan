@@ -1,10 +1,10 @@
 #!/bin/zsh
 # tutor mcp web on|off|status: the tutor's tools for claude.ai in the browser.
-# Claude connects from Anthropic's servers, so the HTTP tool server (chat/mcp/http.mjs, port 4748) is shared on
+# Claude connects from Anthropic's servers, so the HTTP tool server (chat/mcp/http.mjs, port 4749) is shared on
 # the internet with Tailscale Funnel at this Mac's stable tailnet name, on a path only you know (the token).
 # Add the printed URL once in claude.ai: Settings > Connectors > Add custom connector. `off` closes the door.
 REPO=${0:A:h:h:h}
-PORT=4748
+PORT=4749 # 4748 is tutor write
 TS=/Applications/Tailscale.app/Contents/MacOS/Tailscale
 PID=$REPO/.tutor_cache/mcp-http.pid
 LOG=$REPO/.tutor_cache/mcp-http.log
