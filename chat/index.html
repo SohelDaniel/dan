@@ -182,7 +182,7 @@ function add(cls, html) {
 }
 function userMsg(text, source, files) {
   const att = (files || []).map((f) => `<span class="att">${f.type.startsWith('image/') ? '🖼' : '📄'} ${esc(f.name)}</span>`).join('');
-  add('me', `<div class="bubble">${esc(text)}${att}</div>` + (source === 'stage' ? '<div class="src">typed on the stage</div>' : ''));
+  add('me', `<div class="bubble">${esc(text)}${att}</div>` + (source === 'stage' ? '<div class="src">typed on the stage</div>' : source === 'handoff' ? '<div class="src">handed over from another Claude chat</div>' : ''));
 }
 
 // ---- a tutor block: chips, spoken lines, then details

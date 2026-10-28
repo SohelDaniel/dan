@@ -47,6 +47,11 @@ aside is played on the same stage from the moment you stopped; then the lecture'
 and goes on from that sentence (the aside's things go with it, as at a `scene` line, not deleted within one).
 `tutor lecture help` lists the steps.
 
+**From any Claude chat.** `tutor mcp install` gives Claude Code (every session) and the Claude desktop app the
+tutor as tools: `show` (a brief of what you were discussing, explained on the stage), `ask`, `stage`, `notes`
+(markdown → a PDF in `~/Documents/Tutor notes`), and `lecture` / `lecture_build` / `lecture_play`. The chat's
+Claude writes only the brief; the tutor's own Claude writes the scene with this prompt. `chat/mcp/server.mjs`.
+
 ## Layout
 
 | path | what |

@@ -592,3 +592,18 @@ part 6's reports (four of its six versions evaluated blind, one scored 1/5 for "
 prints 0 and the builder tolerates nan. The summary showed the last attempt's score instead of the kept version's
 (fixed). Cost of the whole lecture from the session logs: see the commit message.
 
+## 8p. 2026-10-28: the tutor from any Claude chat (MCP)
+
+The user asked what the easiest interface is: they chat with Claude in Claude Code, the desktop app and the
+browser, and want to say "use the engine" without pasting the conversation. Research: MCP servers give tools to
+Claude Code and the desktop app (local stdio); skills teach Claude when to use them (Claude Code only); plugins
+only bundle; claude.ai in the browser can't reach a local program. Built `chat/mcp/server.mjs` (SDK 1.32): eight
+tools over the running tutor's HTTP API; the chat's Claude writes a brief (the conversation in the learner's words)
+and the tutor's own Claude writes the scene, so the prompt, examples and checker are inherited without loading
+them into the chat. `/api/send` takes `handoff: true` (a note tells the tutor where the brief came from). Found
+in testing: MCP clients time a call out at 60 s, so `show` returns at the first spoken sentence (4 s in the test)
+and the stage goes on; a transient "SSL certificate has expired" from `claude -p` once failed a turn. Tried from
+this Claude Code session: a brief about the lecture build loop became a 7-sentence explanation with the loop drawn.
+`tutor mcp install` registers it (Claude Code user scope; the desktop config after a y/N). `tests/mcp.mjs`: 7
+checks over a stub. Left: the desktop app untried by the user; the browser needs a tunnel.
+

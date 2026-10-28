@@ -9,6 +9,7 @@
 #   tutor log             follow the background tutor's output
 #   tutor write [f.dan]   a playground: an editor in the browser, the stage beside it; what you type plays as you type
 #   tutor lecture ...     a long lecture prepared from your files (PDF, markdown, JSON, ...): tutor lecture help
+#   tutor mcp install     give Claude Code and the Claude desktop app the tutor as tools (show, ask, notes, lecture)
 #   tutor <flags>         anything else goes to chat/server.mjs (--model fable, --effort max, --mute, ...)
 #
 # Model, thinking, voice and speed chosen in the browser are remembered in chat/settings.json.
@@ -49,7 +50,12 @@ case "$1" in
   log) exec tail -f "$LOG" ;;
   write) shift; build; cd "$REPO" && exec node tools/write.mjs "$@" ;;
   lecture) shift; build; exec node "$REPO/chat/lecture/cli.mjs" "$@" ;; # stays in your folder, so file paths work
-  -h|--help|help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' ;;
+  mcp) shift; case "$1" in
+    install) shift; exec node "$REPO/chat/mcp/install.mjs" "$@" ;;
+    status|"") claude mcp list 2>/dev/null | grep -E "^tutor|tutor:" || echo "tutor: not registered (tutor mcp install)" ;;
+    *) echo "tutor mcp install [-y] | status"; exit 1 ;;
+  esac ;;
+  -h|--help|help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//' ;;
   *)
     [[ "$1" == new ]] && { shift; set -- --new "$@" }
     if running; then # already open: show it rather than start a second one

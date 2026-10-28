@@ -328,8 +328,10 @@ function saveAttachments(files) {
   return out;
 }
 
-function submit(text, source, files) {
+function submit(text, source, files, handoff = false) {
   text = String(text || '').trim();
+  // from another Claude chat (the MCP tools): the brief came from a conversation elsewhere; the learner watches the stage
+  if (text && handoff) S.note = (S.note ? S.note + '\n' : '') + '(This question was handed over from a conversation the learner had with another Claude. The brief below is that conversation\'s summary in the learner\'s words; the learner is watching the stage now, so just teach it there.)';
   const attached = saveAttachments(files);
   if (!text && attached.length) text = attached.some((a) => kindOf(a.name, a.type) !== 'image') ? 'Explain this.' : 'Explain what this shows.';
   if (!text) return;
@@ -587,7 +589,7 @@ const server = http.createServer(async (req, res) => {
     if (b.model) defaultModel = b.model;
     if (EFFORTS.includes(b.effort)) defaultEffort = b.effort;
     saveSettings();
-    submit(b.text, 'browser', b.files);
+    submit(b.text, b.handoff ? 'handoff' : 'browser', b.files, !!b.handoff);
     return json(res, { ok: true });
   }
   if (url.pathname === '/api/explain') { // "?…" typed in the browser: a side answer about the paused moment
