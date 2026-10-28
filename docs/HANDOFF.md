@@ -256,10 +256,10 @@ The newest working session's notes are the last entry of `docs/history.md`.
 ## 9. Open
 
 Next candidates, roughly by value:
-- **MCP tools, next:** untried by the user from the desktop app (`tutor mcp install`, quit and reopen the app)
-  and from the browser (`tutor mcp web on` needs Tailscale running and Funnel enabled once for the tailnet; then
-  the URL goes into claude.ai > Settings > Connectors). `show` with files from the desktop app or browser needs
-  local paths (uploads aren't on disk).
+- **MCP tools, next:** the browser path works (Funnel enabled, the connector saved in claude.ai; the user is
+  trying it). The desktop app is untried (`tutor mcp install`, quit and reopen the app). `show` with files from
+  the desktop app or browser needs local paths (uploads aren't on disk). The HTTP server could also take the token
+  as a header (claude.ai offers "request headers") instead of in the URL.
 - **Lecture mode, next.** The first lecture (`chat/lectures/20261027-060748-attention`) is built; the user has not
   yet tried an aside or a check answer in the real window. Then: part 6 was built with the nan bug (below) and
   could be rebuilt (`--parts 6`, then `notes`); the reviewer gives the first clean draft 3 and the second rewrite

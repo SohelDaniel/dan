@@ -612,4 +612,8 @@ Research: claude.ai custom connectors take a remote MCP URL reachable from Anthr
 tools over Streamable HTTP, stateless, a secret path) and `web.sh` (Tailscale Funnel on/off; the Mac already has
 Tailscale, stopped), `tutor claude --tools`, and `install` now writes `mcp.json` and removes any user-scope entry.
 tests/mcp.mjs: 9 checks (two over HTTP). The browser path is untried end to end: Tailscale was stopped.
+The browser path, end to end: claude.ai first said "no server responded" to the stateless server; with sessions
+(`mcp-session-id`, a GET stream) the connector saved and listed the eight tools. Funnel needed enabling once for
+the tailnet (Tailscale prints a link and waits; `web on` now prints the link instead of hanging). Port 4749, since
+4748 was `tutor write`.
 
