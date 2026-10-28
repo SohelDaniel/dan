@@ -25,8 +25,14 @@ case "$1" in
       for _ in {1..30}; do up && break; sleep 0.2; done
       up || { echo "the tool server did not start:"; cat "$LOG"; exit 1 }
     fi
-    $TS funnel --bg --yes $PORT >/dev/null 2>&1 || $TS funnel --bg $PORT || {
-      echo "Funnel refused: enable Funnel for this tailnet once (the error above says where), then run this again"; exit 1 }
+    # Funnel must be allowed for the tailnet once; Tailscale then prints a link and waits, which we don't
+    out=$($TS funnel --bg $PORT 2>&1 </dev/null &; p=$!; sleep 6; kill $p 2>/dev/null)
+    if print -r -- "$out" | grep -q "not enabled"; then
+      echo "Funnel is not enabled on your tailnet yet. Open this link once, allow it, then run this again:"
+      print -r -- "$out" | grep -o 'https://login.tailscale.com[^ ]*'
+      exit 1
+    fi
+    $TS funnel status 2>/dev/null | grep -q "$PORT" || { echo "Funnel did not start:"; print -r -- "$out"; exit 1 }
     echo "on. In claude.ai: Settings > Connectors > Add custom connector, with this URL (keep it private):"
     url
     ;;
