@@ -1,6 +1,7 @@
 // The same tools over HTTP, for claude.ai in the browser: Claude connects from Anthropic's servers, so the port
 // is shared on the internet by Tailscale Funnel (`tutor mcp web on`), and the only path that answers carries a
-// secret token (.tutor_cache/mcp-token, made once). Streamable HTTP, stateless: one transport per request.
+// secret token (.tutor_cache/mcp-token, made once). Streamable HTTP with sessions, as claude.ai expects: an
+// initialize starts one, later requests name it in mcp-session-id; a session that is quiet for an hour is dropped.
 //   node chat/mcp/http.mjs [--port 4749]
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -26,15 +27,32 @@ export function token() {
 const body = (req) => new Promise((ok) => { let s = ''; req.on('data', (d) => (s += d)); req.on('end', () => { try { ok(s ? JSON.parse(s) : undefined); } catch { ok(undefined); } }); });
 
 const secret = token();
+const sessions = new Map(); // mcp-session-id -> { transport, server, used }
+const IDLE = 60 * 60_000;
+setInterval(() => {
+  for (const [id, s] of sessions) if (Date.now() - s.used > IDLE) { s.transport.close(); s.server.close(); sessions.delete(id); }
+}, 60_000).unref();
+
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   if (url.pathname !== `/mcp/${secret}`) { res.writeHead(404); return res.end(); }
   try {
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-    const server = makeServer();
-    res.on('close', () => { transport.close(); server.close(); });
-    await server.connect(transport);
-    await transport.handleRequest(req, res, req.method === 'POST' ? await body(req) : undefined);
+    const parsed = req.method === 'POST' ? await body(req) : undefined;
+    const id = req.headers['mcp-session-id'];
+    let s = id && sessions.get(id);
+    if (!s) {
+      if (id || req.method !== 'POST' || parsed?.method !== 'initialize') { res.writeHead(400, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'no such session: initialize first' }, id: null })); }
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => crypto.randomUUID(),
+        onsessioninitialized: (sid) => sessions.set(sid, s),
+      });
+      const server = makeServer();
+      s = { transport, server, used: Date.now() };
+      transport.onclose = () => { if (transport.sessionId) sessions.delete(transport.sessionId); };
+      await server.connect(transport);
+    }
+    s.used = Date.now();
+    await s.transport.handleRequest(req, res, parsed);
   } catch (e) {
     if (!res.headersSent) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e.message || e) })); }
   }
