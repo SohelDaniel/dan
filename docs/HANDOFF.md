@@ -6,7 +6,7 @@ what is open. The dated story of how it got here (what was tried, measured, kept
 **Keep this file current.** Each session ends by updating it (see `CLAUDE.md`): change the map where the code
 changed, add gotchas, move finished items out of "Open", and add a dated entry to `docs/history.md`.
 
-Last updated: 2026-10-27 (lecture mode: a long lecture prepared from files, part by part, with notes to print; part 1 of a test lecture built, the rest waits for the user's go).
+Last updated: 2026-10-28 (lecture mode built and a first whole lecture made: 8 parts, 35 min, notes PDF; the user has not yet watched it with asides).
 
 ## 1. What it is
 
@@ -195,6 +195,9 @@ code, no stubs left behind.
   then caught a transient overlap with the old placer. Re-baseline (`--save`) only when the shift is the intent.
 - **A lecture build runs `./tutor`** (check, snapshots, layout report): don't rebuild the engine while one runs (as
   with evals). Build engine changes to a scratch binary meanwhile (`make -n tutor -B`, change `-o`).
+- **`--layout-report` printed `nan` for an empty stage's composition** (not JSON): the lecture builder then saw
+  no timeline, took one frame, and the reviewer scored a good part 1/5 (part 6 of the first lecture). Fixed in
+  main.cpp (0 when not finite) and the builder also tolerates it.
 - **The lecture reviewer sees the window's chrome** (key hints, dictionary line) in `--snapshot` frames; the prompt
   tells it to ignore them. In the first test it scored part 1 3/5 three times: rewrites fixed some problems and
   made others, so the build keeps the best version, not the last.
@@ -231,20 +234,23 @@ Done and measured (details in `docs/history.md`):
   2026-10-24/README.md` is the map of the audit and of what is still unmerged.
 - The chat takes images and PDFs (paste, drop, 📎) and saves a lesson as a video (`Save video`, `~/Movies/Tutor`).
 - Playground: `tutor write` (an editor beside the stage). The markup is called Dan; files are `.dan`.
-- Lecture mode (2026-10-27): files -> planned, built, reviewed parts -> a lecture on the stage with asides, and
-  notes to print. One test lecture planned (the Transformer paper, 8 parts, 20 min), part 1 built (~16 min, ~0.8M
-  input / 90K output tokens, reviewer 3/5).
+- Lecture mode (2026-10-27/28): files -> planned, built, reviewed parts -> a lecture on the stage with asides, and
+  notes to print. First whole lecture: the Transformer paper, 8 parts, 35 min of lecture, 33-page notes; parts at
+  xhigh took 27-37 min each (~7 min of build per lecture minute; ~4 at high), reviewer 3-4/5 on every kept part.
 
 The newest working session's notes are the last entry of `docs/history.md`.
 
 ## 9. Open
 
 Next candidates, roughly by value:
-- **Lecture mode, next** (the user wanted to see part 1 before the rest is built: `tutor lecture build attention`
-  builds parts 2-8, ~2 h). Then: try an aside and a check answer in the real window (built, not yet tried with a
-  person); measure what a part costs in `/usage`; the reviewer never reached 4/5 (look whether rewrites converge, or
-  stop at the first 3 with no hard problem); `send` copies stay drawn over their originals (seen in part 1 at 66 s:
-  an engine issue); a browser Play starts a second stage window beside the chat's.
+- **Lecture mode, next.** The first lecture (`chat/lectures/20261027-060748-attention`) is built; the user has not
+  yet tried an aside or a check answer in the real window. Then: part 6 was built with the nan bug (below) and
+  could be rebuilt (`--parts 6`, then `notes`); the reviewer gives the first clean draft 3 and the second rewrite
+  often 4 (parts 2, 4, 5), but parts 1, 3, 7, 8 never passed 3: look at whether its problems are the same ones each
+  time (small boxes, axes from zero, stale things) and teach them in `part-prompt.md` instead of rewriting; `send`
+  copies stay drawn over their originals (part 1, 66 s: an engine issue); a browser Play opens a second stage
+  window beside the chat's; the suggested length overshoots (20 min asked, 35 made: parts run 3.5-5.7 min against
+  the 2-3 planned, so the writer ignores `minutes`).
 - **Finish the axiom audit.** Seven tested patches are ready but not merged: D2 the cut, D3 colour stability,
   D6 `focus a,b hold`, D7 trails across turns, D8 a gloss of `mark`, D10 `morph f.tex += "…"`, D11 the camera on
   timelines. Each is in `reports/Axiom audit 2026-10-24/decisions/` with its engineer's notes; the README there has

@@ -45,7 +45,7 @@ function show(m) {
   if (o) console.log('\n' + outlineText(o));
   if (o) {
     const built = o.parts.map((_, i) => readJson(partFile(m, i + 1).replace(/\.dan$/, '.report.json'), null));
-    if (built.some(Boolean)) console.log('\nbuilt: ' + built.map((r, i) => r ? `${i + 1} (~${Math.round(r.seconds / 6) / 10} min, critic ${r.rounds.at(-1)?.review?.score ?? '-'})` : `${i + 1} -`).join(', '));
+    if (built.some(Boolean)) console.log('\nbuilt: ' + built.map((r, i) => r ? `${i + 1} (~${Math.round(r.seconds / 6) / 10} min, reviewer ${keptScore(r) ?? '-'})` : `${i + 1} -`).join(', '));
   }
 }
 
@@ -60,6 +60,9 @@ function warmVoice(m) {
   const r = spawnSync(path.join(ROOT, 'tutor'), [path.join(dirOf(m.id), 'lecture.dan'), '--prepare-voice', ...voiceArgs()], { cwd: ROOT, stdio: 'inherit' });
   if (r.status !== 0) console.error('voice: some lines failed; they will be fetched when played');
 }
+
+// the reviewer's score of the version a part kept (not of its last attempt)
+const keptScore = (r) => r.rounds.find((x) => x.v === r.kept)?.review?.score ?? null;
 
 async function notes(m) {
   try {

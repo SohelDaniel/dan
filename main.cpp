@@ -155,7 +155,9 @@ int main(int argc, char **argv) {
     for (size_t i = 0; i < eng.flipLog.size(); i++) std::fprintf(f, "%s\"%s\"", i ? "," : "", esc(eng.flipLog[i]).c_str());
     std::fprintf(f, "],\"timeline\":[");
     for (size_t i = 0; i < eng.timeline.size(); i++) std::fprintf(f, "%s\"%s\"", i ? "," : "", esc(eng.timeline[i]).c_str());
-    std::fprintf(f, "],\"composition\":{\"fill\":%.2f,\"offset\":%.2f}}\n", last.fill, last.offset);
+    // an empty stage has no extent: its fill is 0, never nan (which is not JSON)
+    auto num = [](float v) { return std::isfinite(v) ? v : 0.f; };
+    std::fprintf(f, "],\"composition\":{\"fill\":%.2f,\"offset\":%.2f}}\n", num(last.fill), num(last.offset));
     if (f != stdout) std::fclose(f);
     return 0;
   }

@@ -38,7 +38,7 @@ function state(m) {
   const outline = readJson(path.join(dir, 'outline.json'), null);
   const parts = outline ? outline.parts.map((_, i) => {
     const r = readJson(partFile(m, i + 1).replace(/\.dan$/, '.report.json'), null);
-    return r && { seconds: r.seconds, critic: r.rounds.at(-1)?.review?.score ?? null, rounds: r.rounds.length };
+    return r && { seconds: r.seconds, critic: r.rounds.find((x) => x.v === r.kept)?.review?.score ?? null, rounds: r.rounds.length };
   }) : [];
   return { ...m, target: targetMinutes(m), outline, parts, job: job(m),
     played: fs.existsSync(path.join(dir, 'lecture.dan')), notes: fs.existsSync(path.join(dir, 'notes.pdf')) };

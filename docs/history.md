@@ -580,3 +580,15 @@ with a **short check**, building is **quality first**.
 - Regressions: make test (51 engine cases, 2 new), check 124 ok, golden all same, append the 4 known space-*
   differences, toolbox/compute ok, tests/lecture.mjs 13 ok, tests/notes.mjs 6 ok.
 Left: the user decides on parts 2-8 after seeing part 1; asides and checks are untested with a person (HANDOFF §9).
+
+### 8o, continued: 2026-10-28, the first whole lecture
+The user watched part 1's frames and said go on, with thinking "longer" (xhigh). Parts 2-8 built from 02:23 to
+06:05 (3 h 42 min for 7 parts: 27-37 min each), then voice and a 33-page notes PDF (8.6K words, 9 mermaid
+diagrams, no print problems). Lecture: 35 min of narration against 20 asked (every part ran longer than its
+plan). Reviewer on the kept versions: 3, 4, 3, 4, 4, 3, 3, 3. Pattern: the first clean draft scores 3, the first
+rewrite 3, the second rewrite 4 in three parts of seven; the best version is kept, so a failed rewrite costs only
+time. Found and fixed: `--layout-report` printed `nan` for an empty stage, which broke the builder's reading of
+part 6's reports (four of its six versions evaluated blind, one scored 1/5 for "no narration"); the engine now
+prints 0 and the builder tolerates nan. The summary showed the last attempt's score instead of the kept version's
+(fixed). Cost of the whole lecture from the session logs: see the commit message.
+

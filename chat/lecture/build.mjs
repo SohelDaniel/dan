@@ -72,7 +72,9 @@ async function evaluate(reply, dir) {
   const out = (chk.stdout || '') + (chk.stderr || '');
   const lints = [...new Set(out.split('\n').filter((l) => l.startsWith('  ') || l.startsWith('parse:')).map((l) => l.trim()))];
   let layout = null;
-  try { layout = JSON.parse(tutor([file, '--layout-report', '-']).stdout.trim().split('\n').pop()); } catch {}
+  // (older engines printed nan for an empty stage's composition, which is not JSON)
+  try { layout = JSON.parse(tutor([file, '--layout-report', '-']).stdout.trim().split('\n').pop().replace(/-?(nan|inf)\b/g, '0')); } catch {}
+  if (!layout) problems.push('the layout report could not be read: the frames and narration below may be incomplete');
   const timeline = (layout?.timeline || []).map((t) => t.split(' ')).map(([s, kind, line]) => ({ t: Number(s), kind, line: Number(line) }));
   const starts = timeline.filter((e) => e.kind === 'say');
   const at = starts.length <= FRAMES ? starts.map((e) => e.t + 1.5)
