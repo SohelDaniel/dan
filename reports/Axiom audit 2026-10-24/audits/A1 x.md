@@ -4,7 +4,7 @@
 README's longer form adds the bridge to continuity: "... animated from the real value, so there are no jump cuts."
 
 Auditor A1 of eight, 2026-10-24. Repo read-only. Everything I made is under
-`/private/tmp/claude-501/-Users-soheldanial-code-server-testing-visulaizations-tutor/37e07ea3-2a08-44c3-b78a-4c2380bf6126/scratchpad/audit-1/`
+`<scratchpad>/audit-1/`
 (below: `scenes/<name>.dan`, `shots/<name>_<t>.png`, contact sheets `shots/<name>_sheet.png` tiled in time order,
 `checks.txt` = every `--check` and `--readback` output of batch 1). Commands are run from the repo root with `./tutor`.
 Binaries used as found (tutor and tests/test_engine built 2026-10-23 11:28); `./tests/test_engine`: 31/31 pass.

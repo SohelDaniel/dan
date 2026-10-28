@@ -1,6 +1,6 @@
 # D7 (engineer A): trails across a turn boundary
 
-Worktree: `/Users/soheldanial/code/server/testing/visulaizations/tutor/.claude/worktrees/agent-a80a990da1d665390`
+Worktree: `<repo>/.claude/worktrees/agent-a80a990da1d665390`
 (branch `worktree-agent-a80a990da1d665390`, base commit 6038197). Nothing committed. Scenes, frames and helper
 scripts referred to below are in this folder (`scenes/`, `frames/`, `rt.sh`, `fold.sh`, `append-diff.sh`).
 

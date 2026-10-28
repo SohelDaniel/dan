@@ -1,6 +1,6 @@
 # Audit: "spoken but not shown", per-beat check feasibility (read-only, 2026-10-22)
 
-Repo: /Users/soheldanial/code/server/testing/visulaizations/tutor (nothing modified). Inputs copied here.
+Repo: <repo> (nothing modified). Inputs copied here.
 Supporting files in this dir: timing.mjs (session timings), timeit.py (--check timing), lints.mjs ->
 binding_lints.tsv (every binding lint with its Say), gaps.mjs -> gaps.json (uncovered claim kinds), probe*.txt.
 

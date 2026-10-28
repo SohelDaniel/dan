@@ -1,11 +1,11 @@
 # Audit A3: axiom 3, Zero
 
 Auditor A3 of eight. Repo read-only; nothing built, nothing committed. Everything referenced below lives under
-/private/tmp/claude-501/-Users-soheldanial-code-server-testing-visulaizations-tutor/37e07ea3-2a08-44c3-b78a-4c2380bf6126/scratchpad/audit-3
+<scratchpad>/audit-3
 (call it A3/): scenes in `A3/scenes/`, `--check`/`--readback` output in `A3/out/<scene>.check|.readback`, frames in
 `A3/shots/`, the sweeps as `A3/keysweep2.sh`, `A3/dropmatrix.py`, `A3/scan_sessions.py`, `A3/scan_colorclash.py`
 (results in `A3/out/keysweep2.txt`, `dropmatrix.txt`, `sessions_scan.txt`, `colorclash_scan.txt`). Repo paths
-below are relative to /Users/soheldanial/code/server/testing/visulaizations/tutor. Commands were run from the repo root
+below are relative to <repo>. Commands were run from the repo root
 as `./tutor A3/scenes/<name>.dan --check | --readback | --snapshot A3/shots/<name> --at end --mute`.
 
 The axiom, as the README states it (README.md:364): "Unrelated things never share a color. Two things share ink only

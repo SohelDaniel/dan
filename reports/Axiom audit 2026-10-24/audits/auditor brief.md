@@ -1,6 +1,6 @@
 # Common brief for the axiom audit (read this first)
 
-Repo: /Users/soheldanial/code/server/testing/visulaizations/tutor (a C++20 + raylib engine for the markup language Dan, files *.dan; a Node chat layer under chat/). Read docs/HANDOFF.md first: it is the map (code, commands, gotchas). The language reference is README.md between '## The language' and '## The dictionary'. The teaching protocol Claude follows is chat/prompt.md; the moves are chat/toolbox.md; examples chat/examples/*.dan; scripts scripts/*.dan.
+Repo: <repo> (a C++20 + raylib engine for the markup language Dan, files *.dan; a Node chat layer under chat/). Read docs/HANDOFF.md first: it is the map (code, commands, gotchas). The language reference is README.md between '## The language' and '## The dictionary'. The teaching protocol Claude follows is chat/prompt.md; the moves are chat/toolbox.md; examples chat/examples/*.dan; scripts scripts/*.dan.
 
 ## The axioms, verbatim (README.md 'Axioms, enforced')
 
@@ -72,4 +72,4 @@ engine stays the only author of pixels.
 5. **Proposed fixes**, ranked by value over cost, each with: the test that would fail on today's engine and pass after, which axioms the fix touches, a size (lines, hours).
 6. **Checked and fine**: what you tried that behaved correctly (so it is not re-checked later).
 
-Also read the session notes at /private/tmp/claude-501/-Users-soheldanial-code-server-testing-visulaizations-tutor/37e07ea3-2a08-44c3-b78a-4c2380bf6126/scratchpad/session-notes.md (findings from the user's hands-on session today) and the enforcement map at /private/tmp/claude-501/-Users-soheldanial-code-server-testing-visulaizations-tutor/37e07ea3-2a08-44c3-b78a-4c2380bf6126/scratchpad/enforcement-map.md (where each axiom is enforced in the code, file:line, every lint, every test). Confirm or refute the session findings that fall in your area; cite them by number.
+Also read the session notes at <scratchpad>/session-notes.md (findings from the user's hands-on session today) and the enforcement map at <scratchpad>/enforcement-map.md (where each axiom is enforced in the code, file:line, every lint, every test). Confirm or refute the session findings that fall in your area; cite them by number.

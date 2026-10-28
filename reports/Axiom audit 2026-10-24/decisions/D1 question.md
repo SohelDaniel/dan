@@ -4,7 +4,7 @@ Today a point on a curve repeats the function (`x={2+h} y={f(2+h)}`) and walks b
 relation "q is on f" exists only in the author's head. Worse, `on=f` on a dot is accepted today and misplaces it
 (the generic "seated on its top edge" attachment for arrays and labels; the dot lands on the curve's bounding box).
 The user proposed the rider; the position-rule auditor wrote a full spec with nine tests. Material:
-/private/tmp/claude-501/-Users-soheldanial-code-server-testing-visulaizations-tutor/37e07ea3-2a08-44c3-b78a-4c2380bf6126/scratchpad/audit-7/notes.md ("Fix 1" and verdicts about on=), /private/tmp/claude-501/-Users-soheldanial-code-server-testing-visulaizations-tutor/37e07ea3-2a08-44c3-b78a-4c2380bf6126/scratchpad/session-notes.md (finding 7), /private/tmp/claude-501/-Users-soheldanial-code-server-testing-visulaizations-tutor/37e07ea3-2a08-44c3-b78a-4c2380bf6126/scratchpad/audit-6/notes.md (the
+<scratchpad>/audit-7/notes.md ("Fix 1" and verdicts about on=), <scratchpad>/session-notes.md (finding 7), <scratchpad>/audit-6/notes.md (the
 on= round trip). Scope: which kinds can ride (dot, label, a vector's tail), what can be ridden (fn path, line,
 parametric path with t=, solution, surface), the free coordinate the author gives, no derived property stored (the
 readback keeps `on=f x=2`), `{q.y}`/`\val{}` read the derived value (Engine::member), `morph q.x` keeps it on

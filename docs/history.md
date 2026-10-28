@@ -617,3 +617,23 @@ The browser path, end to end: claude.ai first said "no server responded" to the 
 the tailnet (Tailscale prints a link and waits; `web on` now prints the link instead of hanging). Port 4749, since
 4748 was `tutor write`.
 
+
+## 8q. 2026-10-28: public on GitHub, and on the portfolio
+
+The user asked for the repo to be cleaned up, given a professional README, pushed to a new GitHub repo named
+`dan`, and added to their portfolio (`~/code/portfolio`, Astro on GitHub Pages at danielsohel.com). Checked first:
+no key, chat, lecture or settings file had ever been committed (the gitignore held), but 22 reports and research
+notes carried absolute paths from this Mac (scratchpad folders of the audit agents, the repo path, a plan file):
+replaced with `<scratchpad>`, `<repo>`, `<plan file>`. The 27 audit worktrees (all dirty, all on 6038197) were
+archived as diffs plus untracked files in `.tutor_cache/worktrees-archive-2026-10-28/` (880 KB) and removed with
+their branches; `.claude/worktrees/` is now gitignored. `notes.md` (a one-line compile command) deleted. Mistake
+on the way: the scrub ran over untracked folders too and rewrote the repo path in `chat/mcp/mcp.json`, one old
+chat's `check.sh`, a lecture job log and eval outputs; reversed in the same minute (no `<scratchpad>` had landed
+in any of them), and the handoff now says what must never go into tracked files.
+README: a new head (what it is, a Dan example that passes `--check` at 100/100, the axioms, how it works, getting
+started for the chat, lectures, MCP and notes, the code map, testing with the measured numbers, status, licence)
+over the unchanged language section, which the prompt still slices out (verified byte-identical). Six frames from
+`scripts/` as `docs/images/stage.png` (cropped below the dictionary line) and four single frames. MIT licence.
+Portfolio: `src/content/projects/dan.md` first (the others moved down one), a 32 s muted clip of
+`scripts/derivative.dan` from `--record` (webm/mp4/poster as the site's `media.sh` does it), five gallery frames,
+the "now" line and the About paragraph mention the tutor. `pnpm build` passes; pushed to `main`, which deploys.

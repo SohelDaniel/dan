@@ -6,7 +6,8 @@ what is open. The dated story of how it got here (what was tried, measured, kept
 **Keep this file current.** Each session ends by updating it (see `CLAUDE.md`): change the map where the code
 changed, add gotchas, move finished items out of "Open", and add a dated entry to `docs/history.md`.
 
-Last updated: 2026-10-28 (lecture mode built and a first whole lecture made; the tutor is now an MCP tool server for Claude Code and the desktop app).
+Last updated: 2026-10-28 (public on GitHub as github.com/SohelDaniel/dan: README rewritten for readers, MIT licence,
+the audit worktrees removed, personal paths scrubbed from the reports).
 
 ## 1. What it is
 
@@ -224,7 +225,10 @@ code, no stubs left behind.
 - API keys are shared on purpose (`.inworld_key`). Use them; no warnings about it.
 - **Chat sessions (`chat/sessions/`), learner memory (`chat/memory/`), the library (`chat/library/`) and
   `chat/settings.json` are the user's data.** Never commit, delete or overwrite them without asking.
-- Commit progress in git. Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Commit progress in git. Commit messages end with a `Co-Authored-By: Claude …` line naming the model that worked.
+- **The repo is public** (github.com/SohelDaniel/dan, `origin`). Nothing personal goes into tracked files: no
+  absolute paths from this Mac, no tokens or tailnet names, no chat content. `README.md` is written for readers;
+  its language section (between "## The language" and "## The dictionary") is still part of the prompt.
 - Plain, direct answers. Admit what's wrong. They judge by what they see on the stage.
 - Ask before big or hard-to-undo changes. Small fixes the user asked for: just do them, then report.
 
@@ -290,9 +294,8 @@ Next candidates, roughly by value:
 - **`make append` reports 4 DIFFERS on `space-saddle`/`space-downhill`**: an artefact, not a decodability break. The
   streamed readback carries one stale `# lint: space: … camera never moves` comment; the model lines are identical.
   Fix: re-derive that lint on append like the hook lints, or compare model lines only in `tests/append.sh`.
-- **Housekeeping:** `.claude/worktrees/` holds ~27 agent worktrees from the audit (untracked; every useful patch is in
-  `reports/`). Remove them with `git worktree list` + `git worktree remove --force <path>` and `git branch -D` the
-  `worktree-agent-*` branches, after checking nothing else is wanted. One throwaway chat, `chat/sessions/
-  20261024-194917`, came from testing attachments (the user's data: ask before deleting).
+- **Housekeeping:** one throwaway chat, `chat/sessions/20261024-194917`, came from testing attachments (the user's
+  data: ask before deleting). The 27 audit worktrees were removed on 2026-10-28; their uncommitted diffs are in
+  `.tutor_cache/worktrees-archive-2026-10-28/` (gitignored) if a patch ever turns out to be missing from `reports/`.
 - Small: no camera pan for long arrays or timelines; contour labels and field legends aren't in the checker;
   `scripts/*.readback` files are generated junk.

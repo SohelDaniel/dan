@@ -3,9 +3,9 @@
 Engineer D3-A, in two hands: the first engineer designed and built most of it and was cut off by a usage limit while
 reading the regression tails; a second engineer reviewed that diff, found and fixed the bugs listed under
 "Implementation / changes relative to the predecessor", finished the regressions, the measurements and these notes.
-Worktree: `/Users/soheldanial/code/server/testing/visulaizations/tutor/.claude/worktrees/agent-a6c78de2a8fc9f6e2`
+Worktree: `<repo>/.claude/worktrees/agent-a6c78de2a8fc9f6e2`
 (base commit 6038197, nothing committed). Everything referenced below is under
-`/private/tmp/claude-501/-Users-soheldanial-code-server-testing-visulaizations-tutor/37e07ea3-2a08-44c3-b78a-4c2380bf6126/scratchpad/dec-D3-A`
+`<scratchpad>/dec-D3-A`
 (called `D3A/`): scenes in `D3A/scenes/`, frames in `D3A/frames/`, logs `D3A/*.log`, measuring scripts in
 `D3A/harness/`, an untouched copy of the base commit with its own binary in `D3A/old/` (verified equal to HEAD for every
 tracked file under markup/, rm/, tests/, main.cpp, Makefile).

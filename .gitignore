@@ -37,3 +37,4 @@ chat/lectures/
 playground/
 # machine-specific: paths to node and this checkout (tutor mcp install writes it)
 chat/mcp/mcp.json
+.claude/worktrees/

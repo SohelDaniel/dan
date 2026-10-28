@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 
-const ROOT = '/Users/soheldanial/code/server/testing/visulaizations/tutor';
+const ROOT = '<repo>';
 const TUTOR = path.join(ROOT, 'tutor');
 const argv = process.argv.slice(2);
 const flag = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : d; };

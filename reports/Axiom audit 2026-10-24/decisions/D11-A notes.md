@@ -1,6 +1,6 @@
 # D11-A: the camera on timelines and number lines
 
-Worktree: `/Users/soheldanial/code/server/testing/visulaizations/tutor/.claude/worktrees/agent-a33c4596c97d07376`
+Worktree: `<repo>/.claude/worktrees/agent-a33c4596c97d07376`
 (branch `worktree-agent-a33c4596c97d07376`, base commit 6038197). Nothing committed; `patch.diff` is `git diff`
 (with `git add -N scripts/geology.dan` so the new script appears), its `--stat`, and `git status --short`. The
 untracked `tools/tex/node_modules` is the MathJax symlink the brief asked for. Scenes and frames referred to below

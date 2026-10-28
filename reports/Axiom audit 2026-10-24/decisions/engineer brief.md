@@ -21,12 +21,12 @@ structure (no placement words; links make columns, groups lanes, order is order)
 
 ## Where you work
 You are in YOUR OWN git worktree of the repo (confirm with `git rev-parse --show-toplevel`; it is not
-/Users/soheldanial/code/server/testing/visulaizations/tutor). Work only there. Never edit, build in, or commit to
+<repo>). Work only there. Never edit, build in, or commit to
 the main repo. Do not commit in your worktree either: leave your changes in the working tree and export them.
-Before building: `ln -s /Users/soheldanial/code/server/testing/visulaizations/tutor/tools/tex/node_modules tools/tex/node_modules`
+Before building: `ln -s <repo>/tools/tex/node_modules tools/tex/node_modules`
 (MathJax for formulas; otherwise --check reports TeX errors). Then `make` (first build 1-3 min), `make test`.
 The user's data (chat/sessions, chat/memory, chat/library, chat/settings.json) lives only in the main repo: you may
-READ `/Users/soheldanial/code/server/testing/visulaizations/tutor/chat/sessions/*/turns/*.txt|*.dan` to see what
+READ `<repo>/chat/sessions/*/turns/*.txt|*.dan` to see what
 Claude really writes; never write there. Never open a visible window: use `--snapshot`, `--layout-report`,
 `--check`, `--readback`. Keep scratch files (test scenes, frames) in YOUR_DIR (given below), not in the worktree.
 

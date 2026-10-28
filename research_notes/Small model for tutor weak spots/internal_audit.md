@@ -1,10 +1,10 @@
 # Internal audit: what Claude gets wrong in the live visual tutor (local data only)
 
-Scope: only local data. That means 308 judged eval scenes (7 runs × 44 broad questions) plus 24 from eval1/eval2 and 3 from show2, 39 assistant turns in real chats (23 sessions), and 38 Claude Code transcripts of those chats. All scores use the v2 judge rubric (Sonnet, `--effort low`, scale 1-5). The judge reads the script, the engine's `check.txt` and 2-3 frames. Analysis scripts are in `/private/tmp/claude-501/-Users-soheldanial-code-server-testing-visulaizations-tutor/8d1d9fbb-07b0-4126-8f4f-093302a907b1/scratchpad/audit/` (agg.py, lints.py, cats.py, all.json). No project files were modified.
+Scope: only local data. That means 308 judged eval scenes (7 runs × 44 broad questions) plus 24 from eval1/eval2 and 3 from show2, 39 assistant turns in real chats (23 sessions), and 38 Claude Code transcripts of those chats. All scores use the v2 judge rubric (Sonnet, `--effort low`, scale 1-5). The judge reads the script, the engine's `check.txt` and 2-3 frames. Analysis scripts are in `<scratchpad>/audit/` (agg.py, lints.py, cats.py, all.json). No project files were modified.
 
 Source shorthand:
-- SP = `/private/tmp/claude-501/-Users-soheldanial-code-server-testing-visulaizations-tutor/8d1d9fbb-07b0-4126-8f4f-093302a907b1/scratchpad`
-- REPO = `/Users/soheldanial/code/server/testing/visulaizations/tutor`
+- SP = `<scratchpad>`
+- REPO = `<repo>`
 
 Runs:
 - latA = current prompt.

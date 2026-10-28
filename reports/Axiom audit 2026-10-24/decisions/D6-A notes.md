@@ -1,6 +1,6 @@
 # D6-A: holding a subject (`focus a,b`, `focus x hold`) and the edges of axiom 5
 
-Engineer D6-A. Worktree: `/Users/soheldanial/code/server/testing/visulaizations/tutor/.claude/worktrees/agent-a0ebb97c92abd4bdb`
+Engineer D6-A. Worktree: `<repo>/.claude/worktrees/agent-a0ebb97c92abd4bdb`
 (branch `worktree-agent-a0ebb97c92abd4bdb`, base commit 6038197). Scenes and frames referred to below are under this
 folder (`scenes/`, `frames/`); `patch.diff` is the worktree's `git diff` with its stat and status.
 

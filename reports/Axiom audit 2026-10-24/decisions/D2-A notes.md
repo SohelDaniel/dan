@@ -1,6 +1,6 @@
 # D2, engineer A: name the cut
 
-Worktree: `/Users/soheldanial/code/server/testing/visulaizations/tutor/.claude/worktrees/agent-adf4caed0898df485`
+Worktree: `<repo>/.claude/worktrees/agent-adf4caed0898df485`
 (branch `worktree-agent-adf4caed0898df485`, base commit 6038197). Nothing committed. Scenes in `scenes/`, frames
 in `frames/`, regression logs `make-test.log`, `make-check.log`, `golden-new.log`, `golden-old.log`,
 `make-append.log`, the failing test run `test-old-engine.log`, the passing one `test-new-engine.log`, the patch

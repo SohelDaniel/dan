@@ -1,78 +1,202 @@
-# tutor
+# Dan
 
-Explanations that draw themselves. You write a `.dan` file in Dan, the markup language (named after its author; `.dan` is its extension, as `.md` is Markdown's). The engine draws it with raylib, animates it, narrates it, and reads it back.
+**A visual AI tutor that explains by drawing and speaking, in the spirit of 3Blue1Brown.**
 
-To use the tutor: `tutor` (or `tutor claude` to work on it with Claude Code). See `bin/tutor` and `docs/HANDOFF.md`.
+You ask a question. Claude answers in a small declarative markup called Dan. A C++20 engine built on raylib
+draws it, animates it, narrates it with streaming text-to-speech, and reads it back to check that the picture
+means what the words say. Claude never gives a pixel: the engine owns layout, timing, colour, scales and the
+camera, so the picture stays honest.
+
+<p align="center"><img src="docs/images/stage.png" alt="Six frames from the stage: a derivative as a limit, backpropagation through a graph, a saddle surface in 3D, gradient descent over a contour field, kinetic energy as a formula and two bars, an integral as accumulated area" width="100%"></p>
 
 ```
-make                                   # builds ./tutor and ./manim_demo
-./tutor scripts/bank.dan               # play, narrated by Inworld TTS (edit the file while it runs: it hot-reloads)
-./tutor scripts/bank.dan --mute        # no voice, estimated word timing
-./tutor scripts/bank.dan --voice-id Ashley --speed 1.1
-./tutor scripts/bank.dan --record out.mp4   # export video with the narration muxed in
-./tutor scripts/bank.dan --readback    # no window: run to the end, print the scene as markup
-./tutor scripts/bank.dan --check       # no window: decodability + axiom lint, exit 1 on failure
-./tutor scripts/bank.dan --snapshot out --at 3,8,end   # hidden window: frames out_3.png … (for checks and evals)
-./tutor scripts/bank.dan --layout-report -             # no window: play it, check the layout every 0.5 s (JSON)
-./tutor scripts/bank.dan --placer old  # labels at the old fixed offsets (default: placed by the placement module)
-./tutor scripts/bank.dan --verbose     # log every line, hook and voice start with timestamps
-./tutor live.dan --stdin               # live: lines piped in continue the running scene (no restart);
-                                       #   "#!load <file>" starts over, "#!interrupt" fast-forwards, "#!state thinking|listening|idle";
-                                       #   prints "@ev say|word|end|idle|input" events; you can type on the stage.
-                                       #   With --readback: chunks split by "#!chunk"
-make check                             # --check every script in scripts/
-make test && make golden               # placement unit tests; layout regression (geometric score per script)
-make tex                               # once: installs MathJax for formulas (tools/tex, needs node)
+title "How a bank transfer works"
+mark alice bar account balance=100 label="Alice" unit=$
+mark bob   bar account balance=20  label="Bob"   unit=$
+
+Say: "Alice has a hundred dollars. Bob has twenty."
+Say: "Alice sends Bob thirty |go|."
+@go link pay arrow alice -> bob amount=30
+@go morph alice.balance 100 -> 70 1.5s
+with morph bob.balance 20 -> 50 1.5s
+Say: "Nothing was created or destroyed. Thirty dollars just moved."
 ```
 
-The full guide is `docs/guide.html`.
+Three things happen when this plays. The two bars share one zero and one scale, fixed before the first frame.
+The arrow draws itself on the word *thirty* and both bars ease to their new heights together. At the end,
+`--readback` prints the scene in the same vocabulary, with what changed, so a checker can confirm that the
+picture is the one the markup describes.
 
-**Voice.** Narration uses Inworld's streaming TTS (`inworld-tts-2`, default voice `Brian`; `--voice-id Jason` or `$TUTOR_VOICE` to change, list: `GET https://api.inworld.ai/tts/v1/voices`). The key is read from `--inworld-key`, then `$INWORLD_API_KEY`, then `./.inworld_key`.
-- At load, every `Say` line is queued in script order: the first plays within about half a second, and later lines are fetched while earlier ones speak.
-- Audio streams as raw PCM into a raylib audio stream, so playback starts before the line has finished synthesising.
-- `|hooks|` fire on Inworld's own word timestamps, and while a line plays, its clock is the audio position itself.
-- Finished lines are cached in `.tutor_cache/` (pcm + word timings + wav), so re-runs are instant and free.
-- Without a key, or with `--mute`, timing is estimated from word length.
+## What it does
 
-Keys: `space` pause, `→` skip the current animation, `←` back a sentence, `shift ←/→` the part before / after (parts
-are `scene` lines), `R` restart, `D` toggle the dictionary caption, `S` screenshot.
+| | |
+|---|---|
+| **Ask anything** | Type on the stage window or in the browser console. Claude plans the explanation, writes Dan one beat at a time, and the stage plays each line while the next is still being written. Formulas are typeset with LaTeX, with one step per sentence and a rest after it. |
+| **Pause and ask** | Press space, type a question about what is on screen, and get a spoken aside about the paused frame. |
+| **Lectures from files** | Give it a paper, notes, code or a JSON file. It plans a lecture in parts of a few minutes, builds each part in a write, check, review, rewrite loop, fetches the voice ahead, and plays it on the stage with checks for understanding at the end of each part. It also writes notes to print: Markdown with LaTeX and mermaid, exported to PDF. |
+| **From any Claude chat** | The tutor is also an MCP server. In Claude Code, the Claude desktop app, or claude.ai in the browser, say "show me this on the stage" and the chat's Claude hands a brief to the tutor, which explains it the way it always does. |
+| **Save a video** | One click renders the lesson to mp4 with the narration. |
+| **Write Dan yourself** | `tutor write` opens an editor beside the stage. What you type plays as you type it, with the lints and the readback alongside. |
 
-**Lectures.** `tutor lecture new notes.pdf data.json …` (or *Lectures* in the browser) prepares a long lecture from
-files: Claude plans it in parts of a few minutes (an outline and a bible of notation and running examples, which
-you can read and edit), then builds each part: writes it, fixes what `--check` says, has a separate reviewer look at
-frames, and rewrites below 4/5. The parts are joined into `chat/lectures/<id>/lecture.dan`, the voice is fetched
-ahead (`--prepare-voice`), and notes to print are written (`tools/notes/notes-pdf.mjs`: markdown with LaTeX and
-mermaid, to PDF). `tutor lecture play` plays it live: type a question, or answer a part's closing question, and an
-aside is played on the same stage from the moment you stopped; then the lecture's own picture comes back as it was
-and goes on from that sentence (the aside's things go with it, as at a `scene` line, not deleted within one).
-`tutor lecture help` lists the steps.
+## The axioms
 
-**From any Claude chat.** The tutor is also a set of MCP tools: `show` (a brief of what you were discussing,
-explained on the stage), `ask`, `stage`, `notes` (markdown → a PDF in `~/Documents/Tutor notes`), and `lecture` /
-`lecture_build` / `lecture_play`. The chat's Claude writes only the brief; the tutor's own Claude writes the scene
-with this prompt. `tutor mcp install` sets up the Claude desktop app and writes `chat/mcp/mcp.json`; Claude Code
-loads the tools only when asked (`tutor claude --tools`, or `claude --mcp-config chat/mcp/mcp.json` anywhere);
-`tutor mcp web on` shares them with claude.ai in the browser through Tailscale Funnel on a secret URL
-(`tutor mcp web off` closes it). `chat/mcp/`.
+The engine enforces six rules, so that a picture can never lie about the words.
 
-## Layout
+1. **Identity.** There is no delete. A re-mark updates in place, and a morph from a wrong value animates from the real one. Nothing jump-cuts.
+2. **Structure.** Baselines and scales are shared and fixed for the whole script by a prescan. They never jump mid-explanation.
+3. **Zero.** Nothing in the picture without a meaning. Unrelated things never share a colour, and two things touch only when the script relates them.
+4. **Continuity.** Every change is an eased morph. Things grow in, links draw themselves, focus fades.
+5. **Bounded focus.** `focus` lights one thing for one sentence, then everything returns.
+6. **Decodability.** `--readback` prints the scene as markup, and `--check` re-parses it to the same scene.
+
+The rule that follows from them: **position comes from structure.** There are no placement words. Columns come
+from links, order from declaration, lanes from groups, and a layered flow, a label placer and an exact overlap
+checker decide where everything goes. See [Axioms, enforced](#axioms-enforced) for how each one is kept.
+
+## How it works
+
+```
+ you ─── question ───▶ Claude (plan, then Dan, one beat at a time)
+                            │
+                            ▼  lines, streamed
+                      ┌───────────┐   readback + lints   ┌─────────┐
+                      │  engine   │ ───────────────────▶ │ checker │ ──▶ fed back to Claude next turn
+                      │ (raylib)  │                      └─────────┘
+                      └───────────┘
+                        │       │
+                 stage window   Inworld TTS (word timings drive the cues)
+```
+
+- **Prescan.** Before the first frame, the whole script is run instantly in a shadow engine, so every scale and
+  baseline is known, and values that are computed later are already counted.
+- **Layout per frame.** Ranges, then the band of formulas, then the schema layout of bodies (free, number line,
+  axes, timeline, graph, 3D space), then pointers and attachments, easing, and finally labels placed map-style with
+  hysteresis. Drawing only reads the results, and the checker sees the same boxes.
+- **Voice.** Inworld's streaming TTS returns word timestamps. `|cue|` words in a `Say` line fire the next drawing
+  line on the word itself, and a spoken number or name gets a pointer on the thing it names.
+- **Lectures.** A planner writes an outline and a bible of notation and running examples. A writer builds each
+  part. `--check` lints it (up to three fix rounds), a separate reviewer scores frames and the timeline, and the
+  part is rewritten below 4/5 (up to twice). The best version is kept. Research behind the loop is in
+  `research_notes/Lecture mode/`.
+- **MCP.** `chat/mcp/server.mjs` exposes `show`, `ask`, `stage`, `notes`, `lecture`, `lecture_status`,
+  `lecture_build` and `lecture_play` over stdio (Claude Code, the desktop app) and over Streamable HTTP
+  (`http.mjs`, for claude.ai through Tailscale Funnel on a secret path). The chat's Claude writes only a brief; the
+  tutor's own Claude writes the scene, so the 67K-character teaching prompt never loads into the chat.
+
+## Getting started
+
+Requirements: macOS or Linux with a C++20 compiler, [raylib 6](https://www.raylib.com), Node 22+, and
+[Claude Code](https://claude.com/claude-code) signed in (the chat runs `claude -p` on your subscription). For the
+voice, an [Inworld](https://inworld.ai) TTS key in `./.inworld_key`, `$INWORLD_API_KEY`, or `--inworld-key`.
+Without one the tutor still plays, with timing estimated from the words.
+
+```sh
+brew install raylib pkg-config node          # macOS; on Linux, raylib from your package manager or source
+make && make tex                             # ./tutor, and MathJax for formulas (once)
+ln -s "$PWD/bin/tutor" ~/bin/tutor           # the launcher
+
+tutor                 # build if needed, open the stage and the browser console on your last chat
+tutor new             # a fresh chat
+tutor write           # the Dan playground: an editor beside the stage
+tutor claude          # the tutor in the background, Claude Code in the repo
+```
+
+The engine by itself:
+
+```sh
+./tutor scripts/derivative.dan                 # play a script, narrated (edit it while it runs: it hot-reloads)
+./tutor scripts/derivative.dan --mute          # no voice
+./tutor scripts/derivative.dan --record out.mp4
+./tutor scripts/derivative.dan --check         # decodability and axiom lints, exit 1 on failure
+./tutor scripts/derivative.dan --readback      # the final scene as markup
+./tutor scripts/derivative.dan --snapshot out --at 3,8,end    # PNG frames from a hidden window
+./tutor scripts/derivative.dan --layout-report -              # JSON: layout score every 0.5 s, the timeline
+./tutor live.dan --stdin                       # live mode: lines piped in continue the running scene
+```
+
+Keys on the stage: `space` pause, `→` skip, `←` back a sentence, `shift ←/→` previous or next part, `R` restart,
+`D` the dictionary caption, `S` screenshot. Any other key opens the prompt bar.
+
+### Lectures
+
+```sh
+tutor lecture new paper.pdf notes.md --minutes 30 --ask "focus on the intuition"
+tutor lecture show        # the outline and the bible: read it, edit the JSON if you like
+tutor lecture build       # every part: write, check, review, rewrite; keeps the best version
+tutor lecture notes       # notes.md and notes.pdf (LaTeX + mermaid)
+tutor lecture play        # on the stage; type to ask, answer the check at the end of each part
+```
+
+The same from the browser at `/lectures`. A build takes about four minutes per lecture minute at the default
+thinking level. The first lecture made this way, from the Transformer paper, was 8 parts and 35 minutes with
+33 pages of notes.
+
+### From another Claude chat
+
+```sh
+tutor claude --tools      # Claude Code with the tutor's tools, this session only
+tutor mcp install         # the Claude desktop app (once; then quit and reopen it)
+tutor mcp web on          # claude.ai in the browser: a Tailscale Funnel URL to add as a custom connector
+tutor mcp web off
+```
+
+### Notes to PDF
+
+```sh
+node tools/notes/notes-pdf.mjs notes.md out.pdf     # Markdown with $LaTeX$ and ```mermaid blocks, A4
+```
+
+## Layout of the repository
 
 | path | what |
-| --- | --- |
-| `rm/raymanim.{hpp,cpp}` | 2D Manim-style library: VMobjects, `Create` `Transform` `FadeIn/Out` `MoveTo` `Shift` `ScaleBy` `Rotate` `Indicate` `Write` `ChangeValue` `Group` `Succession`, rate functions, `Axes`, `NumberLine`, `ValueTracker` and updaters, `Scene::play/wait`, mp4 recording |
-| `markup/script.*` | parser for the language |
-| `markup/expr.*` | `{expressions}` used for values that depend on other values |
-| `markup/engine.*` | the model, the timeline, voice hooks, readback, lint |
-| `markup/layout.cpp` | the schemas: free, numberline, axes, timeline, graph |
-| `markup/render.cpp` | the dictionary drawn: marks, links, enclosures, focus, subtitles |
-| `markup/tts.*` | Inworld streaming TTS: worker pool, NDJSON/PCM parsing, audio-thread playback, disk cache |
-| `markup/tex.*` + `tools/tex/` | formulas: a node MathJax helper returns glyph outlines; cached in `.tutor_cache/tex`, rasterized per glyph |
-| `markup/place/` | the placement module, pure C++ (no raylib): the layered flow for graphs (columns from links, lanes from groups, routed links), map-style label placement with hysteresis, 1-D least squares under separation constraints (the core of VPSC), springs, and the exact layout checker |
-| `markup/placement.cpp` | the engine's side of placement: every label, curve, link and box as the checker and placer see them |
-| `tests/` | `make test` (placement unit tests), `make bench` (timing budget), `make golden` (layout score of every script vs baseline, both placers), `make append` (streamed = whole), `make test-fonts` (headless text sizes = GPU) |
-| `third_party/` | `json.hpp`, `doctest` (MIT) |
-| `examples/manim_demo.cpp` | using raymanim directly, like a manim `Scene` |
-| `scripts/*.dan` | example explanations (bank, law, derivative, integral, mean, contract, recursion, loop) |
+|---|---|
+| `main.cpp` | the CLI: play, `--check`, `--readback`, `--snapshot`, `--layout-report`, `--record`, `--stdin` |
+| `markup/script.*` | the parser: verbs, kinds, schemas, `[id]` pointers and `{expr}` in `Say` |
+| `markup/engine.*` | model and timeline: steps, cues, morphs, history, readback, lints, the prescan, the shadow engine |
+| `markup/layout.cpp` | per-frame layout: ranges, the formula band, schema layouts, pointers, easing |
+| `markup/place/` | pure C++, unit-tested: layered graph flow, VPSC-style separation, the label placer, springs, the exact checker |
+| `markup/placement.cpp`, `binding.cpp`, `annotate.cpp`, `area.cpp`, `fields.cpp`, `trails.cpp`, `camera.cpp`, `controls.cpp` | the engine's side of placement; words vs picture lints and pointing; notes, areas, fields, trails, the 2D camera, learner sliders |
+| `markup/space.cpp`, `markup/viz/` | 3D: one CPU projection, shapes, a camera in words, painter's order |
+| `markup/render.cpp` | drawing only, reads layout results |
+| `markup/tts.*`, `markup/tex.*`, `tools/tex/` | Inworld streaming TTS (48 kHz, word timings, disk cache); LaTeX through MathJax to glyph outlines |
+| `rm/raymanim.*` | a small Manim-style animation library on raylib: mobjects, `Create`, `Transform`, rate functions, trackers and updaters |
+| `chat/server.mjs`, `chat/index.html` | the chat: one persistent `claude -p` per chat, fences to beats, SSE transcript, interrupts, background `--check` |
+| `chat/prompt.md`, `chat/toolbox.md`, `chat/examples/`, `chat/system-prompt.mjs` | the teaching protocol, 27 checked moves, annotated examples, and the prompt builder (the language section of this README is part of it) |
+| `chat/lecture/` | lecture mode: store, plan, build, package, player, routes, CLI, and the prompts |
+| `chat/mcp/` | the MCP server (stdio and HTTP), the desktop app registration, Funnel on and off |
+| `chat/explain.mjs`, `chat/compute.mjs`, `chat/ingest.mjs` | pause and ask; sandboxed python blocks; files the learner uploads |
+| `tools/write.*`, `tools/notes/`, `tools/eval/`, `tools/mine/` | the playground, notes to PDF, the evaluation harness (Claude writes, a judge scores frames), mining 3Blue1Brown's code for idioms |
+| `tests/` | doctest units (place, viz, parser, engine), golden layout scores, streamed-equals-whole, and Node tests for the toolbox, lectures, notes and MCP |
+| `scripts/*.dan` | 39 example explanations |
+| `docs/` | `HANDOFF.md` (the map for anyone working on it), `history.md` (what was tried and measured), `guide.html` |
+| `reports/`, `research_notes/` | research write-ups with sources: the axiom audit, overlap, pacing, spoken-but-not-shown, lecture mode |
+
+## Testing
+
+```sh
+make test        # unit tests: place, viz, parser, engine (97 cases)
+make check       # --check over every script in scripts/
+make golden      # layout score per script against tests/golden/*.json
+make append      # streamed playback == whole playback
+node tests/toolbox.mjs && node tests/lecture.mjs && node tests/notes.mjs && node tests/mcp.mjs
+```
+
+Measuring with Claude in the loop (`tools/eval/`): Claude writes scenes for a question set, a judge scores
+frames 1 to 5 on picture and teaching, and `sentences.mjs` asks whether each spoken claim is shown. The judge's
+noise is about ±0.15, so changes are run twice before being believed. Numbers from the history: on 20
+derivations, sentences with two or more formula changes went from 15-21% to 0-4%; on spatial questions the 3D
+schema raised the picture score from 2.88 to 3.46.
+
+## Status
+
+Working and used daily by its author. Built in a few weeks of research-first sessions with Claude: every
+feature started as a write-up with sources (`reports/`, `research_notes/`), got a baseline, a test that failed on
+the old engine, and a look at the frames. `docs/history.md` is the full log, with the numbers and their noise, and
+`docs/HANDOFF.md` lists what is open.
+
+## License
+
+MIT. `third_party/` holds nlohmann/json and doctest (MIT). Narration uses Inworld's TTS API under its own terms.
 
 ## The language
 

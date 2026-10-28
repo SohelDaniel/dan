@@ -1,10 +1,10 @@
 # Audit A7: the derived rule "position comes from structure"
 
 Auditor A7 of eight. Read-only on the repo; nothing built, nothing committed. Everything I made is under
-`/private/tmp/claude-501/-Users-soheldanial-code-server-testing-visulaizations-tutor/37e07ea3-2a08-44c3-b78a-4c2380bf6126/scratchpad/audit-7/`:
+`<scratchpad>/audit-7/`:
 `scenes/*.dan` (51 reproducers), `check-all.txt` (`--check` of the first 44), `readbacks.txt`, `layout-reports.txt`,
 `shots/*.png` (frames), `sheets/s01..s16*.png` (contact sheets, 2x2 at 800x450). Commands below are relative to that
-folder; `T` is `/Users/soheldanial/code/server/testing/visulaizations/tutor/tutor`. Line numbers are the working tree
+folder; `T` is `<repo>/tutor`. Line numbers are the working tree
 of 2026-10-24.
 
 The rule as the handoff states it (HANDOFF §3): placement words (`region below above left-of right-of near align pos`)

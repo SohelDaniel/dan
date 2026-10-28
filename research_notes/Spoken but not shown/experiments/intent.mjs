@@ -6,9 +6,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 
-const ROOT = '/Users/soheldanial/code/server/testing/visulaizations/tutor';
+const ROOT = '<repo>';
 const TUTOR = path.join(ROOT, 'tutor');
-const SP = '/private/tmp/claude-501/-Users-soheldanial-code-server-testing-visulaizations-tutor/8cfbd5b5-b185-4efd-aa52-94f93fa15a8b/scratchpad';
+const SP = '<scratchpad>';
 const argv = process.argv.slice(2);
 const flag = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : d; };
 const OUT = path.resolve(flag('--out')), variant = flag('--variant'), interp = flag('--interp', 'sonnet');
