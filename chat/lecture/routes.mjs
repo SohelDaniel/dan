@@ -94,7 +94,8 @@ export async function lectureRoute(req, res, url, readBody, json) {
   }
   if (what === 'stop') {
     const pid = Number(fs.readFileSync(path.join(dirOf(m.id), 'job.pid'), 'utf8'));
-    if (alive(pid)) process.kill(-pid); // its own process group: the claude calls under it stop too
+    // its own process group (started from the page): the claude calls under it stop too; else just the process
+    if (alive(pid)) try { process.kill(-pid); } catch { process.kill(pid); }
     json(res, { ok: true });
     return true;
   }
