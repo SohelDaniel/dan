@@ -1,5 +1,6 @@
-// Registers the tutor's MCP server where Claude looks for tools: Claude Code (user scope, so every session has it)
-// and the Claude desktop app (claude_desktop_config.json; the app reads it at launch). `tutor mcp install [-y]`.
+// Registers the tutor's MCP server with the Claude desktop app (claude_desktop_config.json; the app reads it at
+// launch), and writes chat/mcp/mcp.json for Claude Code, which loads it only when asked (`tutor claude --tools`, or
+// `claude --mcp-config <that file>` anywhere), never in every session. `tutor mcp install [-y]`.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -18,11 +19,11 @@ if (!fs.existsSync(path.join(HERE, 'node_modules'))) {
   spawnSync('npm', ['install', '--silent'], { cwd: HERE, stdio: 'inherit' });
 }
 
-// Claude Code: `claude mcp add` at user scope (an existing entry is replaced)
-const code = spawnSync('claude', ['mcp', 'remove', '--scope', 'user', 'tutor'], { encoding: 'utf8' });
-const add = spawnSync('claude', ['mcp', 'add', '--scope', 'user', 'tutor', '--', process.execPath, SERVER], { encoding: 'utf8' });
-console.log(add.status === 0 ? 'Claude Code: tutor tools added for every session (claude mcp list to check)' : `Claude Code: claude mcp add failed: ${(add.stderr || add.stdout).trim()}`);
-void code;
+// Claude Code: a config file to load on demand (and no user-scope entry, so ordinary sessions stay light)
+const MCP_JSON = path.join(HERE, 'mcp.json');
+fs.writeFileSync(MCP_JSON, JSON.stringify({ mcpServers: { tutor: entry } }, null, 2) + '\n');
+spawnSync('claude', ['mcp', 'remove', '--scope', 'user', 'tutor'], { encoding: 'utf8' });
+console.log(`Claude Code: load the tools when you want them: tutor claude --tools, or claude --mcp-config ${MCP_JSON}`);
 
 // Claude desktop app: merge into its config, keeping everything else
 if (fs.existsSync(path.dirname(DESKTOP))) {

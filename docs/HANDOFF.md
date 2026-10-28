@@ -28,7 +28,9 @@ tutor restart | stop | log
 tutor write [f.dan]   # a playground: an editor in the browser, the stage beside it; what you type plays as you type
 tutor lecture new F… [--minutes N] [--ask "…"]   # plan a lecture from files (PDF, md, JSON, code, images)
 tutor lecture build|notes|voice|play|show|list [ID] [--parts 3,5]   # also: Lectures in the browser (/lectures)
-tutor mcp install [-y] | status   # the tutor as tools in Claude Code (user scope) and the Claude desktop app
+tutor claude --tools              # Claude Code with the tutor's MCP tools, this session only
+tutor mcp install [-y]            # the desktop app gets the tools; writes chat/mcp/mcp.json for Claude Code
+tutor mcp web on|off|status       # the tools for claude.ai in the browser: Tailscale Funnel + a secret URL
 ```
 
 - In the browser: model, thinking level, voice on/off, which voice (Inworld's 166 English voices) and speed.
@@ -45,7 +47,10 @@ tutor mcp install [-y] | status   # the tutor as tools in Claude Code (user scop
   (it starts `chat/server.mjs --no-open` if needed). Tools `show` (brief → `/api/send` with `handoff: true`,
   returns at the first spoken sentence: clients time a call out at 60 s), `ask`, `stage`, `notes`, `lecture*`.
   The chat's Claude writes a brief, never Dan; `.claude/skills/tutor/SKILL.md` tells Claude Code when and how.
-  claude.ai in the browser can't reach the Mac (would need a tunnel); the desktop app can.
+  Claude Code loads them on demand only (`--mcp-config chat/mcp/mcp.json`; no user-scope entry: the user wants to
+  choose). The browser: `chat/mcp/http.mjs` (Streamable HTTP, stateless, only `/mcp/<token>` answers; token in
+  `.tutor_cache/mcp-token`) shared by Tailscale Funnel (`chat/mcp/web.sh`); the URL is added once in claude.ai
+  as a custom connector (authless is allowed; the token path is the secret).
 - **Notes to print**: `node tools/notes/notes-pdf.mjs notes.md [out.pdf]`: LaTeX (MathJax) + mermaid, printed by
   Chrome via puppeteer-core (`cd tools/notes && npm install` once).
 - **Images, PDFs and text files**: paste, drop, or 📎 in the browser. They are kept in the chat's `attachments/` folder and sent
@@ -135,7 +140,7 @@ engine stays the only author of pixels.
 | `chat/ingest.mjs` | the learner's files: kind, Claude content blocks (text files as `<file>` text, PDFs as documents), PDF text by page, a lecture length from the size |
 | `chat/lecture/` | lecture mode: `store` (folders), `plan` (+`plan-prompt.md`), `build` (+`part-prompt.md`, `critic-prompt.md`), `package` (join, notes via `notes-prompt.md`), `player` (live play, asides), `routes` (browser API; jobs run as detached `cli.mjs` processes with `job.log`/`job.pid`), `cli` |
 | `chat/lectures.html` | the Lectures page: upload, plan, edit, build, play, notes |
-| `chat/mcp/server.mjs`, `install.mjs` | the tutor as MCP tools for other Claude chats; registration in Claude Code and the desktop app's config |
+| `chat/mcp/server.mjs`, `http.mjs`, `install.mjs`, `web.sh` | the tutor as MCP tools for other Claude chats (stdio, and HTTP for the browser); desktop app registration; Funnel on/off |
 | `tools/notes/notes-pdf.mjs` | markdown notes -> PDF (math lifted past markdown, MathJax SVG, mermaid, A4) |
 | `chat/index.html` | the browser console |
 | `tools/write.mjs`, `tools/write.html` | `tutor write`: the Dan playground. Whole lines go to `tutor --stdin` as typed (appended at the end; an earlier edit reloads the unchanged prefix, `#!interrupt`s it and plays the rest); a panel shows `--check` lints, the score and the readback; examples and toolbox moves load into the editor. Files in `playground/` (gitignored) |
@@ -251,9 +256,10 @@ The newest working session's notes are the last entry of `docs/history.md`.
 ## 9. Open
 
 Next candidates, roughly by value:
-- **MCP tools, next:** the user has not yet tried them from the desktop app (`tutor mcp install`, then quit and
-  reopen the app); `show` with files from the desktop app needs local paths (its uploads aren't on disk); a tunnel
-  for claude.ai in the browser if wanted.
+- **MCP tools, next:** untried by the user from the desktop app (`tutor mcp install`, quit and reopen the app)
+  and from the browser (`tutor mcp web on` needs Tailscale running and Funnel enabled once for the tailnet; then
+  the URL goes into claude.ai > Settings > Connectors). `show` with files from the desktop app or browser needs
+  local paths (uploads aren't on disk).
 - **Lecture mode, next.** The first lecture (`chat/lectures/20261027-060748-attention`) is built; the user has not
   yet tried an aside or a check answer in the real window. Then: part 6 was built with the nan bug (below) and
   could be rebuilt (`--parts 6`, then `notes`); the reviewer gives the first clean draft 3 and the second rewrite

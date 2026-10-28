@@ -3,13 +3,15 @@
 #
 #   tutor                 open the tutor (builds the engine if a source changed; picks up the last chat)
 #   tutor new             open it on a fresh chat
-#   tutor claude          the tutor in the background, and Claude Code here in the repo to talk about it
+#   tutor claude [--tools]  the tutor in the background, and Claude Code here in the repo to talk about it
+#                         (--tools: with the tutor's MCP tools loaded for this session only)
 #   tutor restart         restart the tutor in the background (after an engine or prompt change)
 #   tutor stop            stop it
 #   tutor log             follow the background tutor's output
 #   tutor write [f.dan]   a playground: an editor in the browser, the stage beside it; what you type plays as you type
 #   tutor lecture ...     a long lecture prepared from your files (PDF, markdown, JSON, ...): tutor lecture help
-#   tutor mcp install     give Claude Code and the Claude desktop app the tutor as tools (show, ask, notes, lecture)
+#   tutor mcp install     the Claude desktop app gets the tutor as tools (show, ask, notes, lecture); writes mcp.json
+#   tutor mcp web on|off  share the tools with claude.ai in the browser (Tailscale Funnel + a secret URL)
 #   tutor <flags>         anything else goes to chat/server.mjs (--model fable, --effort max, --mute, ...)
 #
 # Model, thinking, voice and speed chosen in the browser are remembered in chat/settings.json.
@@ -43,7 +45,9 @@ case "$1" in
     shift
     running || background --no-open
     open "http://localhost:$PORT"
-    cd "$REPO" && exec claude --dangerously-skip-permissions "$@"
+    tools=()
+    [[ "$1" == --tools ]] && { shift; tools=(--mcp-config "$REPO/chat/mcp/mcp.json") } # this session only
+    cd "$REPO" && exec claude --dangerously-skip-permissions "${tools[@]}" "$@"
     ;;
   restart) shift; stop; background "$@" ;;
   stop) stop ;;
@@ -52,10 +56,10 @@ case "$1" in
   lecture) shift; build; exec node "$REPO/chat/lecture/cli.mjs" "$@" ;; # stays in your folder, so file paths work
   mcp) shift; case "$1" in
     install) shift; exec node "$REPO/chat/mcp/install.mjs" "$@" ;;
-    status|"") claude mcp list 2>/dev/null | grep -E "^tutor|tutor:" || echo "tutor: not registered (tutor mcp install)" ;;
-    *) echo "tutor mcp install [-y] | status"; exit 1 ;;
+    web) shift; exec zsh "$REPO/chat/mcp/web.sh" "$@" ;;
+    *) echo "tutor mcp install [-y] | web on|off|status"; exit 1 ;;
   esac ;;
-  -h|--help|help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//' ;;
+  -h|--help|help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//' ;;
   *)
     [[ "$1" == new ]] && { shift; set -- --new "$@" }
     if running; then # already open: show it rather than start a second one

@@ -77,6 +77,8 @@ function fileBlocks(paths = []) {
   });
 }
 
+// The tools, on a fresh McpServer: the stdio entry below and the HTTP server (http.mjs) both use it.
+export function makeServer() {
 const server = new McpServer({ name: 'tutor', version: '1.0.0' });
 
 const BRIEF = `The brief is what the tutor is told, as if the learner asked it: write it in the learner's words, from their side.
@@ -232,4 +234,8 @@ server.registerTool('lecture_play', {
   return text(r.error ? r.error : `Playing ${l.id} on the stage. Tell the learner: space pauses, ← goes back a sentence, shift ←/→ jump parts, typing asks.`);
 });
 
-await server.connect(new StdioServerTransport());
+return server;
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+  await makeServer().connect(new StdioServerTransport());

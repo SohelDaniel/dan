@@ -606,4 +606,10 @@ and the stage goes on; a transient "SSL certificate has expired" from `claude -p
 this Claude Code session: a brief about the lecture build loop became a 7-sentence explanation with the loop drawn.
 `tutor mcp install` registers it (Claude Code user scope; the desktop config after a y/N). `tests/mcp.mjs`: 7
 checks over a stub. Left: the desktop app untried by the user; the browser needs a tunnel.
+Then the user asked for two things: the browser too, and not loading the tools in every Claude Code session.
+Research: claude.ai custom connectors take a remote MCP URL reachable from Anthropic's servers, authless allowed
+(support.claude.com); Claude Code has `--mcp-config FILE` for one session. Built `chat/mcp/http.mjs` (the same
+tools over Streamable HTTP, stateless, a secret path) and `web.sh` (Tailscale Funnel on/off; the Mac already has
+Tailscale, stopped), `tutor claude --tools`, and `install` now writes `mcp.json` and removes any user-scope entry.
+tests/mcp.mjs: 9 checks (two over HTTP). The browser path is untried end to end: Tailscale was stopped.
 

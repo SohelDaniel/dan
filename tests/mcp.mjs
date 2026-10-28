@@ -58,5 +58,22 @@ r = await call('lecture_play');
 check('lecture_play plays it', r.includes('Playing 20261027-x'), r);
 
 await client.close();
+
+// the same tools over HTTP (chat/mcp/http.mjs), as claude.ai reaches them: only the token path answers
+const { spawn } = await import('node:child_process');
+const { StreamableHTTPClientTransport } = await import(path.join(SDK, 'client/streamableHttp.js'));
+const fs = await import('node:fs');
+const httpPort = 40000 + Math.floor(Math.random() * 10000);
+const h = spawn(process.execPath, [path.join(ROOT, 'chat/mcp/http.mjs'), '--port', String(httpPort)], { env: { ...process.env, TUTOR_PORT: String(port) }, stdio: ['ignore', 'pipe', 'inherit'] });
+await new Promise((ok) => h.stdout.on('data', (d) => { if (String(d).includes('port')) ok(); }));
+const tok = fs.readFileSync(path.join(ROOT, '.tutor_cache', 'mcp-token'), 'utf8').trim();
+const wrong = await fetch(`http://localhost:${httpPort}/mcp/nope`, { method: 'POST' });
+check('http: a path without the token is refused', wrong.status === 404, wrong.status);
+const hc = new Client({ name: 'test-http', version: '0' });
+await hc.connect(new StreamableHTTPClientTransport(new URL(`http://localhost:${httpPort}/mcp/${tok}`)));
+r = (await hc.callTool({ name: 'stage', arguments: {} })).content[0].text;
+check('http: stage answers over the token path', r.includes('stub-chat'), r);
+await hc.close();
+h.kill();
 stub.close();
 process.exit(failed ? 1 : 0);
